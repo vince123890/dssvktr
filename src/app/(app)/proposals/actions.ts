@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { recalculateAndPersist } from "@/lib/pricing/calculate";
+import { assertCanEditCostLines } from "@/lib/workflow/editGate";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -111,6 +112,19 @@ export async function saveCostLinesAction(
   const profile = await requireProfile();
   const supabase = await createClient();
 
+  const { data: proposal } = await supabase
+    .from("pricing_proposal")
+    .select("*")
+    .eq("id", proposalId)
+    .single();
+
+  if (!proposal) throw new Error("Proposal not found");
+
+  // Server-side write gate. The UI disables the inputs, but that is only a
+  // client-side hint — without this check a direct action call could edit
+  // an approved proposal or a step belonging to another department.
+  await assertCanEditCostLines(supabase, proposal, profile);
+
   const raw: Record<string, string> = {};
   for (const [key, value] of formData.entries()) {
     if (key.startsWith("cost_")) raw[key.replace("cost_", "")] = String(value || 0);
@@ -131,14 +145,6 @@ export async function saveCostLinesAction(
       .upsert(rows, { onConflict: "proposal_version_id,cost_item_id" });
     if (error) throw new Error(error.message);
   }
-
-  const { data: proposal } = await supabase
-    .from("pricing_proposal")
-    .select("*")
-    .eq("id", proposalId)
-    .single();
-
-  if (!proposal) throw new Error("Proposal not found");
 
   await recalculateAndPersist(supabase, {
     proposalVersionId: versionId,

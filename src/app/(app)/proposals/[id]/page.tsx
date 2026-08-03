@@ -9,7 +9,7 @@ import { CalculationSummary } from "./CalculationSummary";
 import { WorkflowPanel } from "./WorkflowPanel";
 import { SubmitButton } from "./SubmitButton";
 import { OutcomePanel } from "./OutcomePanel";
-import { canRecordWinLossOutcome } from "@/lib/rbac";
+import { canRecordWinLossOutcome, ROLE_DEPARTMENT_CODE } from "@/lib/rbac";
 import type {
   CbsTemplate,
   CostItem,
@@ -116,7 +116,25 @@ export default async function ProposalDetailPage({
     }
   }
 
-  const isReadOnly = proposal.current_status !== "DRAFT";
+  // Cost lines stay editable while the workflow is in flight, but only for
+  // the department whose step is currently active — that is what lets
+  // Engineering enter indirect costs at step 2 and Finance enter margin
+  // factors at step 3. A DRAFT is open to whoever is preparing it, and a
+  // closed proposal is locked to everyone.
+  const activeStep = steps.find((s) => s.status === "IN_PROGRESS");
+  const activeDeptCode = activeStep
+    ? ownerDeptCodeById[activeStep.department_id]
+    : null;
+
+  const isClosed =
+    proposal.current_status === "FINAL_APPROVED" ||
+    proposal.current_status === "REJECTED";
+
+  const isReadOnly =
+    isClosed ||
+    (proposal.current_status !== "DRAFT" &&
+      ROLE_DEPARTMENT_CODE[profile.role] !== activeDeptCode);
+
   const tmpl = template as CbsTemplate;
 
   return (

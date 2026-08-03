@@ -55,17 +55,24 @@ lalu direvisi agar lolos.
 **Yang didemokan:** FR-1.3 Pricing Template — CBS otomatis mengikuti
 template "B2G Tender Bus" tanpa Sales perlu tahu detail komponen biaya.
 
-### Langkah 2 — Sales mencoba isi CBS sendiri (perlihatkan batasan RBAC)
+### Langkah 2 — Sales melihat batasan RBAC
 
-Di halaman proposal, tunjukkan bahwa Sales **bisa mengisi form** cost
-line (POC tidak mengunci input per-field berdasarkan departemen — lihat
-§Catatan Batasan di bawah), tapi setelah dihitung, panel ringkasan
-menampilkan `••••` untuk GPM/EBITDA/Margin karena **role Sales tidak
-boleh melihat raw margin** (NFR RBAC, `src/lib/rbac.ts`). Ini poin
+Selama proposal masih berstatus `Drafting`, form cost line terbuka untuk
+siapa pun yang menyiapkannya — jadi Sales **bisa** mengetik nilai. Yang
+membedakan peran adalah *apa yang boleh dilihat*: setelah dihitung, panel
+ringkasan menampilkan `••••` untuk GPM/EBITDA/Margin karena **role Sales
+tidak boleh melihat raw margin** (NFR RBAC, `src/lib/rbac.ts`). Ini poin
 demo penting untuk FR NFR Security.
 
-Untuk alur realistis, cukup isi 2–3 nilai kecil lalu **serahkan ke
-Procurement** (langkah berikutnya) yang akan mengisi lengkap.
+Untuk alur realistis, jangan isi apa pun di sini — cukup tunjukkan
+tampilan `••••`-nya, lalu **serahkan ke Procurement** (langkah berikutnya).
+
+> **Catatan urutan:** setelah proposal disubmit ke workflow, form cost
+> line hanya terbuka untuk **departemen yang stepnya sedang aktif**.
+> Jadi Procurement mengisi di step 1, Engineering di step 2, Finance di
+> step 3 — masing-masing pada gilirannya. Ini ditegakkan di UI sekaligus
+> di server (`src/lib/workflow/editGate.ts`), bukan sekadar `disabled`
+> di HTML.
 
 ### Langkah 3 — Procurement mengisi Direct Costs
 
@@ -84,6 +91,9 @@ Procurement** (langkah berikutnya) yang akan mengisi lengkap.
 
 4. Klik **Simpan & Hitung Ulang Harga**.
 
+Total direct cost = 2.155 Miliar/unit × 30 unit = **Rp 64,65 Miliar**.
+GPM masih 0% karena margin belum diisi — itu wajar pada tahap ini.
+
 **Yang didemokan:** FR-1.1 Mappable CBS — biaya langsung terisi dan
 langsung memicu kalkulasi (meskipun margin belum diisi, hasil sementara
 tetap muncul).
@@ -91,12 +101,19 @@ tetap muncul).
 ### Langkah 4 — Procurement submit ke workflow
 
 1. Klik **Submit untuk Approval**.
-2. Perhatikan: status berubah ke `Pending Procurement` (karena nilai
-   transaksi awal — hanya direct+indirect cost, margin belum masuk —
-   biasanya masih di bawah Rp 50M, jadi bisa masuk workflow "Standard").
-   *(Jika ingin memastikan large-deal path, isi juga Indirect Cost dan
-   Margin terlebih dahulu sebelum submit — lihat Langkah 5–6 dulu, baru
-   submit di akhir Langkah 6.)*
+2. Perhatikan: status berubah ke `Pending Procurement`.
+
+   Nilai transaksi saat submit adalah **Rp 64,65 Miliar** (direct cost
+   saja), sudah di atas ambang Rp 50 Miliar — sehingga sistem memilih
+   bucket **"B2G Large Deal"** yang berisi 4 step termasuk C-Level
+   Sign-off. Tunjukkan bahwa panel workflow di kanan memang menampilkan
+   4 step, bukan 3.
+
+   > **Penting:** bucket workflow dipilih **sekali, saat submit**,
+   > berdasarkan `final_price` pada saat itu — dan tidak dievaluasi ulang
+   > ketika margin ditambahkan belakangan. Ini keputusan desain agar alur
+   > approval tidak berubah-ubah di tengah jalan.
+
 3. Panel **Multi-Department Approval Workflow** muncul di kanan,
    menampilkan step 1 (Procurement) berstatus `In Progress` dengan SLA
    timer 24 jam.
@@ -141,8 +158,11 @@ bisa di-skip.
 
 4. **Simpan & Hitung Ulang Harga.**
 5. Perhatikan banner merah di atas ringkasan kalkulasi:
-   *"Margin Guardrail Alert (FR-4.2): GPM proyek ini (±6–7%) berada di
-   bawah threshold minimum 14% untuk lini bisnis ini."*
+   *"Margin Guardrail Alert (FR-4.2): GPM proyek ini (6,1%) berada di
+   bawah threshold minimum 14,0% untuk lini bisnis ini."*
+
+   Angka pastinya: base cost Rp 68,79 M, margin 6,5% → final price
+   Rp 73,26 M → **GPM 6,10%**.
 6. Buka **DSS → Decision Support System** di sidebar, lihat proposal
    ini muncul di kartu **Intelligent Margin Guardrails**.
 
@@ -156,23 +176,29 @@ proposal lolos ke approval berikutnya.
 
    | Item | Nilai baru |
    |---|---|
-   | Cost of Funds | 6 (%) |
-   | Financial Leasing Margin | 3 (%) |
-   | Sales Commission | 2 (%) |
-   | Contingency Buffer | 2.5 (%) |
+   | Cost of Funds | 8 (%) |
+   | Financial Leasing Margin | 4 (%) |
+   | Sales Commission | 3 (%) |
+   | Contingency Buffer | 3 (%) |
 
-2. **Simpan & Hitung Ulang Harga** — banner merah harus hilang, GPM kini
-   di atas 14%.
+2. **Simpan & Hitung Ulang Harga** — banner merah hilang. Final price
+   Rp 81,17 M, **GPM 15,25%**, di atas threshold 14%.
+
+   > **Kenapa harus setinggi itu?** Margin factor dihitung sebagai
+   > persentase *terhadap cost*, sedangkan GPM dihitung terhadap *harga
+   > jual*: `GPM = s / (1 + s)`. Jadi total margin 18% hanya menghasilkan
+   > GPM 15,25%, dan untuk sekadar menyentuh 14% dibutuhkan total margin
+   > **16,28%**. Total 13,5% (mis. 6/3/2/2.5) hanya memberi GPM 11,89% —
+   > banner tidak akan hilang.
+
 3. Karena Finance dapat melihat raw margin, tunjukkan panel ringkasan
    sekarang menampilkan angka GPM/EBITDA yang sebenarnya (bandingkan
    dengan tampilan `••••` saat login sebagai Sales di Langkah 2).
 4. Klik **Approve** pada step Finance.
 
-**Kalau nilai transaksi final sekarang > Rp 50 Miliar**, status proposal
-akan otomatis menjadi `Pending C-Level Sign-off` (step ke-4 muncul). Jika
-di bawah threshold, workflow akan langsung `Final Approved` setelah step
-Finance — keduanya adalah demonstrasi valid dari FR-2.1 (eskalasi
-otomatis berbasis nilai transaksi).
+Karena bucket workflow yang terpilih di Langkah 4 adalah **B2G Large
+Deal**, status proposal sekarang menjadi `Pending C-Level Sign-off`
+(step ke-4). Lanjut ke Langkah 8a.
 
 ### Langkah 8a — Jika masuk C-Level Sign-off
 
@@ -206,7 +232,9 @@ alur di atas untuk unit kedua):
    muncul dengan status `Pending Procurement`, tanpa proposal ter-reset
    ke draft awal (versi & data yang sudah diisi departemen lain tetap
    ada).
-3. Procurement revisi nilai Bea Masuk, **Approve** lagi — proposal
+3. Karena step Procurement kini aktif kembali, form cost line **terbuka
+   lagi untuk Procurement** (dan hanya untuk Procurement). Revisi nilai
+   Bea Masuk, **Simpan & Hitung Ulang Harga**, lalu **Approve** — proposal
    otomatis lanjut kembali ke step Engineering → Finance seperti semula
    (state machine hanya membuka ulang step yang di antara target dan
    step saat penolakan terjadi).
@@ -279,12 +307,16 @@ sebagian (ada proposal di berbagai status):
 
 ## 5. Catatan Batasan POC
 
-- **Input CBS tidak dikunci per-departemen di level UI** — siapa pun bisa
-  mengetik nilai cost line di form manapun (perbedaan hak akses yang
-  ditegakkan adalah *melihat* raw margin, dan *siapa yang boleh klik
-  Approve* pada step aktif). Di build produksi, field-level write lock
-  per kategori (misal Sales tidak bisa mengisi Margin Factor) akan
-  ditambahkan sebagai lapisan ABAC lanjutan.
+- **Write lock bersifat per-step, belum per-field.** Saat workflow
+  berjalan, hanya departemen yang stepnya aktif yang bisa menulis cost
+  line (ditegakkan di UI dan di server via
+  `src/lib/workflow/editGate.ts`). Namun departemen tersebut bisa
+  mengubah *semua* baris, bukan hanya kategori miliknya — mis. saat step
+  Procurement aktif, Procurement secara teknis juga bisa mengubah angka
+  Margin Factor milik Finance. Field-level write lock per kategori adalah
+  lapisan ABAC lanjutan yang akan ditambahkan di build produksi. Saat
+  proposal masih `Drafting`, form terbuka untuk siapa pun yang
+  menyiapkannya.
 - **Notifikasi SLA breach tidak terkirim ke Email/Teams/WhatsApp** —
   hanya divisualisasikan di UI (badge "SLA Breached" pada
   WorkflowPanel/Lifecycle).
