@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
+import { resolveCurrentVersionId } from "@/lib/pricing/version";
 import { revalidatePath } from "next/cache";
 import {
   applyDecision,
@@ -41,13 +42,18 @@ export async function submitProposalAction(proposalId: string) {
     throw new Error("Hanya proposal berstatus DRAFT yang dapat disubmit.");
   }
 
+  const versionId = await resolveCurrentVersionId(supabase, proposal);
+  if (!versionId) {
+    throw new Error("Proposal ini belum memiliki versi — buat ulang draft.");
+  }
+
   const { data: latestResult } = await supabase
     .from("proposal_calculation_result")
     .select("*")
-    .eq("proposal_version_id", proposal.current_version_id)
+    .eq("proposal_version_id", versionId)
     .order("created_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (!latestResult) {
     throw new Error("Lengkapi CBS cost lines dan hitung harga sebelum submit.");
@@ -88,7 +94,7 @@ export async function submitProposalAction(proposalId: string) {
   const { data: instance, error: instanceError } = await supabase
     .from("workflow_instance")
     .insert({
-      proposal_version_id: proposal.current_version_id,
+      proposal_version_id: versionId,
       workflow_definition_id: workflowDef.id,
       status: "RUNNING",
     })
@@ -170,11 +176,14 @@ export async function submitDecisionAction({
 
   if (!proposal) throw new Error("Proposal not found");
 
+  const versionId = await resolveCurrentVersionId(supabase, proposal);
+  if (!versionId) throw new Error("Proposal ini belum memiliki versi.");
+
   const { data: instance } = await supabase
     .from("workflow_instance")
     .select("*")
-    .eq("proposal_version_id", proposal.current_version_id)
-    .single();
+    .eq("proposal_version_id", versionId)
+    .maybeSingle();
 
   if (!instance) throw new Error("Workflow instance not found");
 
@@ -215,7 +224,7 @@ export async function submitDecisionAction({
     const { data: filledLines } = await supabase
       .from("proposal_cost_line")
       .select("cost_item_id")
-      .eq("proposal_version_id", proposal.current_version_id);
+      .eq("proposal_version_id", versionId);
 
     const filledSet = new Set((filledLines ?? []).map((l) => l.cost_item_id));
     const gateCheck = checkMandatoryCostItemsFilled(

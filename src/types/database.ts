@@ -138,7 +138,7 @@ export interface PricingProposal {
   customer_name: string | null;
   cbs_template_id: string;
   workflow_definition_id: string | null;
-  current_version_id: string;
+  current_version_id: string | null;
   current_status: ProposalStatus;
   current_step_order: number;
   transaction_value: number;

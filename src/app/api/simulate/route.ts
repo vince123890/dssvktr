@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { calculatePricing } from "@/lib/pricing/engine";
+import { resolveCurrentVersionId } from "@/lib/pricing/version";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { BusinessLine, CostItem } from "@/types/database";
@@ -34,6 +35,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
   }
 
+  const versionId = await resolveCurrentVersionId(supabase, proposal);
+  if (!versionId) {
+    return NextResponse.json(
+      { error: "Proposal has no version to simulate" },
+      { status: 404 }
+    );
+  }
+
   const { data: template } = await supabase
     .from("cbs_template")
     .select("*")
@@ -53,7 +62,7 @@ export async function POST(request: Request) {
   const { data: costLines } = await supabase
     .from("proposal_cost_line")
     .select("*")
-    .eq("proposal_version_id", proposal.current_version_id);
+    .eq("proposal_version_id", versionId);
 
   const costLineValues: Record<string, number> = {};
   for (const line of costLines ?? []) {

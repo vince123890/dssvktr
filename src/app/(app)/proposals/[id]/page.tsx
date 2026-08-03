@@ -39,12 +39,30 @@ export default async function ProposalDetailPage({
   if (!proposalRow) notFound();
   const proposal = proposalRow as PricingProposal;
 
+  // Resolve the active version. `current_version_id` can be null for rows
+  // created before that column existed, so fall back to the newest version
+  // of this proposal rather than 500-ing on a null lookup.
+  let versionId = proposal.current_version_id;
+  if (!versionId) {
+    const { data: fallbackVersion } = await supabase
+      .from("pricing_proposal_version")
+      .select("id")
+      .eq("proposal_id", proposal.id)
+      .order("is_current", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    versionId = fallbackVersion?.id ?? null;
+  }
+
+  if (!versionId) notFound();
+
   const [{ data: version }, { data: template }, { data: departments }] = await Promise.all([
     supabase
       .from("pricing_proposal_version")
       .select("*")
-      .eq("id", proposal.current_version_id)
-      .single(),
+      .eq("id", versionId)
+      .maybeSingle(),
     supabase.from("cbs_template").select("*").eq("id", proposal.cbs_template_id).single(),
     supabase.from("department").select("*"),
   ]);
@@ -63,7 +81,7 @@ export default async function ProposalDetailPage({
   const { data: costLines } = await supabase
     .from("proposal_cost_line")
     .select("*")
-    .eq("proposal_version_id", proposal.current_version_id);
+    .eq("proposal_version_id", versionId);
 
   const existingValues = Object.fromEntries(
     ((costLines ?? []) as ProposalCostLine[]).map((l) => [l.cost_item_id, Number(l.value)])
@@ -72,7 +90,7 @@ export default async function ProposalDetailPage({
   const { data: latestResult } = await supabase
     .from("proposal_calculation_result")
     .select("*")
-    .eq("proposal_version_id", proposal.current_version_id)
+    .eq("proposal_version_id", versionId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -85,7 +103,7 @@ export default async function ProposalDetailPage({
     const { data: instance } = await supabase
       .from("workflow_instance")
       .select("*")
-      .eq("proposal_version_id", proposal.current_version_id)
+      .eq("proposal_version_id", versionId)
       .maybeSingle();
 
     if (instance) {
@@ -152,7 +170,7 @@ export default async function ProposalDetailPage({
             <CardContent>
               <CostLineForm
                 proposalId={proposal.id}
-                versionId={proposal.current_version_id}
+                versionId={versionId}
                 costItems={costItems}
                 existingValues={existingValues}
                 ownerDeptCodeById={ownerDeptCodeById}
