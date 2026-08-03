@@ -10,6 +10,19 @@ Prasyarat: sudah menjalankan `npm run seed:demo` (lihat README §4–5) —
 ini menyediakan 6 akun demo dan ±15 proposal historis untuk Win/Loss
 Analytics.
 
+> **Mengulang demo.** Sebelum sesi demo berikutnya, jalankan:
+>
+> ```bash
+> npm run reset:demo
+> ```
+>
+> Perintah ini menghapus proposal yang dibuat saat demo beserta workflow
+> dan audit log-nya, lalu mengembalikan 15 proposal historis ke posisi
+> semula — sehingga skenario di bawah bisa dijalankan lagi dari Langkah 1
+> dengan hasil yang sama. Master data (cost item, template, workflow
+> definition) dan keenam akun demo **tidak** disentuh, jadi tidak perlu
+> seed ulang atau menyentuh Supabase Dashboard.
+
 ---
 
 ## 0. Peta Peran & Kredensial

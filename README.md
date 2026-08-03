@@ -108,6 +108,21 @@ Lihat [`docs/DEMO-SCENARIO.md`](docs/DEMO-SCENARIO.md) untuk skenario demo
 langkah-demi-langkah (siapa login sebagai apa, data apa yang diinput, alur
 approval, dan hasil yang diharapkan).
 
+### Mengulang demo
+
+```bash
+npm run reset:demo
+```
+
+Mengembalikan aplikasi ke kondisi sebelum demo: proposal yang dibuat saat
+demo dihapus (beserta versi, cost line, hasil kalkulasi, workflow, dan
+audit log-nya), sementara 15 proposal historis dikembalikan ke posisi awal
+agar grafik Win/Loss Analytics tetap terisi.
+
+Master data dan akun demo tidak disentuh — **tidak perlu** menjalankan
+ulang migration SQL atau `seed:demo`, dan tidak perlu membuka Supabase
+Dashboard sama sekali. Aman dijalankan berkali-kali.
+
 ---
 
 ## 6. Deploy ke Vercel
