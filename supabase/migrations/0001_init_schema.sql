@@ -193,6 +193,7 @@ create table pricing_proposal (
   customer_name text,
   cbs_template_id uuid not null references cbs_template (id),
   workflow_definition_id uuid references workflow_definition (id),
+  current_version_id uuid,
   current_status proposal_status not null default 'DRAFT',
   current_step_order int not null default 0,
   transaction_value numeric(18, 2) not null default 0,

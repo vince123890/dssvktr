@@ -32,7 +32,7 @@ export async function submitProposalAction(proposalId: string) {
 
   const { data: proposal } = await supabase
     .from("pricing_proposal")
-    .select("*, pricing_proposal_version!pricing_proposal_current_version_id_fkey(*)")
+    .select("*")
     .eq("id", proposalId)
     .single();
 
