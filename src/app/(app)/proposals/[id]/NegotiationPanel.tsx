@@ -213,7 +213,7 @@ export function NegotiationPanel({
               />
             </div>
             {error && <p className="text-xs text-danger">{error}</p>}
-            <Button type="submit" size="sm" disabled={isPending}>
+            <Button type="submit" size="sm" loading={isPending}>
               {isPending ? "Mengajukan..." : "Ajukan Permintaan Diskon"}
             </Button>
             <p className="text-[11px] text-muted">

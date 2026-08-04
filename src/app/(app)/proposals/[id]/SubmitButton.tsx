@@ -11,7 +11,7 @@ export function SubmitButton({ proposalId }: { proposalId: string }) {
   return (
     <div className="flex flex-col items-end gap-1.5">
       <Button
-        disabled={isPending}
+        loading={isPending}
         onClick={() => {
           setError(null);
           startTransition(async () => {

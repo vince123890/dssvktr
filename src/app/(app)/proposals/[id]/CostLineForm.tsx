@@ -103,7 +103,7 @@ export function CostLineForm({
           <p className="text-xs text-muted">
             {Object.values(values).filter((v) => v > 0).length} / {costItems.length} item terisi
           </p>
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" loading={isPending}>
             {isPending ? "Menghitung..." : "Simpan & Hitung Ulang Harga"}
           </Button>
         </div>

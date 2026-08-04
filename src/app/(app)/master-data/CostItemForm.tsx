@@ -58,7 +58,7 @@ export function CostItemForm({ departments }: { departments: Department[] }) {
       </label>
 
       <div className="col-span-2 lg:col-span-4 flex justify-end">
-        <Button type="submit" disabled={isPending} size="sm">
+        <Button type="submit" loading={isPending} size="sm">
           {isPending ? "Menyimpan..." : "Tambah Cost Item"}
         </Button>
       </div>
