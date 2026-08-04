@@ -8,6 +8,11 @@ import { checkReleaseGate } from "@/lib/workflow/releaseGate";
 import { ROLE_DEPARTMENT_CODE } from "@/lib/rbac";
 import { revalidatePath } from "next/cache";
 import {
+  isNextControlFlowError,
+  toActionError,
+  type ActionResult,
+} from "@/lib/actionResult";
+import {
   applyDecision,
   canAdvanceToStep,
   checkMandatoryCostItemsFilled,
@@ -29,7 +34,19 @@ import type {
  * CONFIG_ERROR rather than silently defaulting — this mirrors §4.5 of
  * the technical logic doc exactly ("mencegah silent bypass").
  */
-export async function submitProposalAction(proposalId: string) {
+export async function submitProposalAction(
+  proposalId: string
+): Promise<ActionResult> {
+  try {
+    await runSubmit(proposalId);
+    return { ok: true };
+  } catch (e) {
+    if (isNextControlFlowError(e)) throw e;
+    return toActionError(e, "Gagal submit quotation.");
+  }
+}
+
+async function runSubmit(proposalId: string) {
   const profile = await requireProfile();
   const supabase = await createClient();
 
@@ -161,7 +178,26 @@ interface DecisionParams {
   decisionNote?: string;
 }
 
-export async function submitDecisionAction({
+/**
+ * Business-rule rejections (gatekeeping, release gate, authority) are
+ * expected outcomes, not crashes. Throwing them turns into an opaque
+ * HTTP 500 in a production build — the digest-only error the user sees —
+ * so they are returned as a value and rendered inline instead.
+ */
+export async function submitDecisionAction(
+  params: DecisionParams
+): Promise<ActionResult> {
+  try {
+    await runDecision(params);
+    return { ok: true };
+  } catch (e) {
+    // redirect()/notFound() signal control flow by throwing; let them pass.
+    if (isNextControlFlowError(e)) throw e;
+    return toActionError(e, "Terjadi kesalahan tak terduga.");
+  }
+}
+
+async function runDecision({
   proposalId,
   action,
   targetStepOrder,
@@ -269,7 +305,12 @@ export async function submitDecisionAction({
   // would reach the customer, so the full COGS/margin check runs here —
   // not just the per-step gate above.
   if (result.isFinalApproval) {
-    const gateResult = await checkReleaseGate(supabase, proposal, versionId);
+    const gateResult = await checkReleaseGate(
+      supabase,
+      proposal,
+      versionId,
+      currentStep.id
+    );
     if (!gateResult.canRelease) {
       throw new Error(`Quotation belum dapat dirilis — ${gateResult.reason}`);
     }

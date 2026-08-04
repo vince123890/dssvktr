@@ -51,14 +51,18 @@ export function NegotiationPanel({
     setError(null);
     startTransition(async () => {
       try {
-        await decideNegotiationAction({
+        const result = await decideNegotiationAction({
           requestId: pending.id,
           decision,
           counterDiscountPct: decision === "REVISE" ? Number(counter) : undefined,
           note: note || undefined,
         });
-        setNote("");
-        setCounter("");
+        if (result.ok) {
+          setNote("");
+          setCounter("");
+        } else {
+          setError(result.error ?? "Terjadi kesalahan");
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Terjadi kesalahan");
       }
@@ -187,7 +191,8 @@ export function NegotiationPanel({
               setError(null);
               startTransition(async () => {
                 try {
-                  await requestDiscountAction(proposalId, formData);
+                  const result = await requestDiscountAction(proposalId, formData);
+                  if (!result.ok) setError(result.error ?? "Gagal mengajukan");
                 } catch (e) {
                   setError(e instanceof Error ? e.message : "Gagal mengajukan");
                 }

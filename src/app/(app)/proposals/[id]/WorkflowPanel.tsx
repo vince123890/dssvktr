@@ -48,13 +48,17 @@ export function WorkflowPanel({
     setError(null);
     startTransition(async () => {
       try {
-        await submitDecisionAction({
+        const result = await submitDecisionAction({
           proposalId,
           action,
           targetStepOrder: action === "TARGETED_REJECT" ? Number(targetStep) : undefined,
           decisionNote: note || undefined,
         });
-        setNote("");
+        if (result.ok) {
+          setNote("");
+        } else {
+          setError(result.error ?? "Terjadi kesalahan");
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Terjadi kesalahan");
       }

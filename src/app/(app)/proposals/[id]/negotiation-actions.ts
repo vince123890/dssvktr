@@ -12,6 +12,11 @@ import {
 } from "@/lib/negotiation/authority";
 import { canRequestDiscount } from "@/lib/rbac";
 import { revalidatePath } from "next/cache";
+import {
+  isNextControlFlowError,
+  toActionError,
+  type ActionResult,
+} from "@/lib/actionResult";
 import { z } from "zod";
 import type {
   BusinessLine,
@@ -29,7 +34,17 @@ const DiscountSchema = z.coerce.number().min(0.01).max(100);
 export async function requestDiscountAction(
   proposalId: string,
   formData: FormData
-) {
+): Promise<ActionResult> {
+  try {
+    await runRequestDiscount(proposalId, formData);
+    return { ok: true };
+  } catch (e) {
+    if (isNextControlFlowError(e)) throw e;
+    return toActionError(e, "Gagal mengajukan permintaan diskon.");
+  }
+}
+
+async function runRequestDiscount(proposalId: string, formData: FormData) {
   const profile = await requireProfile();
   if (!canRequestDiscount(profile.role)) {
     throw new Error("Hanya Sales Officer / Chief Sales yang dapat mengajukan diskon.");
@@ -111,6 +126,21 @@ export async function requestDiscountAction(
  * authority is re-evaluated from scratch (§11.2).
  */
 export async function decideNegotiationAction(params: {
+  requestId: string;
+  decision: NegotiationDecisionType;
+  counterDiscountPct?: number;
+  note?: string;
+}): Promise<ActionResult> {
+  try {
+    await runDecideNegotiation(params);
+    return { ok: true };
+  } catch (e) {
+    if (isNextControlFlowError(e)) throw e;
+    return toActionError(e, "Gagal memproses keputusan negosiasi.");
+  }
+}
+
+async function runDecideNegotiation(params: {
   requestId: string;
   decision: NegotiationDecisionType;
   counterDiscountPct?: number;

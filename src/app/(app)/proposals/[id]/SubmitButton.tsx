@@ -16,7 +16,8 @@ export function SubmitButton({ proposalId }: { proposalId: string }) {
           setError(null);
           startTransition(async () => {
             try {
-              await submitProposalAction(proposalId);
+              const result = await submitProposalAction(proposalId);
+              if (!result.ok) setError(result.error ?? "Gagal submit");
             } catch (e) {
               setError(e instanceof Error ? e.message : "Gagal submit");
             }

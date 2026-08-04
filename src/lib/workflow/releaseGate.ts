@@ -23,7 +23,12 @@ export async function checkReleaseGate(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any>,
   proposal: PricingProposal,
-  versionId: string
+  versionId: string,
+  /**
+   * The step being approved right now. Its approval has not been
+   * persisted yet when this runs, so it must not count as outstanding.
+   */
+  excludeStepInstanceId?: string
 ): Promise<ReleaseGateResult> {
   // --- 1. All mandatory cost components filled -------------------------
   const { data: templateItems } = await supabase
@@ -68,17 +73,35 @@ export async function checkReleaseGate(
   if (instance) {
     const { data: steps } = await supabase
       .from("workflow_step_instance")
-      .select("status")
+      .select("id, status, department_id")
       .eq("workflow_instance_id", instance.id);
 
+    // The gate runs *before* the approval that triggered it is written,
+    // so the approver's own step is still IN_PROGRESS. Excluding it is
+    // what stops the final approver from blocking themselves.
     const outstanding = (steps ?? []).filter(
-      (s) => s.status !== "APPROVED" && s.status !== "APPROVED_WITH_CONDITIONS"
+      (s) =>
+        s.id !== excludeStepInstanceId &&
+        s.status !== "APPROVED" &&
+        s.status !== "APPROVED_WITH_CONDITIONS"
     );
 
     if (outstanding.length > 0) {
+      const { data: departments } = await supabase
+        .from("department")
+        .select("id, name")
+        .in(
+          "id",
+          outstanding.map((s) => s.department_id)
+        );
+
+      const names = (departments ?? [])
+        .map((d: { name: string }) => d.name)
+        .join(", ");
+
       return {
         canRelease: false,
-        reason: `Masih ada ${outstanding.length} COGS Owner yang belum menyetujui.`,
+        reason: `Masih menunggu persetujuan: ${names || outstanding.length + " pihak"}.`,
       };
     }
   }
