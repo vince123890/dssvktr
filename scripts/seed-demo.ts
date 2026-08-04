@@ -76,13 +76,44 @@ async function ensureDemoUsers() {
   console.log("Provisioning demo users...");
   const userIds: Record<string, string> = {};
 
+  const { data: departments } = await supabase.from("department").select("id, code");
+  const deptIdByCode = Object.fromEntries(
+    (departments ?? []).map((d) => [d.code, d.id])
+  );
+
   for (const u of DEMO_USERS) {
     const { data: existing } = await supabase.auth.admin.listUsers();
     const found = existing.users.find((x) => x.email === u.email);
 
     if (found) {
       userIds[u.email] = found.id;
-      console.log(`  - ${u.email} already exists, skipping`);
+
+      // Reconcile rather than skip: an account seeded under the old role
+      // model would otherwise keep a role that no longer exists, leaving
+      // it unable to act anywhere in the workflow.
+      const { data: profile } = await supabase
+        .from("profile")
+        .select("role, department_id")
+        .eq("id", found.id)
+        .maybeSingle();
+
+      const targetDeptId = deptIdByCode[u.department_code];
+      const needsUpdate =
+        profile?.role !== u.role || profile?.department_id !== targetDeptId;
+
+      if (needsUpdate) {
+        await supabase
+          .from("profile")
+          .update({
+            full_name: u.full_name,
+            role: u.role,
+            department_id: targetDeptId,
+          })
+          .eq("id", found.id);
+        console.log(`  ~ ${u.email} updated (${profile?.role ?? "?"} -> ${u.role})`);
+      } else {
+        console.log(`  - ${u.email} already correct, skipping`);
+      }
       continue;
     }
 
@@ -106,7 +137,56 @@ async function ensureDemoUsers() {
     console.log(`  + Created ${u.email} (${u.role})`);
   }
 
+  await removeRetiredUsers();
+
   return userIds;
+}
+
+/**
+ * Accounts from the v1 role model. Their roles no longer exist, so
+ * logging in as one leaves the user unable to act anywhere — cleaner to
+ * remove them than to leave dead credentials in a demo environment.
+ */
+const RETIRED_DEMO_EMAILS = [
+  "procurement@vktr.demo",
+  "engineering@vktr.demo",
+  "finance@vktr.demo",
+  "clevel@vktr.demo",
+];
+
+async function removeRetiredUsers() {
+  const { data: existing } = await supabase.auth.admin.listUsers();
+
+  for (const email of RETIRED_DEMO_EMAILS) {
+    const found = existing.users.find((x) => x.email === email);
+    if (!found) continue;
+
+    // Anything this account created is reassigned to admin first, so the
+    // delete cannot fail on a foreign key or orphan a proposal.
+    const { data: admin } = await supabase
+      .from("profile")
+      .select("id")
+      .eq("email", "admin@vktr.demo")
+      .maybeSingle();
+
+    if (admin) {
+      await supabase
+        .from("pricing_proposal")
+        .update({ created_by: admin.id })
+        .eq("created_by", found.id);
+      await supabase
+        .from("pricing_proposal_version")
+        .update({ created_by: admin.id })
+        .eq("created_by", found.id);
+    }
+
+    const { error } = await supabase.auth.admin.deleteUser(found.id);
+    if (error) {
+      console.log(`  ! Could not remove retired account ${email}: ${error.message}`);
+    } else {
+      console.log(`  - Removed retired account ${email}`);
+    }
+  }
 }
 
 const HISTORICAL_PROPOSALS: {
@@ -174,7 +254,6 @@ async function main() {
     (templates ?? []).map((t) => [t.business_line, t])
   );
 
-  let seq = 1;
   const allProposals = [
     ...HISTORICAL_PROPOSALS.map((p) => ({ ...p, isLive: false as const })),
     ...LIVE_PROPOSALS.map((p) => ({
@@ -185,9 +264,30 @@ async function main() {
     })),
   ];
 
-  console.log(`\nSeeding ${allProposals.length} proposals...`);
+  // Re-running the seed must not collide with proposals already present.
+  // Skip titles that exist, and continue numbering after the highest
+  // number in use rather than restarting at 1.
+  const { data: existingProposals } = await supabase
+    .from("pricing_proposal")
+    .select("proposal_number, title");
 
-  for (const p of allProposals) {
+  const existingTitles = new Set((existingProposals ?? []).map((p) => p.title));
+  const highest = (existingProposals ?? [])
+    .map((p) => Number.parseInt(p.proposal_number.split("-")[2] ?? "0", 10))
+    .filter((n) => !Number.isNaN(n))
+    .reduce((max, n) => Math.max(max, n), 0);
+
+  let seq = highest + 1;
+
+  const toSeed = allProposals.filter((p) => !existingTitles.has(p.title));
+  const skipped = allProposals.length - toSeed.length;
+
+  if (skipped > 0) {
+    console.log(`\n${skipped} proposal sudah ada — dilewati.`);
+  }
+  console.log(`\nSeeding ${toSeed.length} proposals...`);
+
+  for (const p of toSeed) {
     const template = templateByBusinessLine[p.businessLine];
     if (!template) continue;
 
