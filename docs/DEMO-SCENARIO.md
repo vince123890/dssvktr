@@ -207,7 +207,16 @@ mencegah insiden *margin leakage* yang melatarbelakangi proyek ini.
 ## 2. Skenario Negosiasi: Diskon Berjenjang sampai BOD
 
 Panel **Commercial Negotiation** muncul di halaman quotation begitu
-statusnya keluar dari `Drafting`.
+statusnya keluar dari `Drafting`, dan **tetap tersedia setelah quotation
+dirilis** — memang di titik itulah pelanggan menerima harga lalu meminta
+diskon.
+
+> **Perhatikan angkanya.** Setelah Langkah 7, GPM quotation ini 15,25%
+> dengan ambang 14% — jaraknya hanya **1,25 poin**. Karena diskon memotong
+> harga jual sementara biaya tetap, **diskon 1% saja sudah cukup menekan
+> GPM di bawah ambang**. Jadi jangan heran bila peringatan margin muncul
+> bahkan pada diskon terkecil; justru itu yang ingin ditunjukkan — sistem
+> memperlihatkan dampak profitabilitas *sebelum* approver memutuskan.
 
 ### Langkah 8 — Diskon kecil: wewenang Sales Officer
 
@@ -216,15 +225,20 @@ statusnya keluar dari `Drafting`.
    *"Permintaan Dishub untuk penyesuaian anggaran"*.
 3. Perhatikan: sistem menampilkan **Wewenang diperlukan: Sales Officer** —
    ditentukan otomatis, bukan dipilih pengaju.
-4. Karena diskon masih dalam wewenangnya, Sales Officer dapat langsung
-   **Approve**. Harga quotation turun, GPM ikut turun.
+4. Sistem menampilkan dampaknya: harga turun dari Rp 82,84 M ke
+   **Rp 81,18 M**, GPM turun ke **13,52%** — di bawah ambang, sehingga
+   muncul peringatan margin merah.
+5. Karena diskon masih dalam wewenangnya, Sales Officer tetap dapat
+   **Approve**. Tekankan bahwa peringatan ini *terlihat sebelum* keputusan
+   diambil — inilah yang hilang pada proses manual dan menyebabkan
+   *margin leakage*.
 
 ### Langkah 9 — Diskon menengah: eskalasi ke Chief Sales
 
 1. Masih sebagai Sales Officer, ajukan diskon **6%**.
 2. Sistem menandai **Wewenang diperlukan: Chief Sales**, dan Sales Officer
    **tidak** melihat tombol Approve — hanya keterangan bahwa keputusan ada
-   di Chief Sales.
+   di Chief Sales. Dampaknya: harga **Rp 77,87 M**, GPM **9,84%**.
 3. Logout, login sebagai **chiefsales@vktr.demo** → tombol Approve/Reject/
    Revise muncul. Klik **Approve**.
 
@@ -235,8 +249,9 @@ mustahil karena approver dihitung di server.
 
 1. Login sebagai **sales@vktr.demo**, ajukan diskon **15%**.
 2. Sistem menandai **Wewenang diperlukan: BOD**, dan menampilkan
-   **peringatan margin merah** karena diskon sebesar ini menekan GPM di
-   bawah ambang.
+   **peringatan margin merah** — harga jatuh ke **Rp 70,41 M** dengan GPM
+   tinggal **0,30%**, praktis tanpa laba. Ini contoh paling gamblang dari
+   *margin leakage* yang ingin dicegah.
 3. Logout, login sebagai **bod@vktr.demo**.
 4. Alih-alih menyetujui, isi *counter* **7%** lalu klik **Revise**.
    - Request 15% menjadi `Superseded`.

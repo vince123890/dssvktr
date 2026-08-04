@@ -224,7 +224,14 @@ export default async function ProposalDetailPage({
               requests={(negotiations ?? []) as NegotiationRequest[]}
               role={profile.role}
               ladder={discountLadder}
-              canRequest={canRequestDiscount(profile.role) && !isClosed}
+              // Negotiation is triggered by the customer *after* they
+              // receive a quotation, so a released quotation is exactly
+              // when a discount request is expected. Only a rejected one
+              // is closed to negotiation.
+              canRequest={
+                canRequestDiscount(profile.role) &&
+                proposal.current_status !== "REJECTED"
+              }
             />
           )}
 
