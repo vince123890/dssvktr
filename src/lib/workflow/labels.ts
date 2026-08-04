@@ -1,12 +1,15 @@
-import type { ProposalStatus, StepStatus } from "@/types/database";
+import type {
+  NegotiationStatus,
+  ProposalStatus,
+  StepStatus,
+} from "@/types/database";
 
 export const STATUS_LABEL: Record<ProposalStatus, string> = {
   DRAFT: "Drafting",
-  PENDING_PROCUREMENT: "Pending Procurement",
-  PENDING_ENGINEERING_REVIEW: "Pending Engineering Review",
-  PENDING_FINANCE_APPROVAL: "Pending Finance Approval",
-  PENDING_CLEVEL_SIGNOFF: "Pending C-Level Sign-off",
-  FINAL_APPROVED: "Final Approved",
+  PENDING_COGS_VALIDATION: "Pending COGS Validation",
+  PENDING_CHIEF_SALES_REVIEW: "Pending Chief Sales Review",
+  PENDING_BOD_APPROVAL: "Pending BOD Approval",
+  QUOTATION_RELEASED: "Quotation Released",
   REJECTED: "Rejected",
   CONFIG_ERROR: "Config Error",
 };
@@ -16,22 +19,20 @@ export const STATUS_TONE: Record<
   "default" | "success" | "warning" | "danger" | "info"
 > = {
   DRAFT: "default",
-  PENDING_PROCUREMENT: "info",
-  PENDING_ENGINEERING_REVIEW: "info",
-  PENDING_FINANCE_APPROVAL: "warning",
-  PENDING_CLEVEL_SIGNOFF: "warning",
-  FINAL_APPROVED: "success",
+  PENDING_COGS_VALIDATION: "info",
+  PENDING_CHIEF_SALES_REVIEW: "info",
+  PENDING_BOD_APPROVAL: "warning",
+  QUOTATION_RELEASED: "success",
   REJECTED: "danger",
   CONFIG_ERROR: "danger",
 };
 
 export const KANBAN_COLUMNS: ProposalStatus[] = [
   "DRAFT",
-  "PENDING_PROCUREMENT",
-  "PENDING_ENGINEERING_REVIEW",
-  "PENDING_FINANCE_APPROVAL",
-  "PENDING_CLEVEL_SIGNOFF",
-  "FINAL_APPROVED",
+  "PENDING_COGS_VALIDATION",
+  "PENDING_CHIEF_SALES_REVIEW",
+  "PENDING_BOD_APPROVAL",
+  "QUOTATION_RELEASED",
 ];
 
 export const STEP_STATUS_LABEL: Record<StepStatus, string> = {
@@ -53,4 +54,23 @@ export const STEP_STATUS_TONE: Record<
   APPROVED_WITH_CONDITIONS: "warning",
   REJECTED: "danger",
   SKIPPED_NOT_APPLICABLE: "default",
+};
+
+export const NEGOTIATION_STATUS_LABEL: Record<NegotiationStatus, string> = {
+  PENDING_APPROVAL: "Menunggu Persetujuan",
+  APPROVED: "Disetujui",
+  REJECTED: "Ditolak",
+  REVISED: "Direvisi",
+  SUPERSEDED: "Digantikan",
+};
+
+export const NEGOTIATION_STATUS_TONE: Record<
+  NegotiationStatus,
+  "default" | "success" | "warning" | "danger" | "info"
+> = {
+  PENDING_APPROVAL: "warning",
+  APPROVED: "success",
+  REJECTED: "danger",
+  REVISED: "info",
+  SUPERSEDED: "default",
 };

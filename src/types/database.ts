@@ -2,20 +2,23 @@
 // (POC scope — for a production build these would be generated via
 // `supabase gen types typescript`).
 
+// v2.0 — actors follow the VKTR Commercial Quotation SOP. The v1 values
+// (PROCUREMENT/ENGINEERING/...) remain in the Postgres enum because
+// values cannot be dropped in place, but they are no longer used.
 export type DepartmentCode =
-  | "PROCUREMENT"
-  | "ENGINEERING"
-  | "FINANCE"
   | "SALES"
-  | "C_LEVEL"
+  | "CHIEF_SALES"
+  | "VP_FINANCE"
+  | "VP_OPERATIONS"
+  | "BOD"
   | "ADMIN";
 
 export type UserRole =
-  | "PROCUREMENT_ANALYST"
-  | "COST_ENGINEER"
-  | "FINANCE_CONTROLLER"
-  | "SALES_MANAGER"
-  | "C_LEVEL"
+  | "SALES_OFFICER"
+  | "CHIEF_SALES"
+  | "VP_FINANCE"
+  | "VP_OPERATIONS"
+  | "BOD"
   | "SYSTEM_ADMIN";
 
 export type CostCategory = "DIRECT" | "INDIRECT" | "MARGIN_FACTOR";
@@ -29,11 +32,10 @@ export type BusinessLine =
 
 export type ProposalStatus =
   | "DRAFT"
-  | "PENDING_PROCUREMENT"
-  | "PENDING_ENGINEERING_REVIEW"
-  | "PENDING_FINANCE_APPROVAL"
-  | "PENDING_CLEVEL_SIGNOFF"
-  | "FINAL_APPROVED"
+  | "PENDING_COGS_VALIDATION"
+  | "PENDING_CHIEF_SALES_REVIEW"
+  | "PENDING_BOD_APPROVAL"
+  | "QUOTATION_RELEASED"
   | "REJECTED"
   | "CONFIG_ERROR";
 
@@ -57,7 +59,19 @@ export type AuditAction =
   | "TARGETED_REJECT"
   | "ESCALATE"
   | "RECALCULATE"
-  | "ADD_COST_ITEM";
+  | "ADD_COST_ITEM"
+  | "NEGOTIATION_REQUEST"
+  | "NEGOTIATION_DECISION"
+  | "RELEASE";
+
+export type NegotiationStatus =
+  | "PENDING_APPROVAL"
+  | "APPROVED"
+  | "REJECTED"
+  | "REVISED"
+  | "SUPERSEDED";
+
+export type NegotiationDecisionType = "APPROVE" | "REJECT" | "REVISE";
 
 export interface Department {
   id: string;
@@ -128,6 +142,8 @@ export interface WorkflowStepDefinition {
   status_label: ProposalStatus;
   is_mandatory_gate: boolean;
   sla_hours: number;
+  /** Steps sharing a group id run concurrently and join with AND. */
+  parallel_group_id: string | null;
 }
 
 export interface PricingProposal {
@@ -144,6 +160,8 @@ export interface PricingProposal {
   transaction_value: number;
   outcome: ProposalOutcome;
   unit_quantity: number;
+  applied_discount_pct: number;
+  has_bod_margin_approval: boolean;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -245,6 +263,42 @@ export interface ExternalRateSnapshot {
   value: number;
   source: string;
   effective_at: string;
+}
+
+export interface DiscountAuthority {
+  id: string;
+  role: UserRole;
+  business_line: BusinessLine | null;
+  max_discount_pct: number;
+  escalation_order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface NegotiationRequest {
+  id: string;
+  proposal_id: string;
+  requested_discount_pct: number;
+  customer_note: string | null;
+  required_role: UserRole;
+  status: NegotiationStatus;
+  price_before: number;
+  price_after: number;
+  gpm_after: number;
+  is_below_gpm_threshold: boolean;
+  parent_request_id: string | null;
+  requested_by: string;
+  created_at: string;
+}
+
+export interface NegotiationDecision {
+  id: string;
+  negotiation_request_id: string;
+  actor_id: string;
+  decision: NegotiationDecisionType;
+  counter_discount_pct: number | null;
+  note: string | null;
+  created_at: string;
 }
 
 export interface CostItemStat {

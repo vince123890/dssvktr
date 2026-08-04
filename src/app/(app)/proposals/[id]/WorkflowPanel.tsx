@@ -29,10 +29,19 @@ export function WorkflowPanel({
   const [targetStep, setTargetStep] = useState<number | "">("");
   const [error, setError] = useState<string | null>(null);
 
-  const activeStep = steps.find((s) => s.status === "IN_PROGRESS");
+  // COGS validation runs in parallel, so more than one step can be active.
+  // The user acts on the one belonging to their own department.
   const myDeptCode = ROLE_DEPARTMENT_CODE[role];
-  const canAct =
-    activeStep && deptById[activeStep.department_id]?.code === myDeptCode;
+  const activeStep = steps.find(
+    (s) =>
+      s.status === "IN_PROGRESS" && deptById[s.department_id]?.code === myDeptCode
+  );
+  const canAct = Boolean(activeStep);
+  const parallelPeers = activeStep
+    ? steps.filter(
+        (s) => s.step_order === activeStep.step_order && s.id !== activeStep.id
+      )
+    : [];
 
   function act(action: "APPROVE" | "APPROVE_WITH_CONDITIONS" | "REJECT" | "TARGETED_REJECT") {
     if (!activeStep) return;
@@ -126,6 +135,16 @@ export function WorkflowPanel({
               Anda bertindak sebagai {deptById[activeStep!.department_id]?.name} — aksi
               tersedia untuk step ini:
             </p>
+            {parallelPeers.length > 0 && (
+              <p className="text-[11px] text-muted bg-slate-50 rounded px-2 py-1.5">
+                Validasi COGS berjalan paralel. Persetujuan Anda tidak langsung
+                melanjutkan quotation — sistem menunggu{" "}
+                {parallelPeers
+                  .map((p) => deptById[p.department_id]?.name)
+                  .join(", ")}{" "}
+                juga menyetujui (AND-join).
+              </p>
+            )}
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}

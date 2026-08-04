@@ -4,9 +4,18 @@
 
 | | |
 |---|---|
-| **Document Version** | 1.0 |
-| **Companion Document** | `PRD-VKTR-PriceCore.md` |
+| **Document Version** | 2.0 (Commercial Quotation Alignment) |
+| **Companion Document** | `PRD-VKTR-PriceCore.md` v2.0 |
 | **Purpose** | Menerjemahkan requirement fungsional PRD menjadi logika data, state machine, dan arsitektur teknis yang dapat langsung dieksekusi oleh tim engineering. |
+
+> **Perubahan utama v2.0** (mengikuti PRD v2.0):
+> 1. **Aktor & workflow** — Procurement/Engineering diganti oleh **COGS Owner**
+>    (VP Finance ∥ VP Operations) yang bekerja **paralel** (AND-join), dengan
+>    Chief Sales sebagai penyusun quotation dan BOD sebagai otoritas tertinggi.
+> 2. **Commercial Negotiation Engine** (§11) — state machine terpisah untuk
+>    permintaan diskon berbasis *delegated authority matrix*.
+> 3. **Release gate** — `QUOTATION_RELEASED` hanya tercapai bila seluruh
+>    komponen COGS mandatory tervalidasi.
 
 ---
 
@@ -87,6 +96,13 @@ PricingProposal ──< PricingProposalVersion (v1.0, v1.1, ...)
 
 FormulaDefinition ──> digunakan oleh CBSTemplate / PricingProposal
 ExternalRateSnapshot (FX, commodity) ──> dipakai saat kalkulasi & simulasi
+
+DiscountAuthority (role → max_discount_pct, per business_line)
+    │
+    ▼
+NegotiationRequest ──< NegotiationDecision (APPROVE/REJECT/REVISE)
+    │
+    └─> milik satu PricingProposal (quotation)
 ```
 
 ### 2.1 Tabel Inti (ringkas)
@@ -99,7 +115,7 @@ ExternalRateSnapshot (FX, commodity) ──> dipakai saat kalkulasi & simulasi
 | name | varchar | |
 | category | enum | `DIRECT`, `INDIRECT`, `MARGIN_FACTOR` |
 | subcategory | varchar | e.g. `BOM`, `Bea Masuk`, `Warranty`, `Cost of Funds` |
-| owner_department_id | FK Department | departemen pemilik/penanggung jawab item ini (untuk FR-2.4) |
+| owner_department_id | FK Department | **COGS Owner** — fungsi penanggung jawab validasi item ini (`VP_FINANCE` / `VP_OPERATIONS`). Menggerakkan gatekeeping FR-2.2 & re-verifikasi FR-2.4 |
 | unit_type | enum | `FIXED`, `PER_UNIT`, `PERCENTAGE`, `FORMULA` |
 | is_mandatory | boolean | dipakai gatekeeping FR-2.2 |
 | active | boolean | soft-disable, bukan delete |
@@ -172,6 +188,46 @@ ExternalRateSnapshot (FX, commodity) ──> dipakai saat kalkulasi & simulasi
 | source | varchar |
 | effective_at | timestamptz |
 
+**`discount_authority`** (FR-6.1 — matriks wewenang diskon, *master config*)
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | uuid PK | |
+| role | enum user_role | `SALES_OFFICER`, `CHIEF_SALES`, `BOD` |
+| business_line | enum nullable | `null` = berlaku untuk semua lini bisnis |
+| max_discount_pct | numeric(5,2) | batas atas diskon yang boleh disetujui peran ini; `BOD` bernilai 100 (tanpa batas praktis) |
+| escalation_order | int | urutan eskalasi: 1 = Sales Officer, 2 = Chief Sales, 3 = BOD |
+| is_active | boolean | |
+
+> Ambang batas **tidak boleh hardcode** — perubahan kebijakan diskon
+> dilakukan lewat data, bukan rilis ulang aplikasi (FR-6.1).
+
+**`negotiation_request`** (FR-6.2 — permintaan diskon dari pelanggan)
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | uuid PK | |
+| proposal_id | FK pricing_proposal | quotation yang dinegosiasikan |
+| requested_discount_pct | numeric(5,2) | besaran diskon yang diminta pelanggan |
+| customer_note | text | konteks/alasan permintaan |
+| required_role | enum user_role | **dihitung sistem**, bukan dipilih pengaju (anti *authority bypass*) |
+| status | enum | `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `REVISED`, `SUPERSEDED` |
+| price_before | numeric(18,2) | harga sebelum diskon (snapshot) |
+| price_after | numeric(18,2) | harga setelah diskon (snapshot) |
+| gpm_after | numeric(8,5) | GPM setelah diskon — dasar peringatan margin (FR-6.4) |
+| is_below_gpm_threshold | boolean | penanda pelanggaran guardrail |
+| parent_request_id | FK nullable | terisi bila request ini hasil `REVISE` dari request sebelumnya |
+| requested_by / created_at | | |
+
+**`negotiation_decision`** (FR-6.3, FR-6.5 — append-only)
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | uuid PK | |
+| negotiation_request_id | FK | |
+| actor_id | FK profile | pengambil keputusan |
+| decision | enum | `APPROVE`, `REJECT`, `REVISE` |
+| counter_discount_pct | numeric(5,2) nullable | wajib diisi bila `decision = REVISE` |
+| note | text | |
+| created_at | timestamptz | |
+
 ---
 
 ## 3. Dynamic Formula Engine (FR-1.2)
@@ -225,40 +281,89 @@ Untuk **What-If Simulator (FR-4.1)**, langkah 4–8 dijalankan ulang secara *sta
 
 ```
 DRAFT
-  → SUBMITTED
-    → PENDING_PROCUREMENT
-      → PENDING_ENGINEERING_REVIEW
-        → PENDING_FINANCE_APPROVAL
-          → PENDING_CLEVEL_SIGNOFF   (kondisional, jika transaction_value > threshold)
-            → FINAL_APPROVED
-FINAL_APPROVED → EXPORTED_TO_ERP
+  → PENDING_COGS_VALIDATION           ← satu status, DUA step paralel:
+      ├── VP_FINANCE     (margin, OPEX, financial components)
+      └── VP_OPERATIONS  (logistics, STNK, delivery, operational cost)
+                  │ AND-join: kedua step harus APPROVED
+                  ▼
+    → PENDING_CHIEF_SALES_REVIEW      ← Chief Sales merakit quotation final
+        → QUOTATION_RELEASED          ← release gate: semua COGS mandatory terisi
+QUOTATION_RELEASED → EXPORTED_TO_ERP
 
-(dari state manapun sebelum FINAL_APPROVED):
-  → REJECTED_TARGETED(dept_x)  → kembali ke step dept_x, status proposal kembali ke
-                                   PENDING_<DEPT_X> tanpa mereset versi/draft dari awal
+(kondisional, dipicu dari Negotiation Engine §11):
+    → PENDING_BOD_APPROVAL            ← bila diskon melebihi wewenang Chief Sales
+
+(dari state manapun sebelum QUOTATION_RELEASED):
+  → REJECTED_TARGETED(target)  → kembali ke step target, status proposal kembali ke
+                                  status milik step tersebut tanpa mereset versi/draft
 ```
 
 Urutan step konkret **tidak** hardcoded — diturunkan dari `workflow_definition` yang aktif untuk `business_line` + `transaction_value` bucket milik proposal tersebut (mendukung FR-2.1 no-code configurator).
+
+**Catatan status paralel.** `PENDING_COGS_VALIDATION` adalah satu status
+proposal yang menaungi dua `workflow_step_instance` dengan `step_order`
+sama dan `parallel_group_id` identik. UI menampilkan progres per COGS
+Owner secara terpisah (FR-3.1), sementara state machine memperlakukan
+keduanya sebagai satu gerbang.
 
 ### 4.2 Strict Gatekeeping (FR-2.2)
 
 Aturan inti: *step N tidak boleh berpindah ke `IN_PROGRESS` sebelum step N-1 berstatus `APPROVED`/`APPROVED_WITH_CONDITIONS`, dan seluruh `is_mandatory_gate` cost item untuk step tersebut sudah terisi.*
 
 ```pseudo
-function canAdvanceToStep(instance, stepDef):
-    previousStep = getPreviousStep(instance, stepDef)
-    if previousStep exists and previousStep.status not in [APPROVED, APPROVED_WITH_CONDITIONS]:
-        return false, "Previous step not completed"
+function canAdvanceToStep(instance, targetStepOrder):
+    # AND-join: SEMUA step dengan step_order lebih kecil harus selesai,
+    # termasuk seluruh anggota parallel group sebelumnya.
+    priorSteps = instance.steps.filter(s => s.step_order < targetStepOrder)
+    blocking = priorSteps.filter(s => s.status not in [APPROVED, APPROVED_WITH_CONDITIONS])
+    if blocking.length > 0:
+        return false, "Menunggu: " + blocking.map(s => s.department.name)
 
-    mandatoryItems = getMandatoryCostItems(stepDef.department_id, proposal.cbs_template)
+    return true
+
+# Gate per COGS Owner sebelum ia boleh menyetujui stepnya sendiri
+function canApproveStep(step, proposal):
+    mandatoryItems = getMandatoryCostItems(step.department_id, proposal.cbs_template)
     missing = mandatoryItems.filter(item => !hasValue(proposal.cost_lines, item))
     if missing.length > 0:
-        return false, "Missing mandatory cost items: " + missing
+        return false, "Komponen COGS mandatory belum lengkap: " + missing
+    return true
+```
+
+**Mode PARALLEL_GROUP.** Seluruh step dalam `parallel_group_id` yang sama
+di-set `IN_PROGRESS` bersamaan saat grup dibuka. Step berikutnya baru bisa
+maju setelah **semua** anggota grup `APPROVED` (AND-join) — inilah yang
+memodelkan "VP Finance dan VP Operations bekerja paralel, quotation
+menunggu keduanya".
+
+### 4.2.1 Release Gate (FR-2.2 — penjaga *margin leakage*)
+
+Sebelum proposal boleh berpindah ke `QUOTATION_RELEASED`, dijalankan
+validasi menyeluruh — bukan hanya per departemen:
+
+```pseudo
+function canReleaseQuotation(proposal):
+    # 1. Seluruh komponen mandatory di CBS template harus terisi,
+    #    apa pun pemiliknya (bukan hanya milik step terakhir).
+    allMandatory = proposal.cbs_template.items.filter(i => i.is_mandatory)
+    missing = allMandatory.filter(i => !hasValue(proposal.cost_lines, i))
+    if missing.length > 0:
+        return false, "COGS belum lengkap: " + missing
+
+    # 2. Seluruh COGS Owner harus sudah memberi persetujuan.
+    if instance.steps.any(s => s.status not in [APPROVED, APPROVED_WITH_CONDITIONS]):
+        return false, "Masih ada COGS Owner yang belum menyetujui"
+
+    # 3. Margin akhir (setelah diskon negosiasi, bila ada) tidak boleh
+    #    di bawah ambang tanpa persetujuan BOD.
+    if result.gpm < businessLine.min_gpm_threshold and not proposal.has_bod_approval:
+        return false, "Margin di bawah ambang — perlu persetujuan BOD"
 
     return true
 ```
 
-Untuk **mode PARALLEL_GROUP**: seluruh step dalam grup yang sama boleh `IN_PROGRESS` bersamaan; step berikutnya baru bisa maju setelah **semua** anggota grup selesai (AND-join).
+Tiga pemeriksaan ini dijalankan di **service layer**, sehingga tidak dapat
+dilewati lewat pemanggilan API langsung.
 
 ### 4.3 Rejection & Routing Logic (FR-2.3)
 
@@ -267,7 +372,7 @@ Untuk **mode PARALLEL_GROUP**: seluruh step dalam grup yang sama boleh `IN_PROGR
 | `APPROVE` | step → `APPROVED`; trigger evaluasi step berikutnya (`canAdvanceToStep`) |
 | `APPROVE_WITH_CONDITIONS` | step → `APPROVED_WITH_CONDITIONS`; `decision_note` wajib diisi; catatan dibawa terus hingga `FINAL_APPROVED` dan muncul di PDF/handoff ke eksekusi |
 | `REJECT` (generic) | step → `REJECTED`; proposal → `DRAFT`; notifikasi ke submitter |
-| `TARGETED_REJECT(target_department)` | current step → `REJECTED`; **semua step di antara target_department dan step saat ini di-reset ke `PENDING`** (bukan seluruh workflow); proposal.current_status → `PENDING_<TARGET_DEPT>`; versi proposal **tidak** berubah (revisi terjadi di versi yang sama sampai disubmit ulang) |
+| `TARGETED_REJECT(target)` | current step → `REJECTED`; **semua step di antara target dan step saat ini di-reset ke `PENDING`** (bukan seluruh workflow); proposal.current_status → status milik step target; versi proposal **tidak** berubah (revisi terjadi di versi yang sama sampai disubmit ulang). Contoh: VP Finance menolak dan mengembalikan ke Chief Sales karena komponen harga perlu disusun ulang |
 
 ### 4.4 Dynamic Form Adjustment (FR-2.4)
 
@@ -372,19 +477,21 @@ Implementasi memakai ulang **Formula Engine (§3)** dengan variable context yang
 ## 8. Security & Access Control (RBAC/ABAC — NFR)
 
 ### 8.1 Model
-- **Role** (RBAC): melekat pada User, contoh `PROCUREMENT_ANALYST`, `FINANCE_CONTROLLER`, `SALES_MANAGER`, `C_LEVEL`, `SYSTEM_ADMIN`.
-- **Attribute-based rule** (ABAC) di atas RBAC untuk kasus field-level: contoh rule "Sales dapat GET `pricing_proposal_version` tapi field `cost_lines[].raw_margin_pct` di-mask menjadi `null` kecuali role termasuk `{FINANCE_CONTROLLER, C_LEVEL, SYSTEM_ADMIN}`".
+- **Role** (RBAC): melekat pada User — `SALES_OFFICER`, `CHIEF_SALES`, `VP_FINANCE`, `VP_OPERATIONS`, `BOD`, `SYSTEM_ADMIN`.
+- **Attribute-based rule** (ABAC) di atas RBAC untuk kasus field-level: contoh rule "Sales Officer dapat GET `pricing_proposal_version` tapi field `cost_lines[].raw_margin_pct` di-mask menjadi `null` kecuali role termasuk `{VP_FINANCE, BOD, SYSTEM_ADMIN}`".
 - Implementasi: response serializer menerapkan *field-level masking* berdasarkan claim role di JWT, bukan filtering di client (agar tidak bisa dibypass via DevTools).
 
 ### 8.2 Contoh Permission Matrix (ringkas)
 
-| Resource/Field | Procurement | Engineering | Finance | Sales | C-Level | Admin |
+| Resource/Field | Sales Officer | Chief Sales | VP Finance | VP Operations | BOD | Admin |
 |---|---|---|---|---|---|---|
-| CBS direct cost items | RW | R | R | – | R | RW (config) |
-| Margin/financial factors | – | – | RW | – | R | RW (config) |
-| `final_price` (proposal) | R | R | R | R | R | R |
-| `raw_margin_pct` | R (own dept) | – | RW | **masked** | R | R |
-| Workflow definition | – | – | – | – | – | RW |
+| Operational cost items (logistics, STNK, delivery) | – | R | R | **RW** | R | RW (config) |
+| Financial/margin factors (OPEX, CoF, margin policy) | – | R | **RW** | R | R | RW (config) |
+| `final_price` (quotation) | R | R | R | R | R | R |
+| `raw_margin_pct` | **masked** | R | RW | R | R | R |
+| Ajukan permintaan diskon | RW | RW | – | – | – | RW |
+| Setujui diskon | ≤ batas wewenang | ≤ batas wewenang | – | – | **tanpa batas** | – |
+| Workflow definition & discount authority | – | – | – | – | – | RW |
 | Audit log | R (own actions) | R (own actions) | R (own actions) | R (own actions) | R (all) | R (all) |
 
 ### 8.3 Enforcement Layers
@@ -440,22 +547,143 @@ Implementasi memakai ulang **Formula Engine (§3)** dengan variable context yang
 
 ---
 
-## 11. Open Technical Decisions (Perlu Konfirmasi Tim)
+## 11. Commercial Negotiation Engine (FR-6.1 – FR-6.5)
+
+State machine terpisah dari workflow COGS, namun terikat pada satu
+`pricing_proposal`. Menjawab *"limited visibility of actual profitability
+during commercial negotiations"* pada dokumen kebutuhan.
+
+### 11.1 Authority Resolution — siapa yang berwenang menyetujui
+
+Aturan inti: **pengaju tidak pernah memilih approver**. Sistem menghitungnya
+dari besaran diskon, sehingga *authority bypass* mustahil dilakukan dari klien.
+
+```pseudo
+function resolveRequiredRole(discountPct, businessLine):
+    # Ambil tangga wewenang, terurut dari yang paling rendah
+    ladder = SELECT * FROM discount_authority
+             WHERE is_active
+               AND (business_line = businessLine OR business_line IS NULL)
+             ORDER BY escalation_order ASC
+
+    for level in ladder:
+        if discountPct <= level.max_discount_pct:
+            return level.role          # peran terendah yang masih berwenang
+
+    return 'BOD'                        # melampaui seluruh batas → naik ke BOD
+```
+
+Contoh konfigurasi (ilustratif, wajib dikonfirmasi Finance/BOD):
+
+| Role | escalation_order | max_discount_pct |
+|---|---|---|
+| `SALES_OFFICER` | 1 | 3.00 |
+| `CHIEF_SALES` | 2 | 8.00 |
+| `BOD` | 3 | 100.00 |
+
+Diskon 2% → Sales Officer. Diskon 6% → Chief Sales. Diskon 12% → BOD.
+
+### 11.2 Alur State
+
+```
+                 Customer minta diskon
+                          │
+                          ▼
+              resolveRequiredRole(discount)
+                          │
+                          ▼
+                 PENDING_APPROVAL
+                    (required_role)
+                          │
+        ┌─────────────────┼──────────────────┐
+        ▼                 ▼                  ▼
+    APPROVE            REJECT             REVISE
+        │                 │                  │
+        ▼                 ▼                  ▼
+   APPROVED           REJECTED      request lama → SUPERSEDED
+        │              (harga                  │
+        │               tetap)      request baru dgn counter_discount_pct
+        │                                      │
+        ▼                                      └──► kembali ke resolveRequiredRole
+  diskon diterapkan ke proposal                     (tangga wewenang dievaluasi ULANG)
+  → QUOTATION_RELEASED
+```
+
+**`REVISE` memicu evaluasi wewenang ulang.** Bila BOD menurunkan diskon dari
+12% menjadi 5%, request baru jatuh ke wewenang Chief Sales — bukan otomatis
+disetujui. Ini menjaga konsistensi matriks wewenang di seluruh siklus
+negosiasi.
+
+### 11.3 Margin Impact Calculation (FR-6.4)
+
+Dihitung **saat request dibuat** dan disimpan sebagai snapshot pada
+`negotiation_request`, sehingga approver melihat angka yang sama dengan yang
+dilihat pengaju (tidak berubah akibat perubahan FX di antara pengajuan dan
+persetujuan):
+
+```pseudo
+priceBefore = latestCalculationResult.final_price
+priceAfter  = priceBefore * (1 - discountPct / 100)
+baseCost    = totalDirectCost + totalIndirectCost      # tidak berubah oleh diskon
+gpmAfter    = (priceAfter - baseCost) / priceAfter
+isBelowThreshold = gpmAfter < businessLine.min_gpm_threshold
+```
+
+Perhitungan ini memakai ulang **Pricing Engine (§3)** dengan parameter
+`volume_discount_pct` — identik dengan jalur What-If Simulator (§7.1),
+sehingga tidak ada logika margin ganda di sistem.
+
+> **Peringatan wajib.** Bila `isBelowThreshold` bernilai true, UI approver
+> **harus** menampilkan peringatan eksplisit sebelum tombol Approve dapat
+> ditekan. Inilah mekanisme yang mencegah pengulangan insiden *margin
+> leakage* yang melatarbelakangi proyek ini.
+
+### 11.4 Interaksi dengan Release Gate
+
+- Selama ada `negotiation_request` berstatus `PENDING_APPROVAL`, proposal
+  **tidak boleh** mencapai `QUOTATION_RELEASED`.
+- Diskon yang `APPROVED` diterapkan sebagai `volume_discount_pct` pada
+  kalkulasi final, menghasilkan `proposal_calculation_result` baru (snapshot
+  immutable, §3.3 langkah 9).
+- Bila diskon menyebabkan GPM di bawah ambang, `canReleaseQuotation` (§4.2.1)
+  hanya meloloskannya bila persetujuan berasal dari **BOD** — persetujuan
+  Sales Officer/Chief Sales tidak cukup untuk menembus guardrail margin.
+
+### 11.5 Audit (FR-6.5)
+
+Setiap `negotiation_request` dan `negotiation_decision` menulis
+`audit_log_entry` dengan `entity_type = 'negotiation_request'` dan
+`proposal_id` terisi, sehingga riwayat negosiasi muncul dalam satu linimasa
+audit yang sama dengan riwayat perubahan harga.
+
+---
+
+## 12. Open Technical Decisions (Perlu Konfirmasi Tim)
 
 1. **Bahasa/Platform backend** — belum ditentukan di dokumen sumber (Node.js/NestJS, Java/Spring, atau .NET). Rekomendasi: pilih yang selaras dengan stack tim internal VKTR/mitra existing ERP.
 2. **Pilihan library formula evaluator** — custom parser vs library (`mathjs`, `expr-eval`, `jsonata`). Rekomendasi awal: `jsonata` atau `mathjs` dengan sandboxing ketat untuk mempercepat Phase 1.
 3. **SAP vs Odoo** — dokumen menyebut keduanya sebagai opsi; kontrak integrasi (§9.1) perlu disesuaikan begitu ERP final dikonfirmasi (SAP umumnya via IDoc/OData, Odoo via XML-RPC/JSON-RPC — signature endpoint akan berbeda).
 4. **Threshold nilai eskalasi & GPM guardrail** — angka contoh (Rp 50 Miliar, dsb.) di PRD bersifat ilustratif; perlu ditetapkan bersama Finance/BOD sebagai *master config*, bukan angka hardcode.
+5. **Ambang wewenang diskon (§11.1)** — angka 3% / 8% adalah ilustrasi. Batas sesungguhnya per peran, dan apakah berbeda per lini bisnis (B2G vs B2B), **wajib dikonfirmasi ke Chief Sales & BOD** sebelum go-live.
+6. **Kewenangan approve diskon oleh COGS Owner** — dokumen sumber tidak menyebut VP Finance/VP Operations sebagai approver diskon. Asumsi saat ini: mereka **tidak** berwenang menyetujui diskon (hanya memvalidasi komponen biaya). Perlu konfirmasi apakah VP Finance perlu dilibatkan saat diskon menembus ambang margin.
+7. **Perlakuan quotation yang sudah dirilis lalu dinegosiasikan ulang** — apakah menghasilkan versi baru (`v1.1`) atau memperbarui versi berjalan. Rekomendasi: versi baru, agar riwayat harga yang pernah diberikan ke pelanggan tetap utuh untuk audit.
 
 ---
 
-## 12. Traceability Matrix (FR → Technical Component)
+## 13. Traceability Matrix (FR → Technical Component)
 
 | FR | Modul Teknis |
 |---|---|
-| FR-1.1, FR-1.2, FR-1.3 | Master Data Service + Formula Engine (§2, §3) |
-| FR-2.1 – FR-2.4 | Workflow Engine + State Machine (§4) |
+| FR-1.1 (CBS + COGS Ownership), FR-1.2, FR-1.3 | Master Data Service + Formula Engine (§2, §3) |
+| FR-2.0 (alur quotation), FR-2.1 – FR-2.4 | Workflow Engine + State Machine, parallel AND-join (§4) |
+| FR-2.2 (release gate) | `canReleaseQuotation` (§4.2.1) |
 | FR-3.1 – FR-3.3 | Observability Dashboard + SLA Job + Audit Log (§5, §6) |
 | FR-4.1 – FR-4.3 | DSS/Simulation Engine (§7) |
+| **FR-6.1 (authority matrix)** | `discount_authority` (§2.1) + `resolveRequiredRole` (§11.1) |
+| **FR-6.2 (auto-escalation)** | Negotiation State Machine (§11.2) |
+| **FR-6.3 (approve/reject/revise)** | `negotiation_decision` + revision loop (§11.2) |
+| **FR-6.4 (margin impact)** | Margin Impact Calculation (§11.3), reuse Pricing Engine (§3) |
+| **FR-6.5 (negotiation audit)** | Audit integration (§11.5) |
+| FR-7.1 – FR-7.3 (KYC) | *Belum diimplementasikan pada POC — lihat PRD §8* |
 | NFR Security | RBAC/ABAC Layer (§8) |
 | NFR Integrasi | ERP/CRM/FX Integration Contracts (§9) |

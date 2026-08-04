@@ -18,6 +18,8 @@ export async function recalculateAndPersist(
     cbsTemplateId: string;
     unitQuantity: number;
     businessLine: CbsTemplate["business_line"];
+    /** Approved negotiation discount, applied to the official price (§11.4). */
+    volumeDiscountPct?: number;
   }
 ): Promise<ProposalCalculationResult> {
   const [{ data: template }, { data: templateItems }, { data: costLines }, { data: fxSnapshot }] =
@@ -62,6 +64,9 @@ export async function recalculateAndPersist(
     fxUsdIdrRate: fxRate,
     fxBaselineRate: fxRate,
     minGpmThreshold: Number(template.min_gpm_threshold),
+    simulation: params.volumeDiscountPct
+      ? { volumeDiscountPct: params.volumeDiscountPct }
+      : undefined,
   });
 
   const { data: saved, error } = await supabase

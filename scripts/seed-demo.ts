@@ -30,36 +30,37 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+// v2.0 — actors follow the VKTR Commercial Quotation SOP.
 const DEMO_USERS = [
-  {
-    email: "procurement@vktr.demo",
-    full_name: "Budi Santoso",
-    role: "PROCUREMENT_ANALYST",
-    department_code: "PROCUREMENT",
-  },
-  {
-    email: "engineering@vktr.demo",
-    full_name: "Siti Rahayu",
-    role: "COST_ENGINEER",
-    department_code: "ENGINEERING",
-  },
-  {
-    email: "finance@vktr.demo",
-    full_name: "Andi Wijaya",
-    role: "FINANCE_CONTROLLER",
-    department_code: "FINANCE",
-  },
   {
     email: "sales@vktr.demo",
     full_name: "Maria Kusuma",
-    role: "SALES_MANAGER",
+    role: "SALES_OFFICER",
     department_code: "SALES",
   },
   {
-    email: "clevel@vktr.demo",
+    email: "chiefsales@vktr.demo",
+    full_name: "Andi Wijaya",
+    role: "CHIEF_SALES",
+    department_code: "CHIEF_SALES",
+  },
+  {
+    email: "vpfinance@vktr.demo",
+    full_name: "Siti Rahayu",
+    role: "VP_FINANCE",
+    department_code: "VP_FINANCE",
+  },
+  {
+    email: "vpops@vktr.demo",
+    full_name: "Budi Santoso",
+    role: "VP_OPERATIONS",
+    department_code: "VP_OPERATIONS",
+  },
+  {
+    email: "bod@vktr.demo",
     full_name: "Robert Halim",
-    role: "C_LEVEL",
-    department_code: "C_LEVEL",
+    role: "BOD",
+    department_code: "BOD",
   },
   {
     email: "admin@vktr.demo",
@@ -257,7 +258,7 @@ async function main() {
         customer_name: p.customer,
         cbs_template_id: template.id,
         unit_quantity: p.unitQuantity,
-        current_status: isFinal ? "FINAL_APPROVED" : "DRAFT",
+        current_status: isFinal ? "QUOTATION_RELEASED" : "DRAFT",
         transaction_value: isFinal ? result.finalPrice : 0,
         outcome: p.outcome,
         created_by: salesId ?? adminId,

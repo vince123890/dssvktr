@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { resolveCurrentVersionId } from "@/lib/pricing/version";
+import { checkReleaseGate } from "@/lib/workflow/releaseGate";
+import { ROLE_DEPARTMENT_CODE } from "@/lib/rbac";
 import { revalidatePath } from "next/cache";
 import {
   applyDecision,
@@ -202,13 +204,28 @@ export async function submitDecisionAction({
   const defs = (stepDefs ?? []) as WorkflowStepDefinition[];
   const steps = (stepInstances ?? []) as WorkflowStepInstance[];
 
-  const currentStepOrder = proposal.current_step_order;
-  const gate = canAdvanceToStep(steps, currentStepOrder);
-  const currentStep = steps.find((s) => s.step_order === currentStepOrder);
+  // With parallel COGS validation several steps can be IN_PROGRESS at
+  // once, so the actor's own department — not current_step_order alone —
+  // identifies which step instance this decision belongs to.
+  const { data: myDept } = await supabase
+    .from("department")
+    .select("id")
+    .eq("code", ROLE_DEPARTMENT_CODE[profile.role])
+    .maybeSingle();
 
-  if (!currentStep || currentStep.status !== "IN_PROGRESS") {
-    throw new Error("Step ini tidak sedang aktif diproses (strict gatekeeping).");
+  const currentStep = steps.find(
+    (s) => s.status === "IN_PROGRESS" && s.department_id === myDept?.id
+  );
+
+  if (!currentStep) {
+    throw new Error(
+      "Tidak ada step aktif untuk peran Anda pada proposal ini (strict gatekeeping)."
+    );
   }
+
+  const currentStepOrder = currentStep.step_order;
+  const gate = canAdvanceToStep(steps, currentStepOrder);
+
   if (!gate.canAdvance && action !== "REJECT" && action !== "TARGETED_REJECT") {
     throw new Error(gate.reason);
   }
@@ -239,7 +256,7 @@ export async function submitDecisionAction({
   const result = applyDecision(
     {
       steps,
-      currentStepOrder,
+      stepInstanceId: currentStep.id,
       action,
       targetStepOrder,
       decisionNote,
@@ -247,6 +264,16 @@ export async function submitDecisionAction({
     },
     defs
   );
+
+  // FR-2.2 release gate: the final approval is the moment a quotation
+  // would reach the customer, so the full COGS/margin check runs here —
+  // not just the per-step gate above.
+  if (result.isFinalApproval) {
+    const gateResult = await checkReleaseGate(supabase, proposal, versionId);
+    if (!gateResult.canRelease) {
+      throw new Error(`Quotation belum dapat dirilis — ${gateResult.reason}`);
+    }
+  }
 
   for (const step of result.updatedSteps) {
     const original = steps.find((s) => s.id === step.id)!;
@@ -269,10 +296,7 @@ export async function submitDecisionAction({
       .eq("id", step.id);
   }
 
-  const nextStatus: ProposalStatus =
-    result.nextProposalStatus === "AWAITING_NEXT" || result.nextProposalStatus === "REJECTED"
-      ? "REJECTED"
-      : (result.nextProposalStatus as ProposalStatus);
+  const nextStatus: ProposalStatus = result.nextProposalStatus;
 
   await supabase
     .from("pricing_proposal")
@@ -282,7 +306,7 @@ export async function submitDecisionAction({
     })
     .eq("id", proposalId);
 
-  if (nextStatus === "FINAL_APPROVED") {
+  if (nextStatus === "QUOTATION_RELEASED") {
     await supabase
       .from("workflow_instance")
       .update({ status: "COMPLETED" })

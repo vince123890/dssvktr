@@ -1,13 +1,15 @@
-# Skenario Demo — VKTR-PriceCore POC
+# Skenario Demo — VKTR-PriceCore POC (v2.0)
 
 Dokumen ini adalah panduan langkah-demi-langkah untuk mendemokan POC:
 siapa login sebagai apa, data apa yang dimasukkan, ke mana alurnya, dan
 hasil yang seharusnya terlihat di tiap tahap. Disusun agar satu sesi demo
-menyentuh **semua 4 modul inti** (Master Data/CBS, Workflow Approval,
-Observability Dashboard, DSS).
+menyentuh **seluruh modul inti** sesuai *Commercial Quotation Approval
+System Requirement for VKTR*: COGS Validation (paralel), Release Gate,
+Commercial Negotiation (delegated discount authority), Observability, dan
+DSS.
 
 Prasyarat: sudah menjalankan `npm run seed:demo` (lihat README §4–5) —
-ini menyediakan 6 akun demo dan ±15 proposal historis untuk Win/Loss
+ini menyediakan 6 akun demo dan ±15 quotation historis untuk Win/Loss
 Analytics.
 
 > **Mengulang demo.** Sebelum sesi demo berikutnya, jalankan:
@@ -16,12 +18,12 @@ Analytics.
 > npm run reset:demo
 > ```
 >
-> Perintah ini menghapus proposal yang dibuat saat demo beserta workflow
-> dan audit log-nya, lalu mengembalikan 15 proposal historis ke posisi
-> semula — sehingga skenario di bawah bisa dijalankan lagi dari Langkah 1
-> dengan hasil yang sama. Master data (cost item, template, workflow
-> definition) dan keenam akun demo **tidak** disentuh, jadi tidak perlu
-> seed ulang atau menyentuh Supabase Dashboard.
+> Perintah ini menghapus quotation yang dibuat saat demo beserta workflow,
+> negosiasi, dan audit log-nya, lalu mengembalikan 15 quotation historis ke
+> posisi semula — sehingga skenario di bawah bisa dijalankan lagi dari
+> Langkah 1 dengan hasil yang sama. Master data dan keenam akun demo
+> **tidak** disentuh, jadi tidak perlu seed ulang atau menyentuh Supabase
+> Dashboard.
 
 ---
 
@@ -29,12 +31,12 @@ Analytics.
 
 | Login sebagai | Email | Tugas dalam skenario |
 |---|---|---|
-| **Sales Manager** | sales@vktr.demo | Membuat proposal baru, mencatat hasil tender (Won/Lost) |
-| **Procurement Analyst** | procurement@vktr.demo | Mengisi biaya BOM/Karoseri/Bea Masuk/Logistik, approve step 1 |
-| **Cost Engineer** | engineering@vktr.demo | Mengisi biaya Testing/Warranty, approve step 2 |
-| **Finance Controller** | finance@vktr.demo | Mengisi margin & cost of funds, approve step 3, melihat raw margin |
-| **C-Level / BOD** | clevel@vktr.demo | Sign-off transaksi besar (step 4), pakai What-If Simulator |
-| **System Admin** | admin@vktr.demo | Kelola Master Data & Workflow Definition |
+| **Sales Officer** | sales@vktr.demo | Membuat quotation request, mengajukan diskon dalam batas wewenangnya, mencatat hasil tender |
+| **Chief Sales** | chiefsales@vktr.demo | Merakit quotation final, meminta validasi COGS, menyetujui diskon menengah |
+| **VP Finance** | vpfinance@vktr.demo | COGS Owner — margin, OPEX, komponen finansial |
+| **VP Operations** | vpops@vktr.demo | COGS Owner — logistik, STNK, delivery, biaya operasional |
+| **BOD** | bod@vktr.demo | Meninjau *commercial case* untuk diskon besar; Approve / Reject / Revise |
+| **System Admin** | admin@vktr.demo | Kelola Master Data, Workflow, & Discount Authority Matrix |
 
 Password semua akun: `PriceCore123!`
 
@@ -43,17 +45,23 @@ lewat tombol di sidebar, lalu login ulang** dengan akun berikutnya. Untuk
 demo yang lebih mulus, buka beberapa jendela browser berbeda (atau mode
 Incognito terpisah per peran) supaya semua sesi tetap aktif.
 
+### Struktur wewenang diskon (seed default)
+
+| Peran | Batas diskon |
+|---|---|
+| Sales Officer | ≤ 3% |
+| Chief Sales | ≤ 8% |
+| BOD | tanpa batas |
+
 ---
 
-## 1. Skenario Utama: "20 Unit EV Bus untuk Dishub — Large Deal"
+## 1. Skenario Utama: "30 Unit EV Bus — Dishub Provinsi Jawa Barat"
 
-Skenario ini sengaja dibuat **di atas threshold eskalasi Rp 50 Miliar**
-(FR-2.1) sehingga workflow-nya mencakup 4 step lengkap (Procurement →
-Engineering → Finance → C-Level), dan nilainya diset agar **awalnya
-melanggar margin guardrail** (FR-4.2) supaya alert-nya bisa didemokan,
-lalu direvisi agar lolos.
+Skenario ini dirancang agar menyentuh **semua** kontrol kunci: validasi
+COGS paralel oleh dua VP, release gate, guardrail margin, dan eskalasi
+diskon sampai ke BOD.
 
-### Langkah 1 — Sales membuat draft proposal
+### Langkah 1 — Sales Officer membuat quotation request
 
 1. Login sebagai **sales@vktr.demo**.
 2. Buka **Pricing Proposals → Proposal Baru**.
@@ -62,130 +70,91 @@ lalu direvisi agar lolos.
    - Lini Bisnis: `B2G Tender Bus`
    - Customer: `Dishub Provinsi Jawa Barat`
    - Jumlah Unit: `30`
-4. Klik **Buat Draft & Lanjut ke CBS Builder** → diarahkan ke halaman
-   detail proposal, status `Drafting`, versi `v1.0`.
+4. Klik **Buat Draft & Lanjut ke CBS Builder** → status `Drafting`, versi `v1.0`.
 
 **Yang didemokan:** FR-1.3 Pricing Template — CBS otomatis mengikuti
 template "B2G Tender Bus" tanpa Sales perlu tahu detail komponen biaya.
 
-### Langkah 2 — Sales melihat batasan RBAC
+### Langkah 2 — Perlihatkan batasan RBAC
 
-Selama proposal masih berstatus `Drafting`, form cost line terbuka untuk
-siapa pun yang menyiapkannya — jadi Sales **bisa** mengetik nilai. Yang
-membedakan peran adalah *apa yang boleh dilihat*: setelah dihitung, panel
-ringkasan menampilkan `••••` untuk GPM/EBITDA/Margin karena **role Sales
-tidak boleh melihat raw margin** (NFR RBAC, `src/lib/rbac.ts`). Ini poin
-demo penting untuk FR NFR Security.
+Selama `Drafting`, form cost line terbuka untuk siapa pun yang
+menyiapkannya. Yang membedakan peran adalah *apa yang boleh dilihat*:
+panel ringkasan menampilkan `••••` untuk GPM/EBITDA/Margin karena **Sales
+Officer tidak boleh melihat raw margin** (`src/lib/rbac.ts`).
 
-Untuk alur realistis, jangan isi apa pun di sini — cukup tunjukkan
-tampilan `••••`-nya, lalu **serahkan ke Procurement** (langkah berikutnya).
+Jangan isi apa pun di sini — cukup tunjukkan `••••`-nya, lalu isi nilai
+awal seperlunya agar quotation bisa disubmit (lihat Langkah 3).
 
-> **Catatan urutan:** setelah proposal disubmit ke workflow, form cost
-> line hanya terbuka untuk **departemen yang stepnya sedang aktif**.
-> Jadi Procurement mengisi di step 1, Engineering di step 2, Finance di
-> step 3 — masing-masing pada gilirannya. Ini ditegakkan di UI sekaligus
-> di server (`src/lib/workflow/editGate.ts`), bukan sekadar `disabled`
-> di HTML.
+> **Catatan urutan.** Setelah disubmit, form cost line hanya terbuka untuk
+> **COGS Owner yang stepnya sedang aktif**. Karena validasi COGS berjalan
+> paralel, VP Finance dan VP Operations sama-sama bisa mengisi bagiannya
+> di waktu yang sama. Aturan ini ditegakkan di UI **dan** di server
+> (`src/lib/workflow/editGate.ts`).
 
-### Langkah 3 — Procurement mengisi Direct Costs
+### Langkah 3 — Isi nilai awal & submit ke workflow
 
-1. Logout, login sebagai **procurement@vktr.demo**.
-2. Buka proposal yang sama dari **Pricing Proposals**.
-3. Isi kolom **Direct Costs** (nilai per unit, dalam Rupiah):
+Masih sebagai Sales Officer, isi **Direct Costs** (nilai per unit):
 
-   | Item | Nilai/unit |
-   |---|---|
-   | Battery Pack (BOM) | 900.000.000 |
-   | Chassis (BOM) | 430.000.000 |
-   | Powertrain / Motor (BOM) | 320.000.000 |
-   | Karoseri / Body Building | 270.000.000 |
-   | Bea Masuk / Tarif Impor | 190.000.000 |
-   | Shipping & Logistics | 45.000.000 |
+| Item | Nilai/unit |
+|---|---|
+| Battery Pack (BOM) | 900.000.000 |
+| Chassis (BOM) | 430.000.000 |
+| Powertrain / Motor (BOM) | 320.000.000 |
+| Karoseri / Body Building | 270.000.000 |
+| Bea Masuk / Tarif Impor | 190.000.000 |
+| Shipping & Logistics | 45.000.000 |
 
-4. Klik **Simpan & Hitung Ulang Harga**.
+Klik **Simpan & Hitung Ulang Harga**, lalu **Submit untuk Approval**.
 
-Total direct cost = 2.155 Miliar/unit × 30 unit = **Rp 64,65 Miliar**.
-GPM masih 0% karena margin belum diisi — itu wajar pada tahap ini.
+Status berubah ke `Pending COGS Validation`, dan panel workflow di kanan
+menampilkan **dua step aktif bersamaan** — VP Finance dan VP Operations.
 
-**Yang didemokan:** FR-1.1 Mappable CBS — biaya langsung terisi dan
-langsung memicu kalkulasi (meskipun margin belum diisi, hasil sementara
-tetap muncul).
+**Yang didemokan:** FR-2.0 — validasi COGS paralel, bukan berantai.
 
-### Langkah 4 — Procurement submit ke workflow
+### Langkah 4 — VP Operations memvalidasi komponen operasional
 
-1. Klik **Submit untuk Approval**.
-2. Perhatikan: status berubah ke `Pending Procurement`.
-
-   Nilai transaksi saat submit adalah **Rp 64,65 Miliar** (direct cost
-   saja), sudah di atas ambang Rp 50 Miliar — sehingga sistem memilih
-   bucket **"B2G Large Deal"** yang berisi 4 step termasuk C-Level
-   Sign-off. Tunjukkan bahwa panel workflow di kanan memang menampilkan
-   4 step, bukan 3.
-
-   > **Penting:** bucket workflow dipilih **sekali, saat submit**,
-   > berdasarkan `final_price` pada saat itu — dan tidak dievaluasi ulang
-   > ketika margin ditambahkan belakangan. Ini keputusan desain agar alur
-   > approval tidak berubah-ubah di tengah jalan.
-
-3. Panel **Multi-Department Approval Workflow** muncul di kanan,
-   menampilkan step 1 (Procurement) berstatus `In Progress` dengan SLA
-   timer 24 jam.
-4. Karena role Procurement cocok dengan departemen step aktif, tombol
-   **Approve / Approve with Conditions / Reject / Targeted Reject**
-   muncul. Klik **Approve**.
-
-**Yang didemokan:** FR-2.2 Strict Gatekeeping — step 2 (Engineering)
-otomatis berubah ke `In Progress` hanya setelah step 1 disetujui; tidak
-bisa di-skip.
-
-### Langkah 5 — Engineering mengisi Indirect Costs
-
-1. Logout, login sebagai **engineering@vktr.demo**.
-2. Buka proposal yang sama.
-3. Isi kolom **Indirect Costs**:
+1. Logout, login sebagai **vpops@vktr.demo**.
+2. Buka quotation yang sama. Form terbuka karena stepnya aktif.
+3. Isi komponen milik VP Operations:
 
    | Item | Nilai/unit |
    |---|---|
+   | STNK / Vehicle Registration | 12.000.000 |
+   | Delivery & Handling | 15.000.000 |
    | Testing & Homologasi | 35.000.000 |
    | Pengujian Tipe | 18.000.000 |
-   | Overheads Proyek | 25.000.000 |
    | Warranty Provision | 40.000.000 |
    | After-Sales Maintenance Support | 20.000.000 |
+   | Overheads Proyek | 25.000.000 |
 
-4. **Simpan & Hitung Ulang Harga**, lalu klik **Approve** pada step
-   Engineering yang kini aktif.
+4. **Simpan & Hitung Ulang Harga**, lalu klik **Approve**.
 
-### Langkah 6 — Finance mengisi Margin & memicu Guardrail Alert
+**Perhatikan:** quotation **tidak** langsung maju ke Chief Sales. Panel
+menampilkan pesan bahwa sistem masih menunggu VP Finance — inilah
+**AND-join** (FR-2.0). Ini poin demo penting.
 
-1. Logout, login sebagai **finance@vktr.demo**.
-2. Buka proposal yang sama.
-3. **Untuk mendemokan Margin Guardrail Alert (FR-4.2)**, isi margin
-   sengaja rendah dulu:
+### Langkah 5 — VP Finance memvalidasi & memicu Guardrail Alert
+
+1. Logout, login sebagai **vpfinance@vktr.demo**.
+2. Buka quotation yang sama.
+3. **Untuk mendemokan Margin Guardrail (FR-4.2)**, isi margin sengaja rendah dulu:
 
    | Item | Nilai |
    |---|---|
+   | OPEX / Overhead Allocation | 20.000.000 |
    | Cost of Funds | 3 (%) |
    | Financial Leasing Margin | 1 (%) |
    | Sales Commission | 1.5 (%) |
    | Contingency Buffer | 1 (%) |
 
 4. **Simpan & Hitung Ulang Harga.**
-5. Perhatikan banner merah di atas ringkasan kalkulasi:
-   *"Margin Guardrail Alert (FR-4.2): GPM proyek ini (6,1%) berada di
-   bawah threshold minimum 14,0% untuk lini bisnis ini."*
+5. Banner merah muncul: GPM di bawah ambang minimum 14% untuk lini bisnis ini.
+6. Buka **DSS** di sidebar — quotation ini muncul di kartu **Intelligent
+   Margin Guardrails**.
 
-   Angka pastinya: base cost Rp 68,79 M, margin 6,5% → final price
-   Rp 73,26 M → **GPM 6,10%**.
-6. Buka **DSS → Decision Support System** di sidebar, lihat proposal
-   ini muncul di kartu **Intelligent Margin Guardrails**.
+### Langkah 6 — VP Finance memperbaiki margin
 
-**Yang didemokan:** FR-4.2 secara langsung — sistem mendeteksi kombinasi
-biaya yang membuat margin di bawah ambang batas manajemen, sebelum
-proposal lolos ke approval berikutnya.
-
-### Langkah 7 — Finance memperbaiki margin agar lolos threshold
-
-1. Masih sebagai Finance, naikkan nilai margin:
+1. Naikkan nilai margin:
 
    | Item | Nilai baru |
    |---|---|
@@ -194,144 +163,145 @@ proposal lolos ke approval berikutnya.
    | Sales Commission | 3 (%) |
    | Contingency Buffer | 3 (%) |
 
-2. **Simpan & Hitung Ulang Harga** — banner merah hilang. Final price
-   Rp 81,17 M, **GPM 15,25%**, di atas threshold 14%.
+2. **Simpan & Hitung Ulang Harga** — banner merah hilang, GPM di atas 14%.
 
    > **Kenapa harus setinggi itu?** Margin factor dihitung sebagai
-   > persentase *terhadap cost*, sedangkan GPM dihitung terhadap *harga
-   > jual*: `GPM = s / (1 + s)`. Jadi total margin 18% hanya menghasilkan
-   > GPM 15,25%, dan untuk sekadar menyentuh 14% dibutuhkan total margin
-   > **16,28%**. Total 13,5% (mis. 6/3/2/2.5) hanya memberi GPM 11,89% —
-   > banner tidak akan hilang.
+   > persentase *terhadap cost*, sedangkan GPM terhadap *harga jual*:
+   > `GPM = s / (1 + s)`. Total margin 18% menghasilkan GPM ±15%, dan untuk
+   > sekadar menyentuh 14% dibutuhkan total margin **16,28%**. Total 13,5%
+   > (mis. 6/3/2/2.5) hanya memberi GPM ±11,9% — banner tidak akan hilang.
 
-3. Karena Finance dapat melihat raw margin, tunjukkan panel ringkasan
-   sekarang menampilkan angka GPM/EBITDA yang sebenarnya (bandingkan
-   dengan tampilan `••••` saat login sebagai Sales di Langkah 2).
-4. Klik **Approve** pada step Finance.
+3. Karena VP Finance boleh melihat raw margin, tunjukkan angka GPM/EBITDA
+   yang sebenarnya (bandingkan dengan `••••` saat login sebagai Sales
+   Officer di Langkah 2).
+4. Klik **Approve**.
 
-Karena bucket workflow yang terpilih di Langkah 4 adalah **B2G Large
-Deal**, status proposal sekarang menjadi `Pending C-Level Sign-off`
-(step ke-4). Lanjut ke Langkah 8a.
+Kedua COGS Owner kini approved → AND-join terpenuhi → status maju ke
+`Pending Chief Sales Review`.
 
-### Langkah 8a — Jika masuk C-Level Sign-off
+### Langkah 7 — Chief Sales merakit quotation final
 
-1. Logout, login sebagai **clevel@vktr.demo**.
-2. Sebelum approve, buka **DSS → What-If Sensitivity Simulator**,
-   pilih proposal ini, geser slider:
-   - **Fluktuasi Kurs USD/IDR**: +5%
-   - **Perubahan Harga Material**: +8%
-   - **Volume Discount**: 3%
-3. Tunjukkan panel Base Case vs Simulated Case berubah **real-time**
-   (< 1 detik, tanpa reload) — final price naik, GPM turun, dan jika
-   turun di bawah threshold akan muncul warning merah di simulator itu
-   sendiri (§FR-4.1).
-4. Kembali ke halaman proposal, klik **Approve** (atau **Approve with
-   Conditions** dengan catatan, misal: *"Disetujui dengan syarat lock
-   kurs maksimum +3% saat kontrak ditandatangani"*).
+1. Logout, login sebagai **chiefsales@vktr.demo**.
+2. Buka quotation yang sama. Step Chief Sales kini aktif.
+3. Klik **Approve**.
 
-**Yang didemokan:** FR-4.1 What-If Simulator sebagai alat negosiasi
-eksekutif sebelum sign-off — persis skenario yang disebut di PRD §FR-4.1.
+Karena ini step terakhir, sistem menjalankan **Release Gate**
+(`src/lib/workflow/releaseGate.ts`) sebelum meloloskan quotation:
 
-### Langkah 8b — Jika ingin mendemokan Targeted Rejection
+- seluruh komponen COGS mandatory terisi,
+- seluruh COGS Owner sudah menyetujui,
+- margin di atas ambang (atau ada persetujuan BOD).
 
-Sebagai variasi (bisa dilakukan sebagai proposal terpisah, atau ulangi
-alur di atas untuk unit kedua):
+Bila semuanya lolos → status `Quotation Released`.
 
-1. Saat berperan sebagai Finance/C-Level dan melihat ada kesalahan pada
-   *biaya* (bukan margin), klik **Targeted Reject → pilih "Procurement"**
-   dari dropdown, isi catatan: *"Harga Bea Masuk sepertinya belum
-   termasuk PPN impor, mohon direvisi"*, klik **Kirim**.
-2. Login kembali sebagai **procurement@vktr.demo** — proposal kembali
-   muncul dengan status `Pending Procurement`, tanpa proposal ter-reset
-   ke draft awal (versi & data yang sudah diisi departemen lain tetap
-   ada).
-3. Karena step Procurement kini aktif kembali, form cost line **terbuka
-   lagi untuk Procurement** (dan hanya untuk Procurement). Revisi nilai
-   Bea Masuk, **Simpan & Hitung Ulang Harga**, lalu **Approve** — proposal
-   otomatis lanjut kembali ke step Engineering → Finance seperti semula
-   (state machine hanya membuka ulang step yang di antara target dan
-   step saat penolakan terjadi).
+**Yang didemokan:** FR-2.2 Release Gate — kontrol yang secara langsung
+mencegah insiden *margin leakage* yang melatarbelakangi proyek ini.
 
-**Yang didemokan:** FR-2.3 Targeted Rejection persis seperti contoh di
-PRD ("Reject dari Finance dikembalikan ke Procurement").
-
-### Langkah 9 — Proposal Final Approved, catat hasil tender
-
-1. Setelah step terakhir di-approve, status proposal menjadi
-   `Final Approved` (badge hijau).
-2. Panel baru **Tender Outcome** muncul di atas ringkasan kalkulasi.
-   Login sebagai **sales@vktr.demo** (atau tetap sebagai C-Level — kedua
-   role diizinkan), klik **Tandai Won**.
-
-**Yang didemokan:** FR-4.3 — outcome ini akan langsung menambah titik
-data baru ke scatter chart Win/Loss Analytics di halaman DSS.
+> **Demo alternatif (opsional).** Untuk memperlihatkan gate ini menolak,
+> kosongkan salah satu komponen mandatory sebelum Chief Sales approve —
+> sistem akan menampilkan pesan "Komponen COGS mandatory belum lengkap"
+> dan quotation **tidak** dirilis.
 
 ---
 
-## 2. Skenario Pendukung: Observability Dashboard
+## 2. Skenario Negosiasi: Diskon Berjenjang sampai BOD
 
-Tidak perlu data baru — cukup lakukan setelah Skenario 1 berjalan
-sebagian (ada proposal di berbagai status):
+Panel **Commercial Negotiation** muncul di halaman quotation begitu
+statusnya keluar dari `Drafting`.
+
+### Langkah 8 — Diskon kecil: wewenang Sales Officer
+
+1. Login sebagai **sales@vktr.demo**, buka quotation tadi.
+2. Di panel Commercial Negotiation, ajukan diskon **2%** dengan catatan
+   *"Permintaan Dishub untuk penyesuaian anggaran"*.
+3. Perhatikan: sistem menampilkan **Wewenang diperlukan: Sales Officer** —
+   ditentukan otomatis, bukan dipilih pengaju.
+4. Karena diskon masih dalam wewenangnya, Sales Officer dapat langsung
+   **Approve**. Harga quotation turun, GPM ikut turun.
+
+### Langkah 9 — Diskon menengah: eskalasi ke Chief Sales
+
+1. Masih sebagai Sales Officer, ajukan diskon **6%**.
+2. Sistem menandai **Wewenang diperlukan: Chief Sales**, dan Sales Officer
+   **tidak** melihat tombol Approve — hanya keterangan bahwa keputusan ada
+   di Chief Sales.
+3. Logout, login sebagai **chiefsales@vktr.demo** → tombol Approve/Reject/
+   Revise muncul. Klik **Approve**.
+
+**Yang didemokan:** FR-6.2 — eskalasi otomatis, *authority bypass*
+mustahil karena approver dihitung di server.
+
+### Langkah 10 — Diskon besar: BOD & Revise loop
+
+1. Login sebagai **sales@vktr.demo**, ajukan diskon **15%**.
+2. Sistem menandai **Wewenang diperlukan: BOD**, dan menampilkan
+   **peringatan margin merah** karena diskon sebesar ini menekan GPM di
+   bawah ambang.
+3. Logout, login sebagai **bod@vktr.demo**.
+4. Alih-alih menyetujui, isi *counter* **7%** lalu klik **Revise**.
+   - Request 15% menjadi `Superseded`.
+   - Request baru 7% dibuat otomatis, dan **wewenangnya dievaluasi ulang**
+     → jatuh ke Chief Sales, bukan otomatis disetujui.
+5. Login sebagai **chiefsales@vktr.demo** → **Approve** request 7%.
+
+**Yang didemokan:** FR-6.3 revision loop + FR-6.4 real-time margin
+visibility. Perhatikan riwayat negosiasi tercatat lengkap di panel.
+
+---
+
+## 3. Skenario Pendukung: Observability & Audit
 
 1. Login sebagai role manapun, buka **Lifecycle & Approvals**.
-2. Tampilan default **Kanban**: tunjukkan proposal baru Anda berpindah
-   kolom (Drafting → Pending Procurement → ... → Final Approved)
-   seiring alur di Skenario 1 dilakukan bertahap.
+2. Tampilan **Kanban**: quotation berpindah kolom (Drafting → Pending COGS
+   Validation → Pending Chief Sales Review → Quotation Released).
 3. Klik toggle **Table** — tunjukkan filter by Lini Bisnis & Status.
-4. Buka **Audit Trail** — tunjukkan setiap aksi (CREATE, RECALCULATE,
-   APPROVE, TARGETED_REJECT) tercatat dengan waktu, aktor, dan detail
-   perubahan field. Tekankan: **tabel ini append-only** — tidak ada
-   tombol edit/hapus di UI karena RLS Postgres memang tidak mengizinkan
-   `UPDATE`/`DELETE` pada tabel `audit_log_entry` (FR-3.3, lihat
-   `supabase/migrations/0002_rls_policies.sql`).
+4. Buka **Audit Trail** — setiap aksi tercatat: CREATE, RECALCULATE,
+   APPROVE, NEGOTIATION_REQUEST, NEGOTIATION_DECISION. Tekankan: tabel ini
+   **append-only** — RLS Postgres tidak mengizinkan `UPDATE`/`DELETE`
+   (FR-3.3, lihat `supabase/migrations/0002_rls_policies.sql`).
 
 ---
 
-## 3. Skenario Pendukung: Master Data & Workflow Admin
+## 4. Skenario Pendukung: Master Data & Admin
 
 1. Login sebagai **admin@vktr.demo**.
-2. Buka **Master Data & CBS** — tunjukkan 3 kartu Pricing Template (satu
-   per lini bisnis) dengan GPM threshold & eskalasi masing-masing, lalu
-   3 tabel cost item (Direct/Indirect/Margin) yang mendasari CBS di
-   Skenario 1. Coba tambah 1 cost item baru (mis. `Asuransi Pengiriman`,
-   kategori Direct, owner Procurement) lewat form di atas tabel.
-3. Buka **Workflow Admin** — tunjukkan bucket "B2G Standard (< Rp 50M)"
-   vs "B2G Large Deal (>= Rp 50M)" dan step-step approval masing-masing,
-   sebagai representasi FR-2.1 no-code workflow configurator (di POC
-   ini berupa view + toggle aktif/nonaktif, bukan drag-drop builder
-   penuh — lihat README §3 untuk penjelasan batasan ini).
+2. **Master Data & CBS** — 3 kartu Pricing Template dengan GPM threshold
+   masing-masing, lalu tabel cost item beserta **COGS Owner**-nya
+   (VP Finance vs VP Operations). Coba tambah 1 cost item baru.
+3. **Workflow Admin** — tunjukkan definisi workflow dengan dua step
+   paralel pada tahap COGS Validation, sebagai representasi FR-2.1
+   no-code configurator (di POC berupa view + toggle aktif/nonaktif,
+   bukan drag-drop builder penuh).
 
 ---
 
-## 4. Ringkasan Hasil yang Harus Terlihat di Akhir Demo
+## 5. Ringkasan Hasil yang Harus Terlihat di Akhir Demo
 
 | Modul | Bukti yang terlihat |
 |---|---|
-| Master Data & CBS | Cost item baru tampil di tabel; template & threshold per lini bisnis |
-| Dynamic Pricing Engine | GPM/EBITDA/BEP terhitung otomatis saat cost line diubah, versi v1.0 |
-| Workflow Approval | Proposal berpindah status sesuai step, gatekeeping mencegah lompat step, targeted-reject mengembalikan ke dept spesifik tanpa reset draft |
-| RBAC | Sales melihat `••••` untuk margin, Finance/C-Level melihat angka asli |
-| Observability | Kanban & Table menunjukkan posisi real-time; Audit Trail mencatat semua aksi immutable |
-| DSS — What-If | Slider mengubah GPM/EBITDA/BEP secara instan tanpa mengubah data resmi |
-| DSS — Guardrail | Alert muncul saat GPM di bawah threshold, hilang setelah margin diperbaiki |
-| DSS — Win/Loss | Scatter chart bertambah titik baru setelah outcome dicatat; Optimal Price Band per lini bisnis terlihat dari data historis seed |
+| Master Data & CBS | Cost item dengan COGS Owner; template & threshold per lini bisnis |
+| Dynamic Pricing Engine | GPM/EBITDA/BEP terhitung otomatis saat cost line diubah |
+| COGS Validation (paralel) | Dua VP aktif bersamaan; quotation menunggu keduanya (AND-join) |
+| Release Gate | Quotation tidak bisa dirilis bila COGS belum lengkap / margin di bawah ambang |
+| Commercial Negotiation | Approver ditentukan sistem; eskalasi Sales → Chief Sales → BOD; Revise mengevaluasi ulang wewenang |
+| Margin Visibility | Dampak diskon terhadap GPM tampil sebelum approver memutuskan |
+| RBAC | Sales Officer melihat `••••`; VP Finance/BOD melihat angka asli |
+| Observability | Kanban & Table real-time; Audit Trail immutable mencakup negosiasi |
+| DSS | What-If slider; Guardrail alert; Win/Loss Optimal Price Band |
 
 ---
 
-## 5. Catatan Batasan POC
+## 6. Catatan Batasan POC
 
-- **Write lock bersifat per-step, belum per-field.** Saat workflow
-  berjalan, hanya departemen yang stepnya aktif yang bisa menulis cost
-  line (ditegakkan di UI dan di server via
-  `src/lib/workflow/editGate.ts`). Namun departemen tersebut bisa
-  mengubah *semua* baris, bukan hanya kategori miliknya — mis. saat step
-  Procurement aktif, Procurement secara teknis juga bisa mengubah angka
-  Margin Factor milik Finance. Field-level write lock per kategori adalah
-  lapisan ABAC lanjutan yang akan ditambahkan di build produksi. Saat
-  proposal masih `Drafting`, form terbuka untuk siapa pun yang
-  menyiapkannya.
-- **Notifikasi SLA breach tidak terkirim ke Email/Teams/WhatsApp** —
-  hanya divisualisasikan di UI (badge "SLA Breached" pada
-  WorkflowPanel/Lifecycle).
-- **Tidak ada ekspor ke ERP/CRM** — proposal `Final Approved` berhenti
-  di PriceCore; tidak ada tombol "Export to ERP" pada POC ini.
+- **Write lock per-step, belum per-field.** COGS Owner yang stepnya aktif
+  bisa mengubah *semua* baris, bukan hanya kategori miliknya. Field-level
+  lock per kategori adalah lapisan ABAC lanjutan.
+- **Customer KYC & Opportunity Assessment (PRD Module 7) belum dibangun** —
+  didokumentasikan sebagai requirement, tapi di POC nama pelanggan cukup
+  diisi sebagai teks bebas.
+- **Notifikasi SLA breach tidak terkirim** ke Email/Teams/WhatsApp — hanya
+  divisualisasikan di UI (badge "SLA Breached").
+- **Tidak ada ekspor ke ERP/CRM** — quotation `Released` berhenti di
+  PriceCore.
+- **Ambang diskon (3% / 8%) bersifat ilustratif** — angka sesungguhnya
+  perlu dikonfirmasi ke Chief Sales & BOD (lihat Technical Logic §12).

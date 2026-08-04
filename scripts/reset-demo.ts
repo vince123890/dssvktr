@@ -7,7 +7,7 @@
  *     historical set), together with its versions, cost lines,
  *     calculation results, workflow instance and steps
  *   - workflow progress on the seeded proposals (they go back to
- *     FINAL_APPROVED / DRAFT as the seed left them)
+ *     QUOTATION_RELEASED / DRAFT as the seed left them)
  *   - audit log entries produced by demo activity
  *
  * What it KEEPS:
@@ -62,7 +62,7 @@ const SEEDED_TITLES = new Set([
   "Charging Hub — Terminal Pulo Gebang",
 ]);
 
-/** Titles the seed leaves in DRAFT (the rest are FINAL_APPROVED). */
+/** Titles the seed leaves in DRAFT (the rest are QUOTATION_RELEASED). */
 const SEEDED_DRAFT_TITLES = new Set([
   "18 Unit EV Bus — Dishub Kota Medan",
   "6 Unit EV Truck — Paxel Same-Day",
@@ -119,7 +119,11 @@ async function main() {
       rewound++;
     }
 
-    const targetStatus = SEEDED_DRAFT_TITLES.has(p.title) ? "DRAFT" : "FINAL_APPROVED";
+    // Discount negotiations raised during a demo must go too, otherwise
+    // the next run starts with a pending request blocking the release.
+    await deleteNegotiations(p.id);
+
+    const targetStatus = SEEDED_DRAFT_TITLES.has(p.title) ? "DRAFT" : "QUOTATION_RELEASED";
     const targetOutcome = targetStatus === "DRAFT" ? "PENDING" : undefined;
 
     await supabase
@@ -128,6 +132,8 @@ async function main() {
         current_status: targetStatus,
         current_step_order: 0,
         workflow_definition_id: null,
+        applied_discount_pct: 0,
+        has_bod_margin_approval: false,
         ...(targetOutcome ? { outcome: targetOutcome } : {}),
       })
       .eq("id", p.id);
@@ -162,8 +168,34 @@ async function versionIdsFor(proposalId: string): Promise<string[]> {
   return (data ?? []).map((v) => v.id);
 }
 
+async function deleteNegotiations(proposalId: string) {
+  const { data: requests } = await supabase
+    .from("negotiation_request")
+    .select("id")
+    .eq("proposal_id", proposalId);
+
+  const requestIds = (requests ?? []).map((r) => r.id);
+  if (requestIds.length === 0) return;
+
+  await supabase
+    .from("negotiation_decision")
+    .delete()
+    .in("negotiation_request_id", requestIds);
+
+  // Clear the self-reference before deleting so REVISE chains don't
+  // trip the parent_request_id foreign key.
+  await supabase
+    .from("negotiation_request")
+    .update({ parent_request_id: null })
+    .in("id", requestIds);
+
+  await supabase.from("negotiation_request").delete().in("id", requestIds);
+}
+
 async function deleteProposalCascade(proposalId: string) {
   const versionIds = await versionIdsFor(proposalId);
+
+  await deleteNegotiations(proposalId);
 
   if (versionIds.length > 0) {
     const { data: instances } = await supabase

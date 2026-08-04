@@ -8,7 +8,7 @@ import type { PricingProposal, Profile, WorkflowStepInstance } from "@/types/dat
  * read-only logic the detail page uses to render the form.
  *
  * Rules:
- *  - FINAL_APPROVED / REJECTED proposals are frozen for everyone.
+ *  - QUOTATION_RELEASED / REJECTED proposals are frozen for everyone.
  *  - A DRAFT is editable by any authenticated user preparing it.
  *  - Once the workflow is running, only the department owning the
  *    currently active step may edit — this is what allows Engineering to
@@ -22,7 +22,7 @@ export async function assertCanEditCostLines(
   profile: Profile
 ): Promise<void> {
   if (
-    proposal.current_status === "FINAL_APPROVED" ||
+    proposal.current_status === "QUOTATION_RELEASED" ||
     proposal.current_status === "REJECTED"
   ) {
     throw new Error(
@@ -51,20 +51,28 @@ export async function assertCanEditCostLines(
     .eq("workflow_instance_id", instance.id)
     .eq("status", "IN_PROGRESS");
 
-  const activeStep = (stepRows ?? [])[0] as WorkflowStepInstance | undefined;
-  if (!activeStep) {
+  const activeSteps = (stepRows ?? []) as WorkflowStepInstance[];
+  if (activeSteps.length === 0) {
     throw new Error("Tidak ada step aktif — cost line terkunci.");
   }
 
-  const { data: department } = await supabase
+  // COGS validation is parallel, so several steps can be active at once.
+  // The user may edit if any of them belongs to their department.
+  const { data: departments } = await supabase
     .from("department")
-    .select("code")
-    .eq("id", activeStep.department_id)
-    .maybeSingle();
+    .select("id, code")
+    .in(
+      "id",
+      activeSteps.map((s) => s.department_id)
+    );
 
-  if (department?.code !== ROLE_DEPARTMENT_CODE[profile.role]) {
+  const activeCodes = new Set(
+    (departments ?? []).map((d: { code: string }) => d.code)
+  );
+
+  if (!activeCodes.has(ROLE_DEPARTMENT_CODE[profile.role])) {
     throw new Error(
-      `Cost line hanya dapat diisi oleh departemen yang stepnya sedang aktif (${department?.code ?? "?"}).`
+      `Cost line hanya dapat diisi oleh COGS Owner yang stepnya sedang aktif (${[...activeCodes].join(", ")}).`
     );
   }
 }

@@ -9,11 +9,18 @@ import { CalculationSummary } from "./CalculationSummary";
 import { WorkflowPanel } from "./WorkflowPanel";
 import { SubmitButton } from "./SubmitButton";
 import { OutcomePanel } from "./OutcomePanel";
-import { canRecordWinLossOutcome, ROLE_DEPARTMENT_CODE } from "@/lib/rbac";
+import { NegotiationPanel } from "./NegotiationPanel";
+import {
+  canRecordWinLossOutcome,
+  canRequestDiscount,
+  ROLE_DEPARTMENT_CODE,
+} from "@/lib/rbac";
+import { loadDiscountLadder } from "@/lib/negotiation/authority";
 import type {
   CbsTemplate,
   CostItem,
   Department,
+  NegotiationRequest,
   PricingProposal,
   ProposalCalculationResult,
   ProposalCostLine,
@@ -98,6 +105,15 @@ export default async function ProposalDetailPage({
   const depts = (departments ?? []) as Department[];
   const ownerDeptCodeById = Object.fromEntries(depts.map((d) => [d.id, d.code]));
 
+  const [{ data: negotiations }, discountLadder] = await Promise.all([
+    supabase
+      .from("negotiation_request")
+      .select("*")
+      .eq("proposal_id", proposal.id)
+      .order("created_at", { ascending: false }),
+    loadDiscountLadder(supabase, proposal.business_line),
+  ]);
+
   let steps: WorkflowStepInstance[] = [];
   if (proposal.current_status !== "DRAFT") {
     const { data: instance } = await supabase
@@ -117,23 +133,26 @@ export default async function ProposalDetailPage({
   }
 
   // Cost lines stay editable while the workflow is in flight, but only for
-  // the department whose step is currently active — that is what lets
-  // Engineering enter indirect costs at step 2 and Finance enter margin
-  // factors at step 3. A DRAFT is open to whoever is preparing it, and a
-  // closed proposal is locked to everyone.
-  const activeStep = steps.find((s) => s.status === "IN_PROGRESS");
-  const activeDeptCode = activeStep
-    ? ownerDeptCodeById[activeStep.department_id]
-    : null;
+  // the COGS Owner whose step is currently active — that is what lets VP
+  // Operations enter logistics costs while VP Finance enters margin
+  // factors, concurrently. A DRAFT is open to whoever is preparing it,
+  // and a released quotation is locked to everyone.
+  //
+  // COGS validation runs in parallel, so match against *any* active step
+  // belonging to this user's department, not merely the first one.
+  const myDeptCode = ROLE_DEPARTMENT_CODE[profile.role];
+  const hasActiveStepForMe = steps.some(
+    (s) =>
+      s.status === "IN_PROGRESS" && ownerDeptCodeById[s.department_id] === myDeptCode
+  );
 
   const isClosed =
-    proposal.current_status === "FINAL_APPROVED" ||
+    proposal.current_status === "QUOTATION_RELEASED" ||
     proposal.current_status === "REJECTED";
 
   const isReadOnly =
     isClosed ||
-    (proposal.current_status !== "DRAFT" &&
-      ROLE_DEPARTMENT_CODE[profile.role] !== activeDeptCode);
+    (proposal.current_status !== "DRAFT" && !hasActiveStepForMe);
 
   const tmpl = template as CbsTemplate;
 
@@ -159,7 +178,7 @@ export default async function ProposalDetailPage({
         {proposal.current_status === "DRAFT" && <SubmitButton proposalId={proposal.id} />}
       </div>
 
-      {proposal.current_status === "FINAL_APPROVED" && (
+      {proposal.current_status === "QUOTATION_RELEASED" && (
         <Card>
           <CardContent className="py-3">
             <OutcomePanel
@@ -198,7 +217,17 @@ export default async function ProposalDetailPage({
           </Card>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-6">
+          {proposal.current_status !== "DRAFT" && (
+            <NegotiationPanel
+              proposalId={proposal.id}
+              requests={(negotiations ?? []) as NegotiationRequest[]}
+              role={profile.role}
+              ladder={discountLadder}
+              canRequest={canRequestDiscount(profile.role) && !isClosed}
+            />
+          )}
+
           {steps.length > 0 ? (
             <WorkflowPanel
               proposalId={proposal.id}

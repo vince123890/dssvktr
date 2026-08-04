@@ -6,37 +6,64 @@ import type {
 } from "@/types/database";
 
 /**
- * Workflow State Machine — Technical Logic §4.
+ * Workflow State Machine — Technical Logic §4 (v2.0).
  *
  * Pure functions only (no I/O). Callers (server actions / route
  * handlers) are responsible for persisting the resulting state and
  * writing the corresponding audit_log_entry — this mirrors the
  * technical-logic principle that gatekeeping must be enforced in the
  * service layer, not just the UI (§10 "Zero-bypass guarantee").
+ *
+ * v2.0 supports PARALLEL steps: several step instances may share a
+ * step_order (VP Finance alongside VP Operations). A step_order is only
+ * complete when *every* member of it is approved — the AND-join
+ * described in §4.2.
  */
+
+const APPROVED_STATUSES: StepStatus[] = ["APPROVED", "APPROVED_WITH_CONDITIONS"];
 
 export interface GateCheckResult {
   canAdvance: boolean;
   reason?: string;
 }
 
+function isApproved(step: WorkflowStepInstance): boolean {
+  return APPROVED_STATUSES.includes(step.status);
+}
+
+/** All step instances sharing a step_order (a parallel group, or one step). */
+export function stepsAtOrder(
+  steps: WorkflowStepInstance[],
+  order: number
+): WorkflowStepInstance[] {
+  return steps.filter((s) => s.step_order === order);
+}
+
+/** True once every member of the given step_order has approved (AND-join). */
+export function isOrderComplete(
+  steps: WorkflowStepInstance[],
+  order: number
+): boolean {
+  const group = stepsAtOrder(steps, order);
+  return group.length > 0 && group.every(isApproved);
+}
+
 /**
- * FR-2.2 Strict Gatekeeping: a step cannot move to IN_PROGRESS until the
- * previous step is APPROVED / APPROVED_WITH_CONDITIONS.
+ * FR-2.2 Strict Gatekeeping: an order cannot open until every prior
+ * order — including all members of any parallel group — is approved.
  */
 export function canAdvanceToStep(
   steps: WorkflowStepInstance[],
   targetStepOrder: number
 ): GateCheckResult {
-  const previousSteps = steps.filter((s) => s.step_order < targetStepOrder);
-  const blocking = previousSteps.find(
-    (s) => s.status !== "APPROVED" && s.status !== "APPROVED_WITH_CONDITIONS"
+  const blocking = steps.filter(
+    (s) => s.step_order < targetStepOrder && !isApproved(s)
   );
 
-  if (blocking) {
+  if (blocking.length > 0) {
     return {
       canAdvance: false,
-      reason: `Step ${blocking.step_order} (${blocking.department_id}) belum APPROVED — proses tidak boleh melewati departemen ini (zero-bypass).`,
+      reason: `Masih menunggu ${blocking.length} approver pada tahap sebelumnya — proses tidak boleh melewati COGS Owner (zero-bypass).`,
     };
   }
 
@@ -45,7 +72,7 @@ export function canAdvanceToStep(
 
 /**
  * FR-2.2: mandatory cost items owned by the step's department must be
- * filled before that step can be worked on.
+ * filled before that step can be approved.
  */
 export function checkMandatoryCostItemsFilled(
   mandatoryCostItemIds: string[],
@@ -55,7 +82,7 @@ export function checkMandatoryCostItemsFilled(
   if (missing.length > 0) {
     return {
       canAdvance: false,
-      reason: `${missing.length} mandatory cost item(s) belum diisi.`,
+      reason: `${missing.length} komponen COGS mandatory belum diisi.`,
     };
   }
   return { canAdvance: true };
@@ -69,13 +96,25 @@ export function statusForStepOrder(
   return def?.status_label ?? "DRAFT";
 }
 
+/** The next step_order that exists after the given one, or null. */
+export function nextStepOrderAfter(
+  stepDefs: WorkflowStepDefinition[],
+  order: number
+): number | null {
+  const later = stepDefs
+    .map((d) => d.step_order)
+    .filter((o) => o > order)
+    .sort((a, b) => a - b);
+  return later.length > 0 ? later[0] : null;
+}
+
 /**
  * FR-2.3 Rejection & Routing Logic.
  *
- * `TARGETED_REJECT` resets every step from `targetStepOrder` up to (and
- * including) the currently-active step back to PENDING, without
- * touching the proposal version/draft itself — matching "Reject dari
- * Finance dikembalikan ke Procurement tanpa membatalkan draft dari awal".
+ * `TARGETED_REJECT` reopens the target order and resets everything
+ * between it and the current step, without touching the proposal
+ * version/draft — matching "Reject dari VP Finance dikembalikan ke Chief
+ * Sales tanpa membatalkan draft dari awal".
  */
 export type DecisionAction =
   | "APPROVE"
@@ -85,7 +124,8 @@ export type DecisionAction =
 
 export interface ApplyDecisionParams {
   steps: WorkflowStepInstance[];
-  currentStepOrder: number;
+  /** The specific step instance being decided on (not just its order). */
+  stepInstanceId: string;
   action: DecisionAction;
   targetStepOrder?: number; // required for TARGETED_REJECT
   decisionNote?: string;
@@ -94,20 +134,35 @@ export interface ApplyDecisionParams {
 
 export interface ApplyDecisionResult {
   updatedSteps: WorkflowStepInstance[];
-  nextProposalStatus: ProposalStatus | "REJECTED" | "AWAITING_NEXT";
+  nextProposalStatus: ProposalStatus;
   nextStepOrder: number | null;
+  /** True when this decision completed the whole workflow. */
+  isFinalApproval: boolean;
+}
+
+function openStep(step: WorkflowStepInstance, now: string): void {
+  step.status = "IN_PROGRESS";
+  step.started_at = now;
+  step.completed_at = null;
+  step.decision_note = null;
+  step.sla_due_at = new Date(
+    Date.now() + step.sla_hours * 60 * 60 * 1000
+  ).toISOString();
 }
 
 export function applyDecision(
   params: ApplyDecisionParams,
   stepDefs: WorkflowStepDefinition[]
 ): ApplyDecisionResult {
-  const { steps, currentStepOrder, action, targetStepOrder, decisionNote, actorId } =
+  const { steps, stepInstanceId, action, targetStepOrder, decisionNote, actorId } =
     params;
 
   const now = new Date().toISOString();
   const updated = steps.map((s) => ({ ...s }));
-  const currentStep = updated.find((s) => s.step_order === currentStepOrder)!;
+  const currentStep = updated.find((s) => s.id === stepInstanceId);
+
+  if (!currentStep) throw new Error("Step instance tidak ditemukan.");
+  const currentStepOrder = currentStep.step_order;
 
   if (action === "APPROVE" || action === "APPROVE_WITH_CONDITIONS") {
     currentStep.status = action === "APPROVE" ? "APPROVED" : "APPROVED_WITH_CONDITIONS";
@@ -115,28 +170,36 @@ export function applyDecision(
     currentStep.actor_id = actorId;
     currentStep.decision_note = decisionNote ?? null;
 
-    const nextDef = stepDefs.find((d) => d.step_order === currentStepOrder + 1);
-    if (!nextDef) {
+    // AND-join: if peers in the same parallel group are still pending,
+    // the workflow stays on this order and simply waits for them.
+    if (!isOrderComplete(updated, currentStepOrder)) {
       return {
         updatedSteps: updated,
-        nextProposalStatus: "FINAL_APPROVED",
-        nextStepOrder: null,
+        nextProposalStatus: statusForStepOrder(stepDefs, currentStepOrder),
+        nextStepOrder: currentStepOrder,
+        isFinalApproval: false,
       };
     }
 
-    const nextStep = updated.find((s) => s.step_order === currentStepOrder + 1);
-    if (nextStep) {
-      nextStep.status = "IN_PROGRESS";
-      nextStep.started_at = now;
-      nextStep.sla_due_at = new Date(
-        Date.now() + nextStep.sla_hours * 60 * 60 * 1000
-      ).toISOString();
+    const nextOrder = nextStepOrderAfter(stepDefs, currentStepOrder);
+    if (nextOrder === null) {
+      return {
+        updatedSteps: updated,
+        nextProposalStatus: "QUOTATION_RELEASED",
+        nextStepOrder: null,
+        isFinalApproval: true,
+      };
+    }
+
+    for (const step of stepsAtOrder(updated, nextOrder)) {
+      openStep(step, now);
     }
 
     return {
       updatedSteps: updated,
-      nextProposalStatus: statusForStepOrder(stepDefs, currentStepOrder + 1),
-      nextStepOrder: currentStepOrder + 1,
+      nextProposalStatus: statusForStepOrder(stepDefs, nextOrder),
+      nextStepOrder: nextOrder,
+      isFinalApproval: false,
     };
   }
 
@@ -145,11 +208,16 @@ export function applyDecision(
     currentStep.completed_at = now;
     currentStep.actor_id = actorId;
     currentStep.decision_note = decisionNote ?? null;
-    return { updatedSteps: updated, nextProposalStatus: "DRAFT", nextStepOrder: null };
+    return {
+      updatedSteps: updated,
+      nextProposalStatus: "DRAFT",
+      nextStepOrder: null,
+      isFinalApproval: false,
+    };
   }
 
   // TARGETED_REJECT
-  if (!targetStepOrder) {
+  if (targetStepOrder === undefined) {
     throw new Error("targetStepOrder is required for TARGETED_REJECT");
   }
 
@@ -159,16 +227,18 @@ export function applyDecision(
   currentStep.decision_note = decisionNote ?? null;
 
   for (const s of updated) {
-    if (s.step_order >= targetStepOrder && s.step_order < currentStepOrder) {
-      s.status = s.step_order === targetStepOrder ? "IN_PROGRESS" : "PENDING";
-      s.completed_at = null;
-      s.actor_id = null;
-      s.decision_note = null;
+    if (s.step_order >= targetStepOrder && s.step_order <= currentStepOrder) {
+      if (s.id === currentStep.id) continue; // keep the rejection on record
       if (s.step_order === targetStepOrder) {
-        s.started_at = now;
-        s.sla_due_at = new Date(
-          Date.now() + s.sla_hours * 60 * 60 * 1000
-        ).toISOString();
+        s.actor_id = null;
+        openStep(s, now);
+      } else {
+        s.status = "PENDING";
+        s.started_at = null;
+        s.completed_at = null;
+        s.sla_due_at = null;
+        s.actor_id = null;
+        s.decision_note = null;
       }
     }
   }
@@ -177,35 +247,31 @@ export function applyDecision(
     updatedSteps: updated,
     nextProposalStatus: statusForStepOrder(stepDefs, targetStepOrder),
     nextStepOrder: targetStepOrder,
+    isFinalApproval: false,
   };
 }
 
 /**
  * FR-2.4 Dynamic Form Adjustment: when a new mandatory cost item is
- * attached to an in-flight proposal, if its owning department's step
- * already passed, that step (and everything after it) is rewound to
- * PENDING for re-verification.
+ * attached to an in-flight proposal, if its owning COGS Owner's step
+ * already passed, that step (and everything after it) is rewound for
+ * re-verification.
  */
 export function applyDynamicFormAdjustment(
   steps: WorkflowStepInstance[],
   ownerStepOrder: number
 ): { updatedSteps: WorkflowStepInstance[]; reverted: boolean } {
-  const ownerStep = steps.find((s) => s.step_order === ownerStepOrder);
-  if (!ownerStep || ownerStep.status !== "APPROVED" && ownerStep.status !== "APPROVED_WITH_CONDITIONS") {
+  const ownerSteps = stepsAtOrder(steps, ownerStepOrder);
+  if (ownerSteps.length === 0 || !ownerSteps.some(isApproved)) {
     return { updatedSteps: steps, reverted: false };
   }
 
   const now = new Date().toISOString();
   const updated = steps.map((s) => {
     if (s.step_order === ownerStepOrder) {
-      return {
-        ...s,
-        status: "IN_PROGRESS" as StepStatus,
-        started_at: now,
-        completed_at: null,
-        decision_note: null,
-        sla_due_at: new Date(Date.now() + s.sla_hours * 60 * 60 * 1000).toISOString(),
-      };
+      const copy = { ...s };
+      openStep(copy, now);
+      return copy;
     }
     if (s.step_order > ownerStepOrder) {
       return {

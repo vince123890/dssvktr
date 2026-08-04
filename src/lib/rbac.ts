@@ -5,11 +5,14 @@ import type { CalculationBreakdown, UserRole } from "@/types/database";
  * row-level, so masking of `raw margin %` from Sales is enforced here
  * in the query/serialization layer — matching §8.1's explicit note that
  * field masking happens in "response serializer ... not client-side".
+ *
+ * v2.0: roles follow the VKTR Commercial Quotation SOP.
  */
 
 const ROLES_THAT_SEE_RAW_MARGIN: UserRole[] = [
-  "FINANCE_CONTROLLER",
-  "C_LEVEL",
+  "VP_FINANCE",
+  "CHIEF_SALES",
+  "BOD",
   "SYSTEM_ADMIN",
 ];
 
@@ -26,13 +29,18 @@ export function canManageWorkflowDefinitions(role: UserRole): boolean {
 }
 
 export function canRecordWinLossOutcome(role: UserRole): boolean {
-  return role === "SALES_MANAGER" || role === "C_LEVEL" || role === "SYSTEM_ADMIN";
+  return role === "SALES_OFFICER" || role === "CHIEF_SALES" || role === "BOD" || role === "SYSTEM_ADMIN";
+}
+
+/** Who may raise a customer discount request (FR-6.2). */
+export function canRequestDiscount(role: UserRole): boolean {
+  return role === "SALES_OFFICER" || role === "CHIEF_SALES" || role === "SYSTEM_ADMIN";
 }
 
 /**
  * Masks MARGIN_FACTOR line items from the breakdown for roles that
  * should only see the final_price target, not the raw margin build-up
- * (PRD NFR: "Sales tidak dapat melihat persentase raw margin ... namun
+ * (PRD NFR: "Sales Officer tidak dapat melihat raw margin ... namun
  * dapat melihat final price target").
  */
 export function maskBreakdownForRole(
@@ -52,19 +60,19 @@ export function maskBreakdownForRole(
 }
 
 export const ROLE_LABELS: Record<UserRole, string> = {
-  PROCUREMENT_ANALYST: "Procurement Analyst",
-  COST_ENGINEER: "Cost Engineer",
-  FINANCE_CONTROLLER: "Finance Controller",
-  SALES_MANAGER: "Sales / Account Manager",
-  C_LEVEL: "C-Level / BOD",
+  SALES_OFFICER: "Sales Officer",
+  CHIEF_SALES: "Chief Sales",
+  VP_FINANCE: "VP Finance",
+  VP_OPERATIONS: "VP Operations",
+  BOD: "Board of Directors",
   SYSTEM_ADMIN: "System Admin",
 };
 
 export const ROLE_DEPARTMENT_CODE: Record<UserRole, string> = {
-  PROCUREMENT_ANALYST: "PROCUREMENT",
-  COST_ENGINEER: "ENGINEERING",
-  FINANCE_CONTROLLER: "FINANCE",
-  SALES_MANAGER: "SALES",
-  C_LEVEL: "C_LEVEL",
+  SALES_OFFICER: "SALES",
+  CHIEF_SALES: "CHIEF_SALES",
+  VP_FINANCE: "VP_FINANCE",
+  VP_OPERATIONS: "VP_OPERATIONS",
+  BOD: "BOD",
   SYSTEM_ADMIN: "ADMIN",
 };

@@ -27,9 +27,9 @@ export default async function OverviewPage() {
   const proposals = (proposalsData ?? []) as PricingProposal[];
 
   const activeProposals = proposals.filter(
-    (p) => p.current_status !== "DRAFT" && p.current_status !== "FINAL_APPROVED" && p.current_status !== "REJECTED"
+    (p) => p.current_status !== "DRAFT" && p.current_status !== "QUOTATION_RELEASED" && p.current_status !== "REJECTED"
   );
-  const finalApproved = proposals.filter((p) => p.current_status === "FINAL_APPROVED");
+  const finalApproved = proposals.filter((p) => p.current_status === "QUOTATION_RELEASED");
   const configErrors = proposals.filter((p) => p.current_status === "CONFIG_ERROR");
 
   const { data: breachedSteps } = await supabase
