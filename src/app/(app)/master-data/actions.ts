@@ -48,6 +48,34 @@ export async function createCostItemAction(formData: FormData) {
 
   if (error) throw new Error(error.message);
 
+  // A cost item only reaches a quotation through a CBS template. Without
+  // this the item saves successfully but never appears anywhere — the
+  // form looks like it worked while producing nothing.
+  const { data: templates } = await supabase
+    .from("cbs_template")
+    .select("id")
+    .eq("status", "active");
+
+  const { data: maxSort } = await supabase
+    .from("cbs_template_item")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const nextSort = (maxSort?.sort_order ?? 0) + 1;
+
+  if (templates && templates.length > 0) {
+    const { error: linkError } = await supabase.from("cbs_template_item").insert(
+      templates.map((t) => ({
+        template_id: t.id,
+        cost_item_id: data.id,
+        sort_order: nextSort,
+      }))
+    );
+    if (linkError) throw new Error(linkError.message);
+  }
+
   await writeAuditLog(supabase, {
     entityType: "cost_item",
     entityId: data.id,
