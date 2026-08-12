@@ -55,9 +55,9 @@ export function ExchangeRatePanel({
                 if (!result.ok) setError(result.error ?? "Gagal menyimpan");
               });
             }}
-            className="flex flex-wrap items-end gap-2"
+            className="flex flex-wrap items-end gap-3"
           >
-            <label className="text-xs text-muted space-y-1">
+            <label className="text-xs text-muted space-y-1 flex-1 min-w-[200px]">
               <span>Kurs baru (IDR per 1 USD)</span>
               <input
                 type="number"
@@ -67,16 +67,16 @@ export function ExchangeRatePanel({
                 required
                 placeholder="16350"
                 disabled={isPending}
-                className={`${inputClass} w-40`}
+                className={inputClass}
               />
             </label>
-            <label className="text-xs text-muted space-y-1">
+            <label className="text-xs text-muted space-y-1 flex-1 min-w-[200px]">
               <span>Sumber</span>
               <input
                 name="source"
                 defaultValue="manual"
                 disabled={isPending}
-                className={`${inputClass} w-40`}
+                className={inputClass}
               />
             </label>
             <Button type="submit" size="sm" loading={isPending}>
@@ -103,7 +103,7 @@ export function ExchangeRatePanel({
               </tr>
             </thead>
             <tbody>
-              {rates.slice(0, 5).map((r, i) => (
+              {rates.slice(0, 6).map((r, i) => (
                 <tr key={r.id} className="border-t border-card-border">
                   <td className="px-3 py-2 font-medium">
                     {Number(r.rate).toLocaleString("id-ID")}
@@ -205,7 +205,7 @@ export function MineralIndexPanel({
                 if (!result.ok) setError(result.error ?? "Gagal menyimpan");
               });
             }}
-            className="grid grid-cols-2 gap-2 lg:grid-cols-5"
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
           >
             <label className="text-xs text-muted space-y-1">
               <span>Mineral</span>
@@ -250,7 +250,7 @@ export function MineralIndexPanel({
                 className={inputClass}
               />
             </label>
-            <label className="text-xs text-muted space-y-1">
+            <label className="text-xs text-muted space-y-1 sm:col-span-2 lg:col-span-1">
               <span>Referensi Kepmen</span>
               <input
                 name="regulation_ref"
@@ -260,8 +260,13 @@ export function MineralIndexPanel({
               />
             </label>
 
-            <div className="col-span-2 flex justify-end lg:col-span-5">
-              <Button type="submit" size="sm" loading={isPending}>
+            <div className="flex items-end sm:col-span-2 lg:col-span-3 xl:col-span-1">
+              <Button
+                type="submit"
+                size="sm"
+                loading={isPending}
+                className="w-full xl:w-auto"
+              >
                 Simpan HMA
               </Button>
             </div>
@@ -287,7 +292,7 @@ export function MineralIndexPanel({
                   <td className="px-3 py-2">
                     {Number(s.hma_value).toLocaleString("en-US")}
                   </td>
-                  <td className="px-3 py-2 text-muted">
+                  <td className="px-3 py-2 text-muted whitespace-nowrap">
                     {s.period_start} — {s.period_end}
                   </td>
                   <td className="px-3 py-2 text-muted">{s.regulation_ref ?? "—"}</td>
