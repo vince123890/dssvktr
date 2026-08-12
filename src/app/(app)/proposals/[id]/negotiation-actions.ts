@@ -335,6 +335,8 @@ async function recalculateWithDiscount(
     cbsTemplateId: proposal.cbs_template_id,
     unitQuantity: proposal.unit_quantity,
     businessLine: proposal.business_line as BusinessLine,
+    inputCurrency: proposal.input_currency,
+    baselineHpmValue: proposal.baseline_hpm_value,
     volumeDiscountPct: discountPct,
   });
 }

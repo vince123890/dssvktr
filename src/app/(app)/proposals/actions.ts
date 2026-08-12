@@ -5,6 +5,7 @@ import { requireProfile } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { recalculateAndPersist } from "@/lib/pricing/calculate";
 import { assertCanEditCostLines } from "@/lib/workflow/editGate";
+import { loadMineralContext } from "@/lib/pricing/mineral";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -19,6 +20,7 @@ const CreateProposalSchema = z.object({
   ]),
   customer_name: z.string().optional(),
   unit_quantity: z.coerce.number().int().min(1),
+  input_currency: z.enum(["IDR", "USD"]).default("IDR"),
 });
 
 async function generateProposalNumber(
@@ -53,6 +55,7 @@ export async function createProposalAction(formData: FormData) {
     business_line: formData.get("business_line"),
     customer_name: formData.get("customer_name") || undefined,
     unit_quantity: formData.get("unit_quantity"),
+    input_currency: formData.get("input_currency") || "IDR",
   });
 
   const supabase = await createClient();
@@ -68,6 +71,11 @@ export async function createProposalAction(formData: FormData) {
 
   const proposalNumber = await generateProposalNumber(supabase);
 
+  // Capture the mineral index in force now: later HPM movement is measured
+  // against this baseline, so a quotation is not silently repriced by an
+  // index published after it was drafted (FR-8.3).
+  const mineral = await loadMineralContext(supabase);
+
   const { data: proposal, error } = await supabase
     .from("pricing_proposal")
     .insert({
@@ -77,6 +85,9 @@ export async function createProposalAction(formData: FormData) {
       customer_name: parsed.customer_name,
       cbs_template_id: template.id,
       unit_quantity: parsed.unit_quantity,
+      input_currency: parsed.input_currency,
+      baseline_hpm_value: mineral.hpm?.hpmWet ?? null,
+      baseline_hpm_snapshot_id: mineral.primarySnapshot?.id ?? null,
       current_status: "DRAFT",
       created_by: profile.id,
     })
@@ -109,7 +120,11 @@ export async function createProposalAction(formData: FormData) {
     proposalId: proposal.id,
     actorId: profile.id,
     action: "CREATE",
-    fieldChanges: [{ field: "proposal_number", old: null, new: proposalNumber }],
+    fieldChanges: [
+      { field: "proposal_number", old: null, new: proposalNumber },
+      { field: "input_currency", old: null, new: parsed.input_currency },
+      { field: "baseline_hpm_value", old: null, new: mineral.hpm?.hpmWet ?? null },
+    ],
   });
 
   redirect(`/proposals/${proposal.id}`);
@@ -164,6 +179,9 @@ export async function saveCostLinesAction(
     cbsTemplateId: proposal.cbs_template_id,
     unitQuantity: proposal.unit_quantity,
     businessLine: proposal.business_line as BusinessLine,
+    inputCurrency: proposal.input_currency,
+    baselineHpmValue: proposal.baseline_hpm_value,
+    volumeDiscountPct: proposal.applied_discount_pct || undefined,
   });
 
   await writeAuditLog(supabase, {

@@ -19,6 +19,7 @@ export function WhatIfSimulator({ proposals }: { proposals: PricingProposal[] })
   const [proposalId, setProposalId] = useState(eligible[0]?.id ?? "");
   const [fxDeltaPct, setFxDeltaPct] = useState(0);
   const [materialCostDeltaPct, setMaterialCostDeltaPct] = useState(0);
+  const [hmaDeltaPct, setHmaDeltaPct] = useState(0);
   const [volumeDiscountPct, setVolumeDiscountPct] = useState(0);
   const [result, setResult] = useState<SimResponse | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -29,11 +30,17 @@ export function WhatIfSimulator({ proposals }: { proposals: PricingProposal[] })
       const res = await fetch("/api/simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proposalId, fxDeltaPct, materialCostDeltaPct, volumeDiscountPct }),
+        body: JSON.stringify({
+          proposalId,
+          fxDeltaPct,
+          materialCostDeltaPct,
+          volumeDiscountPct,
+          hmaDeltaPct,
+        }),
       });
       if (res.ok) setResult(await res.json());
     });
-  }, [proposalId, fxDeltaPct, materialCostDeltaPct, volumeDiscountPct]);
+  }, [proposalId, fxDeltaPct, materialCostDeltaPct, volumeDiscountPct, hmaDeltaPct]);
 
   return (
     <Card>
@@ -62,7 +69,7 @@ export function WhatIfSimulator({ proposals }: { proposals: PricingProposal[] })
           </select>
         </label>
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
           <SliderField
             label="Fluktuasi Kurs USD/IDR"
             value={fxDeltaPct}
@@ -90,7 +97,21 @@ export function WhatIfSimulator({ proposals }: { proposals: PricingProposal[] })
             step={0.5}
             suffix="%"
           />
+          <SliderField
+            label="Harga Mineral Acuan (HMA)"
+            value={hmaDeltaPct}
+            onChange={setHmaDeltaPct}
+            min={-25}
+            max={25}
+            step={1}
+            suffix="%"
+          />
         </div>
+
+        <p className="text-[11px] text-muted">
+          Slider HMA menggeser Harga Mineral Acuan → HPM dihitung ulang → faktor
+          penyesuaian pada komponen berbahan mineral ikut bergerak (FR-8.3).
+        </p>
 
         {result && (
           <div className={isPending ? "opacity-50 transition-opacity" : "transition-opacity"}>

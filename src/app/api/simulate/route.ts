@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { calculatePricing } from "@/lib/pricing/engine";
 import { resolveCurrentVersionId } from "@/lib/pricing/version";
+import { resolveExchangeRate } from "@/lib/pricing/currency";
+import { loadMineralContext, mineralAdjustmentFactor } from "@/lib/pricing/mineral";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { BusinessLine, CostItem } from "@/types/database";
@@ -17,6 +19,7 @@ const BodySchema = z.object({
   fxDeltaPct: z.number().default(0),
   materialCostDeltaPct: z.number().default(0),
   volumeDiscountPct: z.number().default(0),
+  hmaDeltaPct: z.number().default(0),
 });
 
 export async function POST(request: Request) {
@@ -69,15 +72,20 @@ export async function POST(request: Request) {
     costLineValues[line.cost_item_id] = Number(line.value);
   }
 
-  const { data: fxSnapshot } = await supabase
-    .from("external_rate_snapshot")
-    .select("*")
-    .eq("rate_type", "FX_USD_IDR")
-    .order("effective_at", { ascending: false })
-    .limit(1)
-    .single();
+  // Same sources the official calculation uses, so simulation and reality
+  // never diverge (Technical Logic §13.5).
+  const mineralCode =
+    costItems.find((c) => c.is_mineral_linked)?.mineral_code ?? "NI";
+  const [exchangeRate, mineral] = await Promise.all([
+    resolveExchangeRate(supabase),
+    loadMineralContext(supabase, mineralCode),
+  ]);
 
-  const fxRate = fxSnapshot ? Number(fxSnapshot.value) : 16000;
+  const fxRate = exchangeRate ? Number(exchangeRate.rate) : 16350;
+  const baseMineralFactor = mineralAdjustmentFactor(
+    proposal.baseline_hpm_value,
+    mineral.hpm?.hpmWet ?? null
+  );
 
   const baseCase = calculatePricing({
     businessLine: proposal.business_line as BusinessLine,
@@ -87,6 +95,8 @@ export async function POST(request: Request) {
     fxUsdIdrRate: fxRate,
     fxBaselineRate: fxRate,
     minGpmThreshold: Number(template?.min_gpm_threshold ?? 0.12),
+    inputCurrency: proposal.input_currency,
+    mineralAdjustmentFactor: baseMineralFactor,
   });
 
   const simulatedCase = calculatePricing({
@@ -97,10 +107,13 @@ export async function POST(request: Request) {
     fxUsdIdrRate: fxRate,
     fxBaselineRate: fxRate,
     minGpmThreshold: Number(template?.min_gpm_threshold ?? 0.12),
+    inputCurrency: proposal.input_currency,
+    mineralAdjustmentFactor: baseMineralFactor,
     simulation: {
       fxDeltaPct: body.fxDeltaPct,
       materialCostDeltaPct: body.materialCostDeltaPct,
       volumeDiscountPct: body.volumeDiscountPct,
+      hmaDeltaPct: body.hmaDeltaPct,
     },
   });
 

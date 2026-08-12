@@ -3,7 +3,9 @@ import type {
   CalculationBreakdown,
   CalculationBreakdownItem,
   CostItem,
+  CurrencyCode,
 } from "@/types/database";
+import { toBaseCurrency } from "./currency";
 
 /**
  * Dynamic Pricing Engine (PRD FR-1.2 / Technical Logic §3).
@@ -31,11 +33,24 @@ export interface PricingInput {
   fxUsdIdrRate: number;
   fxBaselineRate: number; // rate the direct/import costs were originally priced at
   minGpmThreshold: number;
+  /**
+   * Currency the cost line values are entered in (FR-1.4.1). Values are
+   * converted to IDR before any factor is applied — multiplying a factor
+   * onto a figure that is not yet in the base unit produces a wrong
+   * number that does not look wrong.
+   */
+  inputCurrency?: CurrencyCode;
+  /**
+   * HPM-derived factor applied to mineral-linked items (FR-8.3).
+   * 1 = no adjustment.
+   */
+  mineralAdjustmentFactor?: number;
   /** What-If overrides (FR-4.1) — all optional, default to neutral */
   simulation?: {
     fxDeltaPct?: number; // e.g. 3 => USD/IDR up 3%
     materialCostDeltaPct?: number; // applies to BOM subcategory direct costs
     volumeDiscountPct?: number; // reduces final price, applied post-margin
+    hmaDeltaPct?: number; // shifts HMA -> HPM -> mineral factor (FR-8.5 DSS)
   };
 }
 
@@ -48,6 +63,8 @@ export interface PricingResult {
   ebitdaContribution: number;
   bepUnits: number | null;
   effectiveFxRate: number;
+  /** Mineral factor actually applied, after any simulation override. */
+  effectiveMineralFactor: number;
   isBelowGpmThreshold: boolean;
   breakdown: CalculationBreakdown;
 }
@@ -67,16 +84,24 @@ export function calculatePricing(input: PricingInput): PricingResult {
     fxUsdIdrRate,
     fxBaselineRate,
     minGpmThreshold,
+    inputCurrency = "IDR",
+    mineralAdjustmentFactor = 1,
     simulation,
   } = input;
 
   const fxDeltaPct = simulation?.fxDeltaPct ?? 0;
   const materialCostDeltaPct = simulation?.materialCostDeltaPct ?? 0;
   const volumeDiscountPct = simulation?.volumeDiscountPct ?? 0;
+  const hmaDeltaPct = simulation?.hmaDeltaPct ?? 0;
 
   const effectiveFxRate = fxUsdIdrRate * (1 + fxDeltaPct / 100);
   const fxAdjustmentFactor =
     fxBaselineRate > 0 ? effectiveFxRate / fxBaselineRate : 1;
+
+  // HPM is linear in HMA (grade, CF and moisture are unchanged), so a
+  // percentage move in HMA moves the resulting factor by the same
+  // percentage — no need to re-derive the whole formula for a slider.
+  const effectiveMineralFactor = mineralAdjustmentFactor * (1 + hmaDeltaPct / 100);
 
   const breakdownItems: CalculationBreakdownItem[] = [];
 
@@ -89,18 +114,38 @@ export function calculatePricing(input: PricingInput): PricingResult {
     const rawValue = costLineValues[item.id] ?? 0;
     if (item.category === "MARGIN_FACTOR") continue; // handled after base cost
 
+    // Step 1: bring the entered value into the base currency (IDR)
+    // before anything is scaled by a factor (Technical Logic §13.3).
+    const baseValue = toBaseCurrency(rawValue, inputCurrency, effectiveFxRate);
+
     let amount = 0;
     if (item.unit_type === "PER_UNIT") {
-      amount = rawValue * unitQuantity;
+      amount = baseValue * unitQuantity;
     } else if (item.unit_type === "FIXED") {
-      amount = rawValue;
+      amount = baseValue;
     } else {
-      amount = rawValue; // PERCENTAGE direct/indirect items are rare; treat as absolute
+      amount = baseValue; // PERCENTAGE direct/indirect items are rare; treat as absolute
     }
 
-    // Imported (BOM) direct costs are exposed to FX fluctuation
+    // Step 2a: imported (BOM) direct costs move with FX — but only when
+    // they were entered in IDR. A USD figure is already expressed in the
+    // source currency, so converting it above is the whole adjustment;
+    // applying the factor again would double-count the same movement.
+    if (
+      inputCurrency === "IDR" &&
+      item.category === "DIRECT" &&
+      IMPORTED_SUBCATEGORIES.has(item.subcategory)
+    ) {
+      amount = amount * fxAdjustmentFactor;
+    }
+
     if (item.category === "DIRECT" && IMPORTED_SUBCATEGORIES.has(item.subcategory)) {
-      amount = amount * fxAdjustmentFactor * (1 + materialCostDeltaPct / 100);
+      amount = amount * (1 + materialCostDeltaPct / 100);
+    }
+
+    // Step 2b: mineral-linked components follow the published HPM (FR-8.3).
+    if (item.is_mineral_linked) {
+      amount = amount * effectiveMineralFactor;
     }
 
     if (item.category === "DIRECT") totalDirectCost += amount;
@@ -124,6 +169,7 @@ export function calculatePricing(input: PricingInput): PricingResult {
     const rawValue = costLineValues[item.id] ?? 0;
 
     if (item.unit_type === "PERCENTAGE") {
+      // Percentages are unit-free — no currency conversion applies.
       marginPercentSum += percentageValue(rawValue);
       breakdownItems.push({
         cost_item_id: item.id,
@@ -135,7 +181,9 @@ export function calculatePricing(input: PricingInput): PricingResult {
         computed_amount: baseCost * percentageValue(rawValue),
       });
     } else {
-      const amount = item.unit_type === "PER_UNIT" ? rawValue * unitQuantity : rawValue;
+      const baseValue = toBaseCurrency(rawValue, inputCurrency, effectiveFxRate);
+      const amount =
+        item.unit_type === "PER_UNIT" ? baseValue * unitQuantity : baseValue;
       marginFixedAmount += amount;
       breakdownItems.push({
         cost_item_id: item.id,
@@ -165,8 +213,14 @@ export function calculatePricing(input: PricingInput): PricingResult {
   const fixedCostItem = costItems.find(
     (c) => c.subcategory === "Overhead" && c.category === "INDIRECT"
   );
+  // Must be converted like every other figure — a USD-entered overhead
+  // compared against an IDR base cost would put BEP out by the rate.
   const fixedCostPerBatch = fixedCostItem
-    ? (costLineValues[fixedCostItem.id] ?? 0)
+    ? toBaseCurrency(
+        costLineValues[fixedCostItem.id] ?? 0,
+        inputCurrency,
+        effectiveFxRate
+      )
     : 0;
   const unitPrice = unitQuantity > 0 ? finalPrice / unitQuantity : 0;
   const unitVariableCost =
@@ -184,6 +238,7 @@ export function calculatePricing(input: PricingInput): PricingResult {
     ebitdaContribution,
     bepUnits,
     effectiveFxRate,
+    effectiveMineralFactor,
     isBelowGpmThreshold: gpm < minGpmThreshold,
     breakdown: { items: breakdownItems, unit_quantity: unitQuantity },
   };

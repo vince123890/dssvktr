@@ -79,6 +79,24 @@ export function NewProposalForm() {
         />
       </Field>
 
+      <Field label="Mata Uang Input">
+        <select
+          name="input_currency"
+          required
+          defaultValue="IDR"
+          disabled={isPending}
+          className="w-full rounded-lg border border-card-border px-3 py-2.5 text-sm bg-white disabled:bg-slate-50 disabled:text-muted"
+        >
+          <option value="IDR">Rupiah (IDR)</option>
+          <option value="USD">US Dollar (USD)</option>
+        </select>
+        <p className="text-[11px] font-normal leading-relaxed text-muted">
+          Seluruh komponen biaya pada quotation ini diisi dalam mata uang
+          terpilih. Nilai disimpan apa adanya — konversi ke Rupiah dilakukan
+          sistem saat menghitung, memakai kurs yang berlaku.
+        </p>
+      </Field>
+
       {error && (
         <p className="rounded-lg border border-danger/20 bg-danger-bg px-3 py-2 text-xs text-danger">
           {error}

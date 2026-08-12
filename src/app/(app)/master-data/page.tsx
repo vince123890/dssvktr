@@ -6,6 +6,9 @@ import type { CbsTemplate, CostItem, Department } from "@/types/database";
 import { CostItemForm } from "./CostItemForm";
 import { ToggleActiveButton } from "./ToggleActiveButton";
 import { canConfigureMasterData } from "@/lib/rbac";
+import { ExchangeRatePanel, MineralIndexPanel } from "./RateAndIndexPanel";
+import { loadMineralContext } from "@/lib/pricing/mineral";
+import type { ExchangeRate, MineralIndexSnapshot } from "@/types/database";
 
 const CATEGORY_LABEL: Record<string, string> = {
   DIRECT: "Direct Costs",
@@ -29,12 +32,29 @@ export default async function MasterDataPage() {
   const profile = await requireProfile();
   const supabase = await createClient();
 
-  const [{ data: costItems }, { data: departments }, { data: templates }] =
-    await Promise.all([
-      supabase.from("cost_item").select("*").order("category").order("code"),
-      supabase.from("department").select("*").order("name"),
-      supabase.from("cbs_template").select("*").order("business_line"),
-    ]);
+  const [
+    { data: costItems },
+    { data: departments },
+    { data: templates },
+    { data: rates },
+    { data: snapshots },
+    mineral,
+  ] = await Promise.all([
+    supabase.from("cost_item").select("*").order("category").order("code"),
+    supabase.from("department").select("*").order("name"),
+    supabase.from("cbs_template").select("*").order("business_line"),
+    supabase
+      .from("exchange_rate")
+      .select("*")
+      .order("effective_from", { ascending: false })
+      .limit(10),
+    supabase
+      .from("mineral_index_snapshot")
+      .select("*")
+      .order("period_end", { ascending: false })
+      .limit(20),
+    loadMineralContext(supabase),
+  ]);
 
   const items = (costItems ?? []) as CostItem[];
   const depts = (departments ?? []) as Department[];
@@ -88,6 +108,18 @@ export default async function MasterDataPage() {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <ExchangeRatePanel
+          rates={(rates ?? []) as ExchangeRate[]}
+          canEdit={canEdit}
+        />
+        <MineralIndexPanel
+          snapshots={(snapshots ?? []) as MineralIndexSnapshot[]}
+          canEdit={canEdit}
+          hpm={mineral.hpm}
+        />
       </div>
 
       {canEdit && (

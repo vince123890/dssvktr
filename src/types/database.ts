@@ -62,7 +62,9 @@ export type AuditAction =
   | "ADD_COST_ITEM"
   | "NEGOTIATION_REQUEST"
   | "NEGOTIATION_DECISION"
-  | "RELEASE";
+  | "RELEASE"
+  | "RATE_UPDATE"
+  | "MINERAL_INDEX_UPDATE";
 
 export type NegotiationStatus =
   | "PENDING_APPROVAL"
@@ -72,6 +74,8 @@ export type NegotiationStatus =
   | "SUPERSEDED";
 
 export type NegotiationDecisionType = "APPROVE" | "REJECT" | "REVISE";
+
+export type CurrencyCode = "IDR" | "USD";
 
 export interface Department {
   id: string;
@@ -100,6 +104,9 @@ export interface CostItem {
   unit_type: UnitType;
   is_mandatory: boolean;
   active: boolean;
+  /** Moves with government mineral prices — receives the HPM factor (FR-8.3). */
+  is_mineral_linked: boolean;
+  mineral_code: string | null;
   description: string | null;
   created_at: string;
   updated_at: string;
@@ -162,6 +169,11 @@ export interface PricingProposal {
   unit_quantity: number;
   applied_discount_pct: number;
   has_bod_margin_approval: boolean;
+  /** Currency every cost line on this quotation is entered in (FR-1.4.1). */
+  input_currency: CurrencyCode;
+  /** HPM when the quotation was created; the factor is measured against it. */
+  baseline_hpm_value: number | null;
+  baseline_hpm_snapshot_id: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -216,6 +228,51 @@ export interface ProposalCalculationResult {
   fx_usd_idr_rate: number;
   breakdown: CalculationBreakdown;
   is_below_gpm_threshold: boolean;
+  /** Rate and index that produced these numbers (FR-1.4.3, FR-8.4). */
+  exchange_rate_used: number;
+  exchange_rate_id: string | null;
+  hpm_value_used: number | null;
+  mineral_adjustment_factor: number;
+  input_currency: CurrencyCode;
+  created_at: string;
+}
+
+export interface ExchangeRate {
+  id: string;
+  base_currency: CurrencyCode;
+  quote_currency: CurrencyCode;
+  rate: number;
+  source: string;
+  effective_from: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface MineralIndexSnapshot {
+  id: string;
+  mineral_code: string;
+  /** US$ per dry metric ton. */
+  hma_value: number;
+  period_start: string;
+  period_end: string;
+  regulation_ref: string | null;
+  source: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface HpmParameter {
+  id: string;
+  mineral_code: string;
+  ni_content_pct: number;
+  anchor_content_pct: number;
+  anchor_cf_pct: number;
+  cf_slope: number;
+  co_content_pct: number;
+  co_cf_pct: number;
+  moisture_content_pct: number;
+  companion_mineral_code: string | null;
+  is_active: boolean;
   created_at: string;
 }
 

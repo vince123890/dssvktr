@@ -16,6 +16,7 @@ import {
   ROLE_DEPARTMENT_CODE,
 } from "@/lib/rbac";
 import { loadDiscountLadder } from "@/lib/negotiation/authority";
+import { loadMineralContext } from "@/lib/pricing/mineral";
 import type {
   CbsTemplate,
   CostItem,
@@ -105,13 +106,14 @@ export default async function ProposalDetailPage({
   const depts = (departments ?? []) as Department[];
   const ownerDeptCodeById = Object.fromEntries(depts.map((d) => [d.id, d.code]));
 
-  const [{ data: negotiations }, discountLadder] = await Promise.all([
+  const [{ data: negotiations }, discountLadder, mineralContext] = await Promise.all([
     supabase
       .from("negotiation_request")
       .select("*")
       .eq("proposal_id", proposal.id)
       .order("created_at", { ascending: false }),
     loadDiscountLadder(supabase, proposal.business_line),
+    loadMineralContext(supabase),
   ]);
 
   let steps: WorkflowStepInstance[] = [];
@@ -195,6 +197,7 @@ export default async function ProposalDetailPage({
           result={latestResult as ProposalCalculationResult}
           role={profile.role}
           minGpmThreshold={tmpl.min_gpm_threshold}
+          mineral={mineralContext}
         />
       )}
 
@@ -212,6 +215,7 @@ export default async function ProposalDetailPage({
                 existingValues={existingValues}
                 ownerDeptCodeById={ownerDeptCodeById}
                 readOnly={isReadOnly}
+                inputCurrency={proposal.input_currency}
               />
             </CardContent>
           </Card>

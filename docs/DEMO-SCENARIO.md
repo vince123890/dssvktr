@@ -1,13 +1,10 @@
 # Skenario Demo — VKTR-PriceCore POC (v2.0)
 
 > **Status terhadap PRD v2.1.** Kebutuhan **multi-currency (toggle
-> USD/IDR)** dan **Mineral Index HMA/HPM** sudah ditetapkan di
-> [`PRD-VKTR-PriceCore.md`](PRD-VKTR-PriceCore.md) §FR-1.4 & Module 8
-> serta dirancang di
-> [`TECHNICAL-LOGIC-VKTR-PriceCore.md`](TECHNICAL-LOGIC-VKTR-PriceCore.md)
-> §12–13, **namun belum dibangun di aplikasi**. Langkah-langkah di bawah
-> masih memakai input IDR tanpa penyesuaian mineral — sesuai keadaan
-> aplikasi saat ini. Lihat §7 untuk cara menyampaikannya saat demo.
+> USD/IDR)** dan **Mineral Index HMA/HPM** kini **sudah terpasang di
+> aplikasi**. Skenario utama di bawah tetap memakai input IDR agar
+> angkanya konsisten dengan bagian negosiasi; §7 memuat langkah tambahan
+> untuk mendemokan kedua fitur tersebut.
 
 Dokumen ini adalah panduan langkah-demi-langkah untuk mendemokan POC:
 siapa login sebagai apa, data apa yang dimasukkan, ke mana alurnya, dan
@@ -335,37 +332,73 @@ visibility. Perhatikan riwayat negosiasi tercatat lengkap di panel.
   PriceCore.
 - **Ambang diskon (3% / 8%) bersifat ilustratif** — angka sesungguhnya
   perlu dikonfirmasi ke Chief Sales & BOD (lihat Technical Logic §14).
+- **Kurs & HMA diinput manual** oleh Admin — belum ditarik otomatis dari
+  API Bank Indonesia maupun publikasi ESDM.
+- **Dampak HPM diasumsikan proporsional penuh** terhadap komponen
+  berbahan mineral. Bila mineral hanya menyusun sebagian biaya sel
+  baterai, faktornya perlu diredam (Technical Logic §14 no. 10).
 
 ---
 
-## 7. Kebutuhan v2.1 — Sudah Dirancang, Belum Dibangun
+## 7. Skenario v2.1 — Multi-Currency & Mineral Index
 
-Dua kebutuhan berikut sudah masuk PRD dan technical logic, tetapi **belum
-ada di aplikasi** yang Anda demokan. Sampaikan apa adanya bila ditanya.
+### Langkah 11 — Quotation berdenominasi USD
 
-| Kebutuhan | Status dokumen | Status aplikasi |
-|---|---|---|
-| Toggle input **USD / IDR** + master kurs | PRD FR-1.4, Technical Logic §12 | Belum — seluruh input masih IDR |
-| **HMA/HPM** mineral sebagai penyesuaian global | PRD Module 8, Technical Logic §13 | Belum — tidak ada faktor mineral pada kalkulasi |
+1. Login sebagai **sales@vktr.demo**, buka **Proposal Baru**.
+2. Isi seperti biasa, tetapi pilih **Mata Uang Input: US Dollar (USD)**.
+3. Di CBS Cost Line, perhatikan kolom nilai kini bertuliskan
+   **`US$ / unit`** — bukan `Rp / unit`.
+4. Isi Battery Pack `55000`, Chassis `26300`, Powertrain `19600`
+   (angka USD, setara nilai IDR pada skenario utama dengan kurs 16.350).
+5. **Simpan & Hitung Ulang Harga.**
 
-### Cara membawakannya saat demo
+Yang harus terlihat pada ringkasan:
 
-Buka [`DEMO-FLOW-OVERVIEW.md`](DEMO-FLOW-OVERVIEW.md) §5 — di sana ada
-diagram alur kedua faktor global tersebut beserta tabel HPM yang sudah
-dihitung dari formula Kepmen. Gunakan itu untuk menjelaskan **rancangan**,
-sambil menunjukkan aplikasi yang berjalan untuk bagian yang **sudah** ada.
+- **Final Price tampil ganda** — Rupiah sebagai angka utama, dengan
+  `≈ US$…` di bawahnya (FR-1.4.4).
+- Baris keterangan di bawah kartu: *"Input quotation ini dalam USD;
+  dikonversi memakai kurs … yang tersimpan bersama hasil ini."*
 
-Poin yang layak ditekankan:
+**Yang didemokan:** nilai yang diketik **tidak ditimpa** hasil konversi.
+Angka USD dari vendor tetap tersimpan apa adanya; konversi terjadi saat
+menghitung, dan kurs yang dipakai ikut disimpan agar harga yang sudah
+disetujui tidak bergeser saat kurs bergerak (FR-1.4.3).
 
-1. **Fondasinya sudah ada.** Engine sekarang sudah menerapkan faktor FX
-   terhadap komponen BOM impor. Faktor mineral memakai mekanisme yang
-   sama persis — perbedaannya hanya sumber angkanya (HPM, bukan kurs).
-2. **Nilai asli tidak akan ditimpa.** Rancangan multi-currency menyimpan
-   angka yang diketik apa adanya beserta mata uangnya; konversi terjadi
-   saat menghitung. Ini yang menjaga jejak audit ketika kurs bergerak.
-3. **HPM bukan tebakan.** Formulanya diambil dari Kepmen ESDM
-   No. 144.K/2026, dan angka pada tabel sudah diverifikasi terhadap file
-   simulasi yang menjadi sumber.
+### Langkah 12 — Mineral Index sebagai penyesuaian global
+
+1. Buka **Master Data & CBS** (login sebagai **admin@vktr.demo** untuk
+   dapat mengubah).
+2. Panel **Harga Mineral Acuan (HMA) — ESDM** menampilkan HMA berjalan
+   beserta rincian HPM: CF Nikel, Nilai Ni, Bonus Co, dan HPM basah.
+   Dengan HMA Ni 16.646 dan kadar 1,6%, HPM = **55,64 US$/WMT**.
+3. Catat HMA baru: mineral `NI`, nilai **18.311** (naik 10%), periode
+   hari ini, referensi `Kepmen ESDM No. …`. Klik **Simpan HMA**.
+4. HPM berjalan naik menjadi ±**60,83 US$/WMT**.
+5. Buka quotation yang dibuat sebelum perubahan → panel **Mineral Index
+   Adjustment** menampilkan faktor ±**1,09 (+9%)**, dan komponen
+   Battery Pack di CBS bertanda **⛏ HPM NI**.
+6. **Simpan & Hitung Ulang Harga** pada quotation tersebut → harga naik
+   karena komponen berbahan mineral ikut menyesuaikan.
+
+**Yang didemokan:** FR-8.3 — penyesuaian berjalan otomatis tanpa approval
+terpisah, tetapi faktor dan dasar perhitungannya tampil terbuka dan
+tercatat di audit trail, sehingga kenaikan harga selalu bisa dijelaskan.
+
+> **Catatan.** Kuotasi yang dibuat **setelah** HMA diperbarui memakai HMA
+> baru sebagai baseline, sehingga faktornya 1,0 — memang begitu
+> maksudnya: penyesuaian hanya mengukur pergerakan **sejak** quotation
+> disusun.
+
+### Langkah 13 — Slider HMA di DSS
+
+1. Buka **Decision Support (DSS)**, pilih quotation.
+2. Geser slider **Harga Mineral Acuan (HMA)** ke +15%.
+3. Base Case vs Simulated Case berubah seketika — HPM naik, komponen
+   mineral naik, GPM turun.
+
+**Yang didemokan:** simulasi memakai **engine yang sama** dengan
+kalkulasi resmi, sehingga tidak ada kemungkinan simulasi dan kenyataan
+berbeda hasil.
 
 ### Yang masih perlu diputuskan
 

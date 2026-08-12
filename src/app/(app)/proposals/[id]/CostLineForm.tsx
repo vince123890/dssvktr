@@ -2,7 +2,8 @@
 
 import { Button } from "@/components/ui/Button";
 import { formatIDR } from "@/lib/utils";
-import type { CostItem } from "@/types/database";
+import type { CostItem, CurrencyCode } from "@/types/database";
+import { CURRENCY_SYMBOL } from "@/lib/pricing/currency";
 import { useRef, useState, useTransition } from "react";
 import { saveCostLinesAction } from "../actions";
 
@@ -19,6 +20,7 @@ export function CostLineForm({
   existingValues,
   ownerDeptCodeById,
   readOnly,
+  inputCurrency = "IDR",
 }: {
   proposalId: string;
   versionId: string;
@@ -26,6 +28,7 @@ export function CostLineForm({
   existingValues: Record<string, number>;
   ownerDeptCodeById: Record<string, string>;
   readOnly: boolean;
+  inputCurrency?: CurrencyCode;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
@@ -57,7 +60,10 @@ export function CostLineForm({
                   <th className="px-4 py-2 font-medium">Item</th>
                   <th className="px-4 py-2 font-medium">Owner Dept</th>
                   <th className="px-4 py-2 font-medium w-48">
-                    Nilai {cat === "MARGIN_FACTOR" ? "(%)" : "(Rp / unit)"}
+                    Nilai{" "}
+                    {cat === "MARGIN_FACTOR"
+                      ? "(%)"
+                      : `(${CURRENCY_SYMBOL[inputCurrency]} / unit)`}
                   </th>
                 </tr>
               </thead>
@@ -70,6 +76,11 @@ export function CostLineForm({
                         {item.code}
                         {item.is_mandatory && (
                           <span className="ml-1.5 text-danger">* mandatory</span>
+                        )}
+                        {item.is_mineral_linked && (
+                          <span className="ml-1.5 text-success">
+                            ⛏ HPM {item.mineral_code ?? ""}
+                          </span>
                         )}
                       </div>
                     </td>
