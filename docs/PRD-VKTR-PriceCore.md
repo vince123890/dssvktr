@@ -4,10 +4,10 @@
 
 | | |
 |---|---|
-| **Document Version** | 2.0 (Commercial Quotation Alignment) |
+| **Document Version** | 2.1 (Multi-Currency & Mineral Index) |
 | **Target Entity** | PT VKTR Teknologi Mobilitas Tbk |
 | **Domain** | Commercial EV & Mobility Solutions (EV Bus, EV Truck, Battery Systems, Charging Infrastructure & Aftermarket) |
-| **Source Materials** | **Commercial Quotation Approval System Requirement for VKTR.pdf (authoritative)**, ConceptDSSpricingVKTR.pdf, VKTR-PriceCore Strategic Pricing Architecture.pdf, Timeline & Effort Detail.pdf |
+| **Source Materials** | **Commercial Quotation Approval System Requirement for VKTR.pdf (authoritative)**, Simulasi_HPM_Nikel_Kepmen_2026.xlsx, ConceptDSSpricingVKTR.pdf, VKTR-PriceCore Strategic Pricing Architecture.pdf, Timeline & Effort Detail.pdf |
 
 > **Catatan revisi v2.0.** Dokumen *Commercial Quotation Approval System
 > Requirement for VKTR* menetapkan SOP quotation dan hierarki approval
@@ -17,6 +17,17 @@
 > Chief Sales → VP Finance ∥ VP Operations → BOD). Ditambahkan pula
 > **Commercial Negotiation Process** berbasis *delegated discount
 > authority* yang sebelumnya tidak tercakup.
+
+> **Catatan revisi v2.1.** Dua kebutuhan baru:
+> 1. **Multi-currency (FR-1.4)** — komponen biaya banyak yang berdenominasi
+>    USD (BOM impor), sehingga input harus dapat dilakukan dalam **USD
+>    maupun IDR** lewat *toggle*, dengan **master data nilai tukar** sebagai
+>    dasar konversi. Sebelumnya seluruh input diasumsikan IDR.
+> 2. **Mineral Index Adjustment (Module 8)** — Harga Mineral Acuan (HMA)
+>    yang ditetapkan Kementerian ESDM menjadi dasar perhitungan Harga
+>    Patokan Mineral (HPM). Nilainya diperbarui berkala (mingguan/dua
+>    mingguan) dan dipakai sebagai **penyesuaian global** terhadap komponen
+>    biaya berbahan mineral saat quotation disusun.
 
 ---
 
@@ -96,6 +107,16 @@ Peran berikut mengikuti SOP quotation VKTR pada dokumen sumber.
 - **FR-1.3 Pricing Template Management**
   - Penyediaan *preset template* pembentukan harga berdasarkan tipe transaksi (Penjualan Unit, *EV Fleet Lease*, *Charging Infrastructure Buildout*).
   - Template terdiri dari kombinasi CBS items + margin factors yang dapat digunakan ulang.
+
+- **FR-1.4 Multi-Currency Input & Exchange Rate Master Data**
+
+  Sebagian besar komponen biaya VKTR berdenominasi **USD** (BOM impor: battery pack, chassis, powertrain), sementara komponen lokal (karoseri, STNK, delivery) berdenominasi **IDR**. Memaksa seluruh input ke satu mata uang membuat pengisi harus mengonversi manual — sumber kesalahan dan hilangnya jejak angka asli dari vendor.
+
+  - **FR-1.4.1 Currency Toggle per Quotation** — Saat quotation dibuat, penyusun memilih mata uang input: **USD** atau **IDR**. Seluruh cost line pada quotation tersebut diinput dalam mata uang terpilih.
+  - **FR-1.4.2 Exchange Rate Master Data** — Nilai tukar USD→IDR dikelola sebagai master data dengan riwayat berlaku (*effective date*), bukan angka *hardcode*. Admin dapat memperbarui kapan saja; nilai lama tetap tersimpan untuk audit.
+  - **FR-1.4.3 Rate Locking & Reproducibility** — Kurs yang berlaku **saat kalkulasi dijalankan** disimpan bersama hasil perhitungan. Harga yang sudah disetujui tidak boleh berubah hanya karena kurs bergerak esok hari; setiap angka final harus dapat dijelaskan memakai kurs yang mana.
+  - **FR-1.4.4 Dual Display** — Ringkasan harga menampilkan **kedua mata uang** (USD dan IDR) beserta kurs yang dipakai, sehingga approver dari fungsi berbeda tidak perlu menghitung sendiri.
+  - **FR-1.4.5 Currency Change Guard** — Mengubah mata uang quotation setelah cost line terisi wajib memicu konfirmasi eksplisit; nilai lama **tidak** dikonversi otomatis agar tidak ada angka yang berubah diam-diam.
 
 ### Module 2 — Quotation Approval Workflow Engine (COGS Validation)
 
@@ -229,14 +250,57 @@ Peran berikut mengikuti SOP quotation VKTR pada dokumen sumber.
 > fokus POC ada pada pricing governance, COGS validation, dan negotiation
 > authority. Data pelanggan pada POC cukup berupa field bebas di quotation.
 
+### Module 8 — Mineral Index Adjustment (HMA → HPM)
+
+*Penyesuaian global berbasis harga mineral resmi pemerintah terhadap komponen biaya berbahan mineral.*
+
+Komponen terbesar biaya kendaraan listrik adalah **battery pack**, yang harganya bergerak mengikuti harga bahan baku mineral (nikel, kobalt, lithium). Pemerintah menetapkan **Harga Mineral Acuan (HMA)** melalui Kementerian ESDM sebagai dasar perhitungan **Harga Patokan Mineral (HPM)**. Nilai ini diperbarui berkala dan menjadi rujukan resmi transaksi mineral di Indonesia.
+
+Tanpa mekanisme ini, quotation disusun memakai asumsi harga baterai yang bisa jadi sudah usang beberapa minggu — persis jenis *blind spot* yang menghasilkan margin di bawah target.
+
+- **FR-8.1 HMA Master Data (Periodic Input)**
+  - Pencatatan HMA per jenis mineral (Nikel, Kobalt, Lithium, dst.) dalam **USD per dry metric ton (dmt)**.
+  - Diperbarui **mingguan atau dua mingguan** mengikuti terbitan Kepmen ESDM; setiap nilai memiliki *periode berlaku* dan referensi regulasi.
+  - Riwayat lengkap tersimpan — nilai lama tidak ditimpa, sehingga quotation lama tetap dapat direkonstruksi.
+
+- **FR-8.2 HPM Calculator (Formula Kepmen)**
+
+  Sistem menghitung HPM dari HMA memakai formula resmi. Mengacu pada *Kepmen ESDM No. 144.K/2026* untuk nikel dengan komponen mineral ikutan kobalt:
+
+  ```
+  CF(Ni)        = 0,30 + ((kadar_Ni − 0,016) × 10)
+  Nilai Ni      = kadar_Ni × CF(Ni) × HMA_Ni
+  Bonus Co      = kadar_Co × CF(Co) × HMA_Co
+  Total kering  = Nilai Ni + Bonus Co            [US$/dmt]
+  HPM (basah)   = Total kering × (1 − Moisture Content)   [US$/WMT]
+  ```
+
+  - Kadar nikel **1,6%** adalah *anchor* dengan CF **30%**; setiap perubahan 0,1% kadar menyesuaikan CF sebesar 1,0%.
+  - Hasil akhir dikalikan `(1 − MC)` untuk memperoleh nilai basah (WMT) yang ditransaksikan di lapangan.
+  - Parameter (kadar Co, CF Co, Moisture Content) adalah **master config**, bukan angka *hardcode*.
+
+- **FR-8.3 Global Adjustment saat Penyusunan Quotation**
+  - Saat quotation disusun, sistem membandingkan HPM periode berjalan terhadap **HPM baseline** yang tersimpan pada quotation.
+  - Selisihnya menghasilkan **faktor penyesuaian** yang diterapkan otomatis ke komponen biaya bertanda *mineral-linked* (mis. Battery Pack).
+  - Penyesuaian bersifat **global dan otomatis** — dianggap sudah disetujui secara sistem, tidak memerlukan approval terpisah, namun **tetap tercatat di audit trail** beserta nilai HMA/HPM yang dipakai.
+
+- **FR-8.4 Transparansi Dasar Perhitungan**
+  - Halaman quotation menampilkan HMA & HPM yang sedang berlaku, periodenya, referensi Kepmen, serta besar faktor penyesuaian yang diterapkan.
+  - Approver dapat melihat harga **sebelum dan sesudah** penyesuaian mineral, sehingga dampaknya tidak tersembunyi di dalam total.
+
+- **FR-8.5 Stale Index Warning**
+  - Bila HMA terakhir sudah melewati batas kesegaran (mis. > 14 hari), sistem menandai quotation dengan peringatan bahwa dasar harga mineral perlu diperbarui.
+
 ---
 
 ## 4. High-Level Data & Process Flow
 
 ```
 [ Master Data CBS + COGS Owner ] ─┐
-[ Ext. FX & Commodity ]          ─┼──> [ Dynamic Pricing Engine ] ──> [ DSS ]
+[ Exchange Rate (USD↔IDR) ]      ─┤
+[ HMA/HPM Mineral Index (ESDM) ] ─┼──> [ Dynamic Pricing Engine ] ──> [ DSS ]
 [ COGS Owner Cost Inputs ]       ─┘             │
+   (USD atau IDR, per quotation)                │
                                                 ▼
                              [ Quotation Workflow State Machine ]
                                                 │
@@ -271,6 +335,8 @@ Peran berikut mengikuti SOP quotation VKTR pada dokumen sumber.
 | **Integrasi** | *API-First Architecture*. Terhubung ke ERP (SAP/Odoo) untuk sinkronisasi *master BOM* dan *costing*, serta CRM (Salesforce/HubSpot) untuk data pra-penjualan. |
 | **Security & Access** | RBAC/ABAC — Sales Officer tidak dapat melihat *raw margin* milik VP Finance, namun dapat melihat *final price target*. Batas wewenang diskon ditegakkan di *service layer*, tidak dapat dilewati dari klien. |
 | **Versioning** | *Row-Level Versioning* — setiap revisi proposal memiliki snapshot (v1.0, v1.1) yang dapat dibandingkan *side-by-side*. |
+| **Multi-Currency** | Nilai asli input disimpan apa adanya beserta mata uang dan kurs yang berlaku saat kalkulasi. Konversi terjadi di lapisan perhitungan, bukan dengan menimpa angka yang diketik pengguna. |
+| **Reproducibility Harga** | Setiap hasil kalkulasi menyimpan kurs USD/IDR **dan** HMA/HPM yang dipakai, sehingga harga final selalu dapat direkonstruksi dan dijelaskan saat audit. |
 | **UI/UX** | Konsep *modern spreadsheet* agar departemen operasional tetap familiar dalam menginput angka, namun didukung kontrol database yang ketat. |
 | **Auditability** | Log perubahan bersifat *immutable* (append-only), mendukung kebutuhan audit sebagai perusahaan Tbk. |
 | **Performance** | Kalkulasi *what-if simulation* dan *price calculation* harus real-time (< 2 detik response untuk perubahan slider). |
@@ -295,12 +361,13 @@ Ringkasan hasil pemetaan detail effort (lihat *Timeline & Effort Detail*):
 | Module | Fitur Utama |
 |---|---|
 | Auth & User Management | Login, User Management (CRUD), RBAC/ABAC Permission, Access Audit Log |
-| Master Data | Master Cost Item + COGS Owner (+ Import Excel bulk), Margin & Financial Factor, Pricing Template, **Discount Authority Matrix** |
-| Dynamic Pricing | CBS Builder (tree), Dynamic Formula Builder, Price Calculation (GPM/EBITDA/BEP), Row-Level Versioning, Export PDF |
+| Master Data | Master Cost Item + COGS Owner (+ Import Excel bulk), Margin & Financial Factor, Pricing Template, **Discount Authority Matrix**, **Exchange Rate (USD↔IDR)**, **HMA Mineral Index** |
+| Dynamic Pricing | CBS Builder (tree), Dynamic Formula Builder, **Multi-Currency Input (toggle USD/IDR)**, Price Calculation (GPM/EBITDA/BEP), Row-Level Versioning, Export PDF |
 | Quotation Approval Workflow | Workflow Configurator (No-Code), **Parallel COGS Validation (AND-join)**, Strict Gatekeeping & Release Gate, Rejection & Routing, Dynamic Form Adjustment |
 | **Commercial Negotiation** | **Discount Request, Authority Matrix Evaluation, Auto-Escalation Routing, BOD Approve/Reject/Revise, Real-Time Margin Impact** |
 | State Tracking & Observability | Quotation Lifecycle Dashboard (Kanban+Table), SLA Timer & Escalation Notif, Immutable Audit Trail |
 | DSS & Simulation | What-If Sensitivity Simulator, Margin Guardrails & Anomaly Detection, Win/Loss Pricing Analytics |
+| **Mineral Index** | **HMA Master Data (periodik), HPM Calculator (formula Kepmen), Global Adjustment Factor, Stale Index Warning** |
 | Customer Qualification | Customer KYC Record, Opportunity Assessment, Qualification Gate |
 | Integrasi Eksternal | ERP Integration (SAP/Odoo), CRM Integration (Salesforce/HubSpot), Notifikasi MS Teams |
 
@@ -327,6 +394,8 @@ Detail task-level effort sizing tersedia di dokumen sumber `[Timeline & Effort] 
 | *Quotation turnaround time* (end-to-end) | Turun ≥ 40% dibanding proses manual |
 | Insiden *margin leakage* (margin final < target tanpa persetujuan BOD) | 0 insiden |
 | Adopsi *What-If Simulator* / margin impact saat negosiasi | ≥ 80% kasus negosiasi menampilkan dampak margin sebelum keputusan |
+| Kesalahan konversi mata uang pada quotation | **0 insiden** — konversi dilakukan sistem, bukan manual |
+| Quotation memakai HMA kedaluwarsa (> 14 hari) tanpa peringatan | 0 insiden |
 | Akurasi data biaya vs ERP (setelah sinkronisasi) | Selisih < 1% |
 
 ---
@@ -334,6 +403,7 @@ Detail task-level effort sizing tersedia di dokumen sumber `[Timeline & Effort] 
 ## 10. References
 
 - `Commercial Quotation Approval System Requirement for VKTR.pdf` — **Sumber otoritatif v2.0**: SOP quotation, hierarki COGS Owner, dan proses negosiasi berbasis delegated discount authority
+- `Simulasi_HPM_Nikel_Kepmen_2026.xlsx` — **Sumber formula HPM v2.1**: struktur perhitungan HMA → HPM nikel dengan komponen kobalt sesuai Kepmen ESDM No. 144.K/2026
 - `ConceptDSSpricingVKTR (1).pdf` — Draft PRD v1.0 asli
 - `VKTR-PriceCore_Strategic_Pricing_Architecture.pdf` — Ringkasan Aplikasi/Analitik/Impact per modul
 - `[Timeline & Effort] VKTR - Price Core - Copy of Detail - VKTR.pdf` — Breakdown modul/fitur/task untuk estimasi effort

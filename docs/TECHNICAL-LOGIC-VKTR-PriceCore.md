@@ -4,8 +4,8 @@
 
 | | |
 |---|---|
-| **Document Version** | 2.0 (Commercial Quotation Alignment) |
-| **Companion Document** | `PRD-VKTR-PriceCore.md` v2.0 |
+| **Document Version** | 2.1 (Multi-Currency & Mineral Index) |
+| **Companion Document** | `PRD-VKTR-PriceCore.md` v2.1 |
 | **Purpose** | Menerjemahkan requirement fungsional PRD menjadi logika data, state machine, dan arsitektur teknis yang dapat langsung dieksekusi oleh tim engineering. |
 
 > **Perubahan utama v2.0** (mengikuti PRD v2.0):
@@ -16,6 +16,14 @@
 >    permintaan diskon berbasis *delegated authority matrix*.
 > 3. **Release gate** — `QUOTATION_RELEASED` hanya tercapai bila seluruh
 >    komponen COGS mandatory tervalidasi.
+>
+> **Perubahan v2.1** (mengikuti PRD v2.1):
+> 4. **Multi-currency** (§12) — cost line dapat diinput dalam USD atau IDR;
+>    nilai asli disimpan apa adanya, konversi terjadi di lapisan kalkulasi
+>    memakai kurs dari master data.
+> 5. **Mineral Index Adjustment** (§13) — HMA dari Kepmen ESDM dihitung
+>    menjadi HPM, lalu dipakai sebagai faktor penyesuaian global terhadap
+>    komponen biaya *mineral-linked*.
 
 ---
 
@@ -103,6 +111,18 @@ DiscountAuthority (role → max_discount_pct, per business_line)
 NegotiationRequest ──< NegotiationDecision (APPROVE/REJECT/REVISE)
     │
     └─> milik satu PricingProposal (quotation)
+
+ExchangeRate (USD→IDR, effective_from)  ──> dipakai saat konversi & kalkulasi
+    │
+    └─> di-snapshot ke ProposalCalculationResult
+
+MineralIndexSnapshot (HMA per mineral, periode + ref Kepmen)
+    │
+    ▼
+HpmParameter (kadar, CF, moisture content — master config)
+    │
+    ▼
+HPM terhitung ──> adjustment factor ──> CostItem bertanda is_mineral_linked
 ```
 
 ### 2.1 Tabel Inti (ringkas)
@@ -227,6 +247,76 @@ NegotiationRequest ──< NegotiationDecision (APPROVE/REJECT/REVISE)
 | counter_discount_pct | numeric(5,2) nullable | wajib diisi bila `decision = REVISE` |
 | note | text | |
 | created_at | timestamptz | |
+
+**`exchange_rate`** (FR-1.4.2 — master data nilai tukar)
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | uuid PK | |
+| base_currency | enum | `USD` (mata uang sumber) |
+| quote_currency | enum | `IDR` (mata uang tujuan) |
+| rate | numeric(18,4) | berapa IDR per 1 USD |
+| source | varchar | `manual`, `bank-indonesia`, `provider-x` |
+| effective_from | timestamptz | awal masa berlaku |
+| created_by / created_at | | untuk audit |
+
+> Kurs **tidak pernah di-*update in place***. Perubahan menghasilkan baris
+> baru dengan `effective_from` lebih baru, sehingga quotation lama tetap
+> dapat direkonstruksi memakai kurs yang berlaku saat itu (FR-1.4.3).
+
+**`mineral_index_snapshot`** (FR-8.1 — HMA periodik dari Kepmen ESDM)
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | uuid PK | |
+| mineral_code | varchar | `NI` (nikel), `CO` (kobalt), `LI` (lithium), … |
+| hma_value | numeric(18,4) | **US$ per dmt** |
+| period_start / period_end | date | periode berlaku (mingguan / dua mingguan) |
+| regulation_ref | varchar | mis. `Kepmen ESDM No. 144.K/2026` |
+| source | varchar | `esdm-publication`, `manual` |
+| created_by / created_at | | |
+
+**`hpm_parameter`** (FR-8.2 — parameter formula, *master config*)
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | uuid PK | |
+| mineral_code | varchar | mineral yang diatur parameter ini |
+| ni_content_pct | numeric(6,4) | kadar Ni yang dipakai (mis. `0.016` = 1,6%) |
+| anchor_content_pct | numeric(6,4) | kadar *anchor*, default `0.016` |
+| anchor_cf_pct | numeric(6,4) | CF pada anchor, default `0.30` |
+| cf_slope | numeric(8,4) | perubahan CF per satuan kadar, default `10` |
+| co_content_pct | numeric(6,4) | kadar kobalt tetap, mis. `0.001` |
+| co_cf_pct | numeric(6,4) | CF kobalt, mis. `0.20` |
+| moisture_content_pct | numeric(6,4) | kadar air, mis. `0.35` |
+| is_active | boolean | |
+
+> Seluruh angka pada formula HPM berada di tabel ini — **tidak ada
+> konstanta di kode**. Ketika Kepmen berubah, yang diubah adalah data.
+
+**Perubahan pada tabel yang sudah ada:**
+
+`cost_item` — menambah penanda komponen berbahan mineral:
+
+| Kolom baru | Tipe | Keterangan |
+|---|---|---|
+| is_mineral_linked | boolean | `true` untuk Battery Pack dsb. Menentukan apakah faktor HPM diterapkan (FR-8.3) |
+| mineral_code | varchar nullable | mineral rujukan bila `is_mineral_linked` |
+
+`pricing_proposal` — mata uang & baseline mineral:
+
+| Kolom baru | Tipe | Keterangan |
+|---|---|---|
+| input_currency | enum | `USD` / `IDR` — mata uang seluruh cost line quotation ini (FR-1.4.1) |
+| baseline_hpm_value | numeric(18,4) nullable | HPM saat quotation dibuat; pembanding untuk faktor penyesuaian |
+| baseline_hpm_snapshot_id | FK nullable | HMA yang menghasilkan baseline tersebut |
+
+`proposal_calculation_result` — jejak reproducibility:
+
+| Kolom baru | Tipe | Keterangan |
+|---|---|---|
+| exchange_rate_used | numeric(18,4) | kurs yang dipakai saat kalkulasi ini |
+| exchange_rate_id | FK nullable | baris `exchange_rate` yang dirujuk |
+| hpm_value_used | numeric(18,4) nullable | HPM periode berjalan saat kalkulasi |
+| mineral_adjustment_factor | numeric(10,6) | faktor yang diterapkan (1.0 = tanpa penyesuaian) |
+| total_direct_cost_idr / total_direct_cost_usd | numeric | hasil dalam kedua mata uang (FR-1.4.4) |
 
 ---
 
@@ -658,7 +748,185 @@ audit yang sama dengan riwayat perubahan harga.
 
 ---
 
-## 12. Open Technical Decisions (Perlu Konfirmasi Tim)
+## 12. Multi-Currency Engine (FR-1.4)
+
+### 12.1 Prinsip: simpan yang diketik, konversi saat menghitung
+
+Nilai yang diketik pengguna **tidak pernah ditimpa** hasil konversi.
+`proposal_cost_line.value` menyimpan angka apa adanya, dan
+`pricing_proposal.input_currency` menyatakan mata uangnya. Konversi hanya
+terjadi di lapisan kalkulasi.
+
+Alasannya menyangkut audit: bila nilai asli ditimpa, angka yang dikirim
+vendor dalam USD akan hilang jejaknya begitu kurs berubah, dan tidak ada
+cara membuktikan angka mana yang sesungguhnya dikutip.
+
+### 12.2 Pipeline Konversi
+
+```pseudo
+function resolveRate(asOf):
+    # Kurs yang berlaku pada suatu waktu = baris terbaru yang
+    # effective_from-nya belum melewati waktu tersebut.
+    return SELECT rate FROM exchange_rate
+           WHERE base_currency = 'USD' AND quote_currency = 'IDR'
+             AND effective_from <= asOf
+           ORDER BY effective_from DESC
+           LIMIT 1
+
+function toBaseCurrency(value, inputCurrency, rate):
+    # Perhitungan internal seluruhnya dilakukan dalam IDR agar konsisten
+    # dengan threshold, bucket eskalasi, dan data historis.
+    if inputCurrency == 'IDR': return value
+    if inputCurrency == 'USD': return value * rate
+```
+
+Seluruh nilai dikonversi ke **IDR sebagai mata uang internal** sebelum
+masuk formula pricing (§3). Konsekuensinya: ambang GPM, bucket eskalasi
+nilai transaksi, dan statistik *cost outlier* tetap memakai satu satuan —
+tidak perlu diubah oleh kehadiran multi-currency.
+
+Untuk **tampilan** (FR-1.4.4), hasil akhir disajikan dalam keduanya:
+
+```pseudo
+display_idr = result_idr
+display_usd = result_idr / rate_used
+```
+
+### 12.3 Rate Locking (FR-1.4.3)
+
+`exchange_rate_used` disimpan pada setiap `proposal_calculation_result`.
+Kalkulasi ulang di kemudian hari akan memakai kurs terbaru dan
+menghasilkan baris hasil **baru** — baris lama tetap utuh. Harga yang
+sudah disetujui tidak berubah hanya karena kurs bergerak.
+
+### 12.4 Currency Change Guard (FR-1.4.5)
+
+Mengganti `input_currency` saat cost line sudah terisi **tidak** boleh
+mengonversi nilai secara diam-diam:
+
+```pseudo
+on ChangeInputCurrency(proposal, newCurrency):
+    if proposal has cost lines with value > 0:
+        require explicit user confirmation
+        # Angka lama TETAP apa adanya — kini dibaca sebagai mata uang baru.
+        # Mengonversi otomatis akan mengubah harga tanpa disadari pengisi.
+        writeAuditLog(action: 'UPDATE', field: 'input_currency',
+                      old: proposal.input_currency, new: newCurrency)
+```
+
+---
+
+## 13. Mineral Index Engine — HMA → HPM (FR-8.1 – FR-8.5)
+
+### 13.1 Formula HPM (Kepmen ESDM No. 144.K/2026)
+
+Diturunkan dari `Simulasi_HPM_Nikel_Kepmen_2026.xlsx`. Seluruh parameter
+berasal dari `hpm_parameter`, bukan konstanta di kode.
+
+```pseudo
+function computeHpm(param, hmaNi, hmaCo):
+    # Correction Factor bergerak linear terhadap kadar Ni, berpusat pada
+    # kadar anchor 1,6% dengan CF 30%.
+    cf_ni      = param.anchor_cf_pct
+               + ((param.ni_content_pct - param.anchor_content_pct) * param.cf_slope)
+
+    value_ni   = param.ni_content_pct * cf_ni * hmaNi
+    bonus_co   = param.co_content_pct * param.co_cf_pct * hmaCo
+
+    total_dry  = value_ni + bonus_co                       # US$/dmt
+    hpm_wet    = total_dry * (1 - param.moisture_content_pct)   # US$/WMT
+
+    return { cf_ni, value_ni, bonus_co, total_dry, hpm_wet }
+```
+
+**Nilai acuan** dengan HMA Ni = US$ 16.646/dmt, HMA Co = US$ 28.500/dmt,
+MC = 35%, kadar Co = 0,10%, CF Co = 20% — sesuai skenario di file simulasi:
+
+| Skenario | Kadar Ni | CF | Nilai Ni ($/dmt) | Bonus Co | Total kering | **HPM ($/WMT)** |
+|---|---|---|---|---|---|---|
+| Limonit 1 | 1,3% | 27,0% | 58,43 | 5,70 | 64,13 | **41,68** |
+| Limonit 2 | 1,4% | 28,0% | 65,25 | 5,70 | 70,95 | **46,12** |
+| Limonit 3 | 1,5% | 29,0% | 72,41 | 5,70 | 78,11 | **50,77** |
+| **Saprolit Basis (anchor)** | **1,6%** | **30,0%** | **79,90** | **5,70** | **85,60** | **55,64** |
+| Saprolit Premium 1 | 1,7% | 31,0% | 87,72 | 5,70 | 93,42 | **60,73** |
+| Saprolit Premium 2 | 1,8% | 32,0% | 95,88 | 5,70 | 101,58 | **66,03** |
+
+Bonus kobalt bernilai konstan (US$ 5,70/dmt) selama kadar & CF kobalt
+tidak berubah — ia tidak bergantung pada kadar nikel.
+
+### 13.2 Global Adjustment Factor (FR-8.3)
+
+```pseudo
+function mineralAdjustmentFactor(proposal, currentHpm):
+    if proposal.baseline_hpm_value is null or proposal.baseline_hpm_value == 0:
+        return 1.0                      # belum ada baseline → tanpa penyesuaian
+
+    return currentHpm / proposal.baseline_hpm_value
+```
+
+Faktor ini diterapkan **hanya** pada cost item bertanda
+`is_mineral_linked`, bersamaan dengan penyesuaian FX yang sudah ada:
+
+```pseudo
+if item.is_mineral_linked:
+    amount = amount * mineralAdjustmentFactor
+```
+
+Contoh: baseline HPM 55,64 dan HPM periode berjalan 60,73 menghasilkan
+faktor **1,0915** — komponen Battery Pack naik 9,15% secara otomatis.
+
+**Penyesuaian ini tidak memerlukan approval terpisah** (dianggap sudah
+disetujui secara sistem), namun `mineral_adjustment_factor`, `hpm_value_used`,
+dan snapshot HMA yang dipakai **wajib** tercatat pada hasil kalkulasi dan
+audit trail — agar kenaikan harga selalu dapat dijelaskan asal-usulnya.
+
+### 13.3 Urutan Penerapan pada Pipeline Kalkulasi
+
+Memperbarui §3.3 langkah 4–6:
+
+```
+4. Build variable context
+   4a. resolveRate(now)                  → kurs USD/IDR berlaku
+   4b. konversi seluruh cost line ke IDR (§12.2)
+   4c. resolveCurrentHpm(mineral_code)   → HPM periode berjalan (§13.1)
+   4d. mineralAdjustmentFactor(...)      → faktor global (§13.2)
+5. Terapkan faktor:
+   · FX factor        → item DIRECT bersubkategori impor (BOM)
+   · Mineral factor   → item ber-flag is_mineral_linked
+6. Evaluasi formula seperti biasa
+```
+
+Urutannya penting: **konversi mata uang lebih dulu, baru penyesuaian
+faktor**. Mengalikan faktor pada angka yang belum satu satuan akan
+menghasilkan nilai yang salah tanpa terlihat salah.
+
+### 13.4 Stale Index Warning (FR-8.5)
+
+```pseudo
+function isIndexStale(snapshot, maxAgeDays = 14):
+    return snapshot is null or (now() - snapshot.period_end) > maxAgeDays
+```
+
+Quotation dengan indeks kedaluwarsa **tidak diblokir** — hanya ditandai,
+karena menghentikan proses komersial akibat keterlambatan publikasi
+regulasi akan lebih merugikan daripada risikonya. Penanda ini muncul di
+halaman quotation dan pada panel approver.
+
+### 13.5 Interaksi dengan DSS
+
+What-If Simulator (§7.1) memperoleh dua *slider* tambahan:
+
+| Slider | Efek |
+|---|---|
+| `hma_delta_pct` | menggeser HMA → HPM dihitung ulang → faktor mineral berubah |
+| `fx_delta_pct` | sudah ada; kini juga menggeser hasil konversi input USD |
+
+Keduanya memakai ulang fungsi yang sama dengan kalkulasi resmi — tidak
+ada logika ganda antara simulasi dan perhitungan sesungguhnya.
+
+---
+
+## 14. Open Technical Decisions (Perlu Konfirmasi Tim)
 
 1. **Bahasa/Platform backend** — belum ditentukan di dokumen sumber (Node.js/NestJS, Java/Spring, atau .NET). Rekomendasi: pilih yang selaras dengan stack tim internal VKTR/mitra existing ERP.
 2. **Pilihan library formula evaluator** — custom parser vs library (`mathjs`, `expr-eval`, `jsonata`). Rekomendasi awal: `jsonata` atau `mathjs` dengan sandboxing ketat untuk mempercepat Phase 1.
@@ -667,10 +935,14 @@ audit yang sama dengan riwayat perubahan harga.
 5. **Ambang wewenang diskon (§11.1)** — angka 3% / 8% adalah ilustrasi. Batas sesungguhnya per peran, dan apakah berbeda per lini bisnis (B2G vs B2B), **wajib dikonfirmasi ke Chief Sales & BOD** sebelum go-live.
 6. **Kewenangan approve diskon oleh COGS Owner** — dokumen sumber tidak menyebut VP Finance/VP Operations sebagai approver diskon. Asumsi saat ini: mereka **tidak** berwenang menyetujui diskon (hanya memvalidasi komponen biaya). Perlu konfirmasi apakah VP Finance perlu dilibatkan saat diskon menembus ambang margin.
 7. **Perlakuan quotation yang sudah dirilis lalu dinegosiasikan ulang** — apakah menghasilkan versi baru (`v1.1`) atau memperbarui versi berjalan. Rekomendasi: versi baru, agar riwayat harga yang pernah diberikan ke pelanggan tetap utuh untuk audit.
+8. **Sumber kurs USD/IDR** — apakah diinput manual oleh Admin, atau ditarik otomatis dari API (Bank Indonesia / penyedia data). Perlu disepakati pula kurs mana yang dipakai: tengah, jual, atau kurs pajak.
+9. **Kadar Ni yang dipakai VKTR** — file simulasi memuat enam skenario (1,3%–1,8%). Kadar mana yang menjadi acuan default perlu dikonfirmasi ke tim Procurement/Engineering.
+10. **Hubungan HPM ke harga battery pack** — POC memakai rasio HPM berjalan terhadap baseline sebagai faktor langsung. Apakah dampaknya proporsional penuh, atau hanya sebagian (mis. mineral menyusun 40% biaya sel baterai), **wajib divalidasi** bersama tim teknis sebelum dipakai untuk keputusan nyata.
+11. **Ambang kesegaran indeks** — default 14 hari; perlu disesuaikan dengan ritme terbit Kepmen ESDM yang sesungguhnya.
 
 ---
 
-## 13. Traceability Matrix (FR → Technical Component)
+## 15. Traceability Matrix (FR → Technical Component)
 
 | FR | Modul Teknis |
 |---|---|
@@ -684,6 +956,12 @@ audit yang sama dengan riwayat perubahan harga.
 | **FR-6.3 (approve/reject/revise)** | `negotiation_decision` + revision loop (§11.2) |
 | **FR-6.4 (margin impact)** | Margin Impact Calculation (§11.3), reuse Pricing Engine (§3) |
 | **FR-6.5 (negotiation audit)** | Audit integration (§11.5) |
+| **FR-1.4.1 – FR-1.4.5 (multi-currency)** | `exchange_rate` (§2.1) + Multi-Currency Engine (§12) |
+| **FR-8.1 (HMA master data)** | `mineral_index_snapshot` (§2.1) |
+| **FR-8.2 (HPM calculator)** | `computeHpm` + `hpm_parameter` (§13.1) |
+| **FR-8.3 (global adjustment)** | `mineralAdjustmentFactor` (§13.2), pipeline §13.3 |
+| **FR-8.4 (transparansi)** | Snapshot pada `proposal_calculation_result` (§2.1) |
+| **FR-8.5 (stale warning)** | `isIndexStale` (§13.4) |
 | FR-7.1 – FR-7.3 (KYC) | *Belum diimplementasikan pada POC — lihat PRD §8* |
 | NFR Security | RBAC/ABAC Layer (§8) |
 | NFR Integrasi | ERP/CRM/FX Integration Contracts (§9) |

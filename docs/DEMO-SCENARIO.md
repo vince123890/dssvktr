@@ -1,5 +1,14 @@
 # Skenario Demo — VKTR-PriceCore POC (v2.0)
 
+> **Status terhadap PRD v2.1.** Kebutuhan **multi-currency (toggle
+> USD/IDR)** dan **Mineral Index HMA/HPM** sudah ditetapkan di
+> [`PRD-VKTR-PriceCore.md`](PRD-VKTR-PriceCore.md) §FR-1.4 & Module 8
+> serta dirancang di
+> [`TECHNICAL-LOGIC-VKTR-PriceCore.md`](TECHNICAL-LOGIC-VKTR-PriceCore.md)
+> §12–13, **namun belum dibangun di aplikasi**. Langkah-langkah di bawah
+> masih memakai input IDR tanpa penyesuaian mineral — sesuai keadaan
+> aplikasi saat ini. Lihat §7 untuk cara menyampaikannya saat demo.
+
 Dokumen ini adalah panduan langkah-demi-langkah untuk mendemokan POC:
 siapa login sebagai apa, data apa yang dimasukkan, ke mana alurnya, dan
 hasil yang seharusnya terlihat di tiap tahap. Disusun agar satu sesi demo
@@ -7,6 +16,12 @@ menyentuh **seluruh modul inti** sesuai *Commercial Quotation Approval
 System Requirement for VKTR*: COGS Validation (paralel), Release Gate,
 Commercial Negotiation (delegated discount authority), Observability, dan
 DSS.
+
+> **Baru pertama kali?** Baca
+> [`DEMO-FLOW-OVERVIEW.md`](DEMO-FLOW-OVERVIEW.md) lebih dulu — di sana ada
+> peta besarnya: enam peran dalam satu halaman, diagram alur quotation dan
+> negosiasi, serta urutan login sepanjang sesi. Dokumen ini adalah
+> detail per-langkahnya.
 
 Prasyarat: sudah menjalankan `npm run seed:demo` (lihat README §4–5) —
 ini menyediakan 6 akun demo dan ±15 quotation historis untuk Win/Loss
@@ -319,4 +334,49 @@ visibility. Perhatikan riwayat negosiasi tercatat lengkap di panel.
 - **Tidak ada ekspor ke ERP/CRM** — quotation `Released` berhenti di
   PriceCore.
 - **Ambang diskon (3% / 8%) bersifat ilustratif** — angka sesungguhnya
-  perlu dikonfirmasi ke Chief Sales & BOD (lihat Technical Logic §12).
+  perlu dikonfirmasi ke Chief Sales & BOD (lihat Technical Logic §14).
+
+---
+
+## 7. Kebutuhan v2.1 — Sudah Dirancang, Belum Dibangun
+
+Dua kebutuhan berikut sudah masuk PRD dan technical logic, tetapi **belum
+ada di aplikasi** yang Anda demokan. Sampaikan apa adanya bila ditanya.
+
+| Kebutuhan | Status dokumen | Status aplikasi |
+|---|---|---|
+| Toggle input **USD / IDR** + master kurs | PRD FR-1.4, Technical Logic §12 | Belum — seluruh input masih IDR |
+| **HMA/HPM** mineral sebagai penyesuaian global | PRD Module 8, Technical Logic §13 | Belum — tidak ada faktor mineral pada kalkulasi |
+
+### Cara membawakannya saat demo
+
+Buka [`DEMO-FLOW-OVERVIEW.md`](DEMO-FLOW-OVERVIEW.md) §5 — di sana ada
+diagram alur kedua faktor global tersebut beserta tabel HPM yang sudah
+dihitung dari formula Kepmen. Gunakan itu untuk menjelaskan **rancangan**,
+sambil menunjukkan aplikasi yang berjalan untuk bagian yang **sudah** ada.
+
+Poin yang layak ditekankan:
+
+1. **Fondasinya sudah ada.** Engine sekarang sudah menerapkan faktor FX
+   terhadap komponen BOM impor. Faktor mineral memakai mekanisme yang
+   sama persis — perbedaannya hanya sumber angkanya (HPM, bukan kurs).
+2. **Nilai asli tidak akan ditimpa.** Rancangan multi-currency menyimpan
+   angka yang diketik apa adanya beserta mata uangnya; konversi terjadi
+   saat menghitung. Ini yang menjaga jejak audit ketika kurs bergerak.
+3. **HPM bukan tebakan.** Formulanya diambil dari Kepmen ESDM
+   No. 144.K/2026, dan angka pada tabel sudah diverifikasi terhadap file
+   simulasi yang menjadi sumber.
+
+### Yang masih perlu diputuskan
+
+Sebelum dibangun, empat hal ini butuh jawaban dari VKTR (rinciannya di
+Technical Logic §14):
+
+- Sumber kurs USD/IDR — manual, API Bank Indonesia, atau penyedia lain;
+  dan kurs mana (tengah / jual / pajak).
+- Kadar Ni acuan VKTR — file simulasi memuat enam skenario (1,3%–1,8%).
+- **Seberapa besar HPM memengaruhi harga battery pack.** POC merancang
+  dampak proporsional penuh, tetapi bila mineral hanya menyusun sebagian
+  biaya sel baterai, faktornya harus diredam. Ini yang paling berisiko
+  bila diasumsikan keliru.
+- Ambang kesegaran indeks — default rancangan 14 hari.

@@ -95,18 +95,21 @@ Buka [http://localhost:3000](http://localhost:3000).
 
 Dibuat otomatis oleh `npm run seed:demo` (password sama untuk semua: `PriceCore123!`):
 
-| Email | Role | Departemen |
+| Email | Role | Peran dalam alur |
 |---|---|---|
-| procurement@vktr.demo | Procurement Analyst | Procurement |
-| engineering@vktr.demo | Cost Engineer | Engineering |
-| finance@vktr.demo | Finance Controller | Finance |
-| sales@vktr.demo | Sales Manager | Sales |
-| clevel@vktr.demo | C-Level / BOD | Executive |
-| admin@vktr.demo | System Admin | IT/Operations |
+| sales@vktr.demo | Sales Officer | Membuat quotation, mengajukan diskon (≤ 3%) |
+| chiefsales@vktr.demo | Chief Sales | Merakit quotation final, approve diskon (≤ 8%) |
+| vpfinance@vktr.demo | VP Finance | COGS Owner — margin, OPEX, komponen finansial |
+| vpops@vktr.demo | VP Operations | COGS Owner — logistik, STNK, delivery |
+| bod@vktr.demo | BOD | Approve/Reject/Revise diskon tanpa batas |
+| admin@vktr.demo | System Admin | Master data, workflow, ambang diskon |
 
-Lihat [`docs/DEMO-SCENARIO.md`](docs/DEMO-SCENARIO.md) untuk skenario demo
-langkah-demi-langkah (siapa login sebagai apa, data apa yang diinput, alur
-approval, dan hasil yang diharapkan).
+Dokumentasi demo:
+
+- [`docs/DEMO-FLOW-OVERVIEW.md`](docs/DEMO-FLOW-OVERVIEW.md) — **mulai di
+  sini**: peta peran, diagram alur quotation & negosiasi, urutan login.
+- [`docs/DEMO-SCENARIO.md`](docs/DEMO-SCENARIO.md) — langkah-demi-langkah
+  beserta angka yang harus diinput dan hasil yang diharapkan.
 
 ### Mengulang demo
 
@@ -166,7 +169,8 @@ scripts/seed-demo.ts          # Demo users + historical proposals
 docs/
   PRD-VKTR-PriceCore.md
   TECHNICAL-LOGIC-VKTR-PriceCore.md
-  DEMO-SCENARIO.md
+  DEMO-FLOW-OVERVIEW.md         # Peta peran + flow besar
+  DEMO-SCENARIO.md              # Langkah demi langkah
 ```
 
 ---
