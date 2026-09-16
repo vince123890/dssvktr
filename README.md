@@ -110,6 +110,8 @@ Dokumentasi demo:
   sini**: peta peran, diagram alur quotation & negosiasi, urutan login.
 - [`docs/DEMO-SCENARIO.md`](docs/DEMO-SCENARIO.md) — langkah-demi-langkah
   beserta angka yang harus diinput dan hasil yang diharapkan.
+- [`docs/DEMO-SCENARIO-USD.md`](docs/DEMO-SCENARIO-USD.md) — skenario
+  kedua: quotation berdenominasi **USD** dengan penyesuaian **HMA/HPM**.
 
 ### Mengulang demo
 
@@ -170,7 +172,8 @@ docs/
   PRD-VKTR-PriceCore.md
   TECHNICAL-LOGIC-VKTR-PriceCore.md
   DEMO-FLOW-OVERVIEW.md         # Peta peran + flow besar
-  DEMO-SCENARIO.md              # Langkah demi langkah
+  DEMO-SCENARIO.md              # Langkah demi langkah (B2G, IDR)
+  DEMO-SCENARIO-USD.md          # Skenario 2 (B2B, USD + HMA/HPM)
 ```
 
 ---

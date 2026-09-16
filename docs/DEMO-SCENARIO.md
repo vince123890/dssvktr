@@ -14,6 +14,11 @@ System Requirement for VKTR*: COGS Validation (paralel), Release Gate,
 Commercial Negotiation (delegated discount authority), Observability, dan
 DSS.
 
+> **Skenario kedua (USD).** Untuk mendemokan input multi-currency dan
+> penyesuaian HMA/HPM dengan angka yang sudah terverifikasi, lihat
+> [`DEMO-SCENARIO-USD.md`](DEMO-SCENARIO-USD.md) — lini B2B Commercial
+> Fleet dengan input US Dollar.
+
 > **Baru pertama kali?** Baca
 > [`DEMO-FLOW-OVERVIEW.md`](DEMO-FLOW-OVERVIEW.md) lebih dulu — di sana ada
 > peta besarnya: enam peran dalam satu halaman, diagram alur quotation dan

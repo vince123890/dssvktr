@@ -4,7 +4,12 @@ Peta menyeluruh alur demo POC: siapa berperan apa, di titik mana mereka
 masuk, dan kontrol apa yang berjalan di tiap perpindahan.
 
 Dokumen ini adalah **gambaran besarnya**. Untuk langkah rinci beserta
-angka yang harus diketik, lihat [`DEMO-SCENARIO.md`](DEMO-SCENARIO.md).
+angka yang harus diketik:
+
+- [`DEMO-SCENARIO.md`](DEMO-SCENARIO.md) — skenario utama, B2G dengan
+  input Rupiah.
+- [`DEMO-SCENARIO-USD.md`](DEMO-SCENARIO-USD.md) — skenario kedua, B2B
+  dengan input **USD** plus penyesuaian **HMA/HPM**.
 
 | | |
 |---|---|

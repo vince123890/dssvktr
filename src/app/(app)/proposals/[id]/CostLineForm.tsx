@@ -13,6 +13,19 @@ const CATEGORY_LABEL: Record<string, string> = {
   MARGIN_FACTOR: "Margin & Financial Factors",
 };
 
+// POC display-only override: these BOM/direct-cost line items are filled
+// in by the Sales Officer during the demo, even though the underlying
+// owner_department_id (used for COGS validation gating) is VP Operations.
+// Purely cosmetic — does not affect workflow/RBAC logic.
+const OWNER_DEPT_DISPLAY_OVERRIDE: Record<string, string> = {
+  "BOM-BATT-001": "SALES",
+  "BOM-CHAS-001": "SALES",
+  "BOM-PWTR-001": "SALES",
+  "DIR-KAR-001": "SALES",
+  "DIR-BEA-001": "SALES",
+  "DIR-LOG-001": "SALES",
+};
+
 export function CostLineForm({
   proposalId,
   versionId,
@@ -85,7 +98,8 @@ export function CostLineForm({
                       </div>
                     </td>
                     <td className="px-4 py-2 text-xs text-muted">
-                      {ownerDeptCodeById[item.owner_department_id]}
+                      {OWNER_DEPT_DISPLAY_OVERRIDE[item.code] ??
+                        ownerDeptCodeById[item.owner_department_id]}
                     </td>
                     <td className="px-4 py-2">
                       <input
