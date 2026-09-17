@@ -17,6 +17,9 @@ import {
 } from "@/lib/rbac";
 import { loadDiscountLadder } from "@/lib/negotiation/authority";
 import { loadMineralContext } from "@/lib/pricing/mineral";
+import { resolveExchangeRate } from "@/lib/pricing/currency";
+import { evaluatePriceStaleness } from "@/lib/pricing/staleness";
+import { PriceStalenessBadge } from "@/components/ui/PriceStalenessBadge";
 import type {
   CbsTemplate,
   CostItem,
@@ -106,15 +109,23 @@ export default async function ProposalDetailPage({
   const depts = (departments ?? []) as Department[];
   const ownerDeptCodeById = Object.fromEntries(depts.map((d) => [d.id, d.code]));
 
-  const [{ data: negotiations }, discountLadder, mineralContext] = await Promise.all([
-    supabase
-      .from("negotiation_request")
-      .select("*")
-      .eq("proposal_id", proposal.id)
-      .order("created_at", { ascending: false }),
-    loadDiscountLadder(supabase, proposal.business_line),
-    loadMineralContext(supabase),
-  ]);
+  const [{ data: negotiations }, discountLadder, mineralContext, currentExchangeRate] =
+    await Promise.all([
+      supabase
+        .from("negotiation_request")
+        .select("*")
+        .eq("proposal_id", proposal.id)
+        .order("created_at", { ascending: false }),
+      loadDiscountLadder(supabase, proposal.business_line),
+      loadMineralContext(supabase),
+      resolveExchangeRate(supabase),
+    ]);
+
+  const staleness = evaluatePriceStaleness(
+    latestResult as ProposalCalculationResult | null,
+    currentExchangeRate,
+    mineralContext
+  );
 
   let steps: WorkflowStepInstance[] = [];
   if (proposal.current_status !== "DRAFT") {
@@ -168,6 +179,7 @@ export default async function ProposalDetailPage({
               {STATUS_LABEL[proposal.current_status]}
             </Badge>
             <span className="text-xs text-muted">{version?.version_label}</span>
+            <PriceStalenessBadge info={staleness} />
           </div>
           <h1 className="text-xl font-semibold mt-1">{proposal.title}</h1>
           <p className="text-sm text-muted mt-0.5">
