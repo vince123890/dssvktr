@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
-import { canManageWorkflowDefinitions } from "@/lib/rbac";
+import { ACTIVE_DEPARTMENT_CODES, canManageWorkflowDefinitions } from "@/lib/rbac";
 import type {
   Department,
   MarginTierAuthority,
@@ -29,6 +29,12 @@ export default async function AdminPage() {
   const depts = (departments ?? []) as Department[];
   const marginTiers = (tiers ?? []) as MarginTierAuthority[];
   const canEdit = canManageWorkflowDefinitions(profile.role);
+
+  // Only departments the v3.0 SOP actually uses may be picked when
+  // building a NEW workflow — retired departments (Procurement,
+  // Engineering, ...) still show up on existing/legacy workflow cards
+  // below (depts, unfiltered) so their history stays readable.
+  const activeDepts = depts.filter((d) => ACTIVE_DEPARTMENT_CODES.includes(d.code));
 
   const grouped = definitions.reduce<Record<string, WorkflowDefinition[]>>((acc, d) => {
     (acc[d.business_line] ??= []).push(d);
@@ -76,7 +82,7 @@ export default async function AdminPage() {
             <CardTitle>Tambah Workflow Template Baru</CardTitle>
           </CardHeader>
           <CardContent>
-            <CreateWorkflowForm departments={depts} />
+            <CreateWorkflowForm departments={activeDepts} />
           </CardContent>
         </Card>
       )}

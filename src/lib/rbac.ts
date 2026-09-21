@@ -87,3 +87,35 @@ export const ROLE_DEPARTMENT_CODE: Record<UserRole, string> = {
   BOD: "BOD",
   SYSTEM_ADMIN: "ADMIN",
 };
+
+/**
+ * Department codes actually used by the v3.0 SOP. `department` still
+ * carries rows from the v1 role model (PROCUREMENT, ENGINEERING,
+ * FINANCE, C_LEVEL — Postgres can't drop enum values in place), which
+ * no demo account belongs to. A Workflow Template step assigned to one
+ * of those would stall forever: nobody can ever approve it. Anything
+ * building a Workflow Template (CreateWorkflowForm) must offer only
+ * these codes.
+ */
+export const ACTIVE_DEPARTMENT_CODES: string[] = Object.values(ROLE_DEPARTMENT_CODE);
+
+/**
+ * Departments allowed as the FINAL step of a Workflow Template — the
+ * step that actually releases/finalizes a quotation (PRD FR-2.0: Chief
+ * Sales reviews and releases; BOD reviews when margin tier escalates).
+ * A COGS-validating department (VP Operations/VP Finance/Sales)
+ * cannot be the last step — that would release a quotation without
+ * anyone ever finalizing it.
+ */
+export const FINAL_STEP_DEPARTMENT_CODES: string[] = ["CHIEF_SALES", "BOD"];
+
+/**
+ * Departments allowed for a non-final ("COGS validation") step — must
+ * be a real COGS Owner or Sales (PRD FR-1.1), not Chief Sales/BOD
+ * (reserved for the final step) or Product/Admin (own no cost group).
+ */
+export const COGS_STEP_DEPARTMENT_CODES: string[] = [
+  "SALES",
+  "VP_OPERATIONS",
+  "VP_FINANCE",
+];

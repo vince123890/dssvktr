@@ -1,10 +1,12 @@
 "use client";
 
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { COGS_STEP_DEPARTMENT_CODES, FINAL_STEP_DEPARTMENT_CODES } from "@/lib/rbac";
 import type { BusinessLine, Department, WorkflowQualifierType } from "@/types/database";
-import { useRef, useState, useTransition } from "react";
+import { AlertTriangle, ArrowRight, Plus, Trash2 } from "lucide-react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { createWorkflowDefinitionAction } from "./actions";
-import { Plus, Trash2 } from "lucide-react";
 
 interface StepDraft {
   department_id: string;
@@ -18,6 +20,57 @@ const BUSINESS_LINE_OPTIONS: { value: BusinessLine; label: string }[] = [
   { value: "CHARGING_INFRA_BUILDOUT", label: "Charging Infrastructure Buildout" },
 ];
 
+/**
+ * Mirrors the server-side rules in createWorkflowDefinitionAction so
+ * Admin sees the same verdict before submitting, not just after a
+ * rejected round-trip. The server remains the actual authority — this
+ * is a UX improvement, not a security boundary (Technical Logic §10
+ * "zero-bypass guarantee" still applies server-side).
+ */
+function validateStepOrder(
+  steps: StepDraft[],
+  deptById: Record<string, Department>
+): string[] {
+  const problems: string[] = [];
+  if (steps.length === 0) return problems;
+
+  const codes = steps.map((s) => deptById[s.department_id]?.code ?? null);
+
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const c of codes) {
+    if (!c) continue;
+    if (seen.has(c)) duplicates.add(c);
+    seen.add(c);
+  }
+  if (duplicates.size > 0) {
+    problems.push(
+      `Department tidak boleh muncul dua kali: ${[...duplicates].join(", ")}.`
+    );
+  }
+
+  const middle = codes.slice(0, -1);
+  const invalidMiddle = middle.filter((c) => c && !COGS_STEP_DEPARTMENT_CODES.includes(c));
+  if (invalidMiddle.length > 0) {
+    problems.push(
+      `Step selain terakhir harus COGS Owner (Sales/VP Operations/VP Finance) — bukan ${[...new Set(invalidMiddle)].join(", ")}.`
+    );
+  }
+
+  const last = codes[codes.length - 1];
+  if (last && !FINAL_STEP_DEPARTMENT_CODES.includes(last)) {
+    problems.push(`Step terakhir harus Chief Sales atau BOD — bukan ${last}.`);
+  }
+
+  const vpOpsIndex = codes.indexOf("VP_OPERATIONS");
+  const vpFinanceIndex = codes.indexOf("VP_FINANCE");
+  if (vpOpsIndex !== -1 && vpFinanceIndex !== -1 && vpOpsIndex > vpFinanceIndex) {
+    problems.push("VP Operations harus mengisi lebih dulu, sebelum VP Finance (urutan SOP).");
+  }
+
+  return problems;
+}
+
 export function CreateWorkflowForm({ departments }: { departments: Department[] }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
@@ -26,6 +79,13 @@ export function CreateWorkflowForm({ departments }: { departments: Department[] 
   const [steps, setSteps] = useState<StepDraft[]>([
     { department_id: departments[0]?.id ?? "", is_mandatory_gate: true, sla_hours: 24 },
   ]);
+
+  const deptById = useMemo(
+    () => Object.fromEntries(departments.map((d) => [d.id, d])),
+    [departments]
+  );
+
+  const problems = useMemo(() => validateStepOrder(steps, deptById), [steps, deptById]);
 
   function addStep() {
     setSteps((s) => [
@@ -105,8 +165,13 @@ export function CreateWorkflowForm({ departments }: { departments: Department[] 
 
       <div className="space-y-2">
         <p className="text-xs font-medium text-muted">
-          Urutan Step Approval (sekuensial — step terakhir diperlakukan
-          sebagai tahap review final)
+          Urutan Step Approval (sekuensial — step selain terakhir harus
+          COGS Owner, step terakhir harus Chief Sales/BOD)
+        </p>
+        <p className="text-[11px] text-muted">
+          Hanya department aktif sesuai SOP VKTR yang bisa dipilih —
+          department dari struktur lama (Procurement, Engineering, dst.)
+          tidak lagi ditawarkan karena tidak ada user yang bisa approve-nya.
         </p>
         <div className="space-y-2">
           {steps.map((step, i) => (
@@ -169,6 +234,34 @@ export function CreateWorkflowForm({ departments }: { departments: Department[] 
         </button>
       </div>
 
+      {/* Live preview of the resulting flow, so Admin sees the alur
+          before ever clicking submit. */}
+      <div className="rounded-lg border border-card-border bg-slate-50 p-3">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted mb-2">
+          Preview Alur
+        </p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {steps.map((step, i) => (
+            <span key={i} className="flex items-center gap-1.5">
+              <Badge tone={i === steps.length - 1 ? "info" : "default"}>
+                {deptById[step.department_id]?.name ?? "?"}
+              </Badge>
+              {i < steps.length - 1 && <ArrowRight size={12} className="text-muted" />}
+            </span>
+          ))}
+        </div>
+        {problems.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {problems.map((p, i) => (
+              <div key={i} className="flex items-start gap-1.5 text-xs text-danger">
+                <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                <span>{p}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {error && (
         <p className="rounded-lg border border-danger/20 bg-danger-bg px-3 py-2 text-xs text-danger">
           {error}
@@ -176,7 +269,7 @@ export function CreateWorkflowForm({ departments }: { departments: Department[] 
       )}
 
       <div className="flex justify-end">
-        <Button type="submit" size="sm" loading={isPending}>
+        <Button type="submit" size="sm" loading={isPending} disabled={problems.length > 0}>
           {isPending ? "Menyimpan..." : "Tambah Workflow Template"}
         </Button>
       </div>

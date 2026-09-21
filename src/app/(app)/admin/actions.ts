@@ -10,6 +10,10 @@ import {
   toActionError,
   type ActionResult,
 } from "@/lib/actionResult";
+import {
+  COGS_STEP_DEPARTMENT_CODES,
+  FINAL_STEP_DEPARTMENT_CODES,
+} from "@/lib/rbac";
 
 const WorkflowStepInputSchema = z.object({
   department_id: z.string().uuid(),
@@ -59,6 +63,72 @@ export async function createWorkflowDefinitionAction(
     }
 
     const supabase = await createClient();
+
+    // Server-side authority on step ordering — the UI already restricts
+    // the dropdown to active departments and shows a live preview, but
+    // that is only a client-side hint. Without this check a direct
+    // action call could still create a workflow that stalls forever
+    // (a department nobody belongs to) or releases a quotation without
+    // Chief Sales/BOD ever reviewing it.
+    const { data: stepDeptRows, error: deptLookupError } = await supabase
+      .from("department")
+      .select("id, code")
+      .in("id", parsed.steps.map((s) => s.department_id));
+
+    if (deptLookupError) throw new Error(deptLookupError.message);
+
+    const codeByDeptId = Object.fromEntries(
+      (stepDeptRows ?? []).map((d) => [d.id, d.code])
+    );
+    const stepCodes = parsed.steps.map((s) => codeByDeptId[s.department_id]);
+
+    if (stepCodes.some((c) => !c)) {
+      throw new Error("Salah satu department pada step tidak ditemukan.");
+    }
+
+    // Rule 1: no department may appear twice — prevents an approval
+    // loop where the same party signs off more than once in one flow.
+    const duplicates = stepCodes.filter((c, i) => stepCodes.indexOf(c) !== i);
+    if (duplicates.length > 0) {
+      throw new Error(
+        `Department tidak boleh muncul lebih dari sekali dalam satu workflow (duplikat: ${[...new Set(duplicates)].join(", ")}).`
+      );
+    }
+
+    // Rule 2: every step before the last must be a real COGS Owner or
+    // Sales (PRD FR-1.1) — Chief Sales/BOD are reserved for the final
+    // review/release step, and Product/Admin own no cost group to
+    // validate.
+    const middleSteps = stepCodes.slice(0, -1);
+    const invalidMiddle = middleSteps.filter(
+      (c) => !COGS_STEP_DEPARTMENT_CODES.includes(c)
+    );
+    if (invalidMiddle.length > 0) {
+      throw new Error(
+        `Step selain yang terakhir harus diisi COGS Owner (Sales/VP Operations/VP Finance) — ditemukan: ${invalidMiddle.join(", ")}.`
+      );
+    }
+
+    // Rule 3: the last step must be the one that actually finalizes
+    // the quotation (Chief Sales review, or BOD for margin-tier
+    // escalation) — otherwise nothing ever releases it.
+    const lastCode = stepCodes[stepCodes.length - 1];
+    if (!FINAL_STEP_DEPARTMENT_CODES.includes(lastCode)) {
+      throw new Error(
+        `Step terakhir harus Chief Sales atau BOD (tahap review/rilis final) — ditemukan: ${lastCode}.`
+      );
+    }
+
+    // Rule 4: when both are present, VP Operations must validate before
+    // VP Finance — the demo review's corrected SOP (PRD FR-2.0):
+    // "VP Operations mengisi lebih dulu, diikuti VP Finance."
+    const vpOpsIndex = stepCodes.indexOf("VP_OPERATIONS");
+    const vpFinanceIndex = stepCodes.indexOf("VP_FINANCE");
+    if (vpOpsIndex !== -1 && vpFinanceIndex !== -1 && vpOpsIndex > vpFinanceIndex) {
+      throw new Error(
+        "VP Operations harus mengisi lebih dulu, sebelum VP Finance (urutan SOP FR-2.0)."
+      );
+    }
 
     // business_line is NOT NULL in the schema even for GENERIC/MARGIN_TIER
     // templates (it's just not used to pick them) — default to the first
