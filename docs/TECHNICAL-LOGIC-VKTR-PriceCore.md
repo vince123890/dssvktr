@@ -513,6 +513,49 @@ Untuk **What-If Simulator (FR-4.1)**, langkah 4–8 dijalankan ulang secara *sta
 
 ## 4. Workflow State Machine (FR-2.0.1, FR-2.1 – FR-2.4)
 
+### 4.0 Tiga Fase Lifecycle — Batas Tegas antar State Machine
+
+Seluruh siklus hidup satu quotation berjalan lewat **tiga fase**, dan
+tiap fase punya state machine sendiri dengan field status yang berbeda
+di database. Ini penting dipahami sebelum §4.1–§4.7 karena banyak
+kebingungan "workflow mana yang dikonfigurasi Admin" berasal dari
+menyamakan ketiganya:
+
+| Fase | Field status | Siapa menentukan alurnya | Bisa dikonfigurasi via `/admin`? |
+|---|---|---|---|
+| **1. Pembuatan** | `pricing_proposal.current_status = 'DRAFT'` | Hardcoded di kode (Sales Officer selalu mengisi lebih dulu) | **Tidak** — bukan bagian dari `workflow_definition` sama sekali, tidak ada `workflow_step_definition` untuk fase ini |
+| **2. Approval (COGS Validation)** | `pricing_proposal.current_status` (`PENDING_COGS_VALIDATION` → `PENDING_CHIEF_SALES_REVIEW` → `QUOTATION_RELEASED`) | `workflow_definition` + `workflow_step_definition` terpilih (§4.1a) | **Ya** — inilah yang diatur lewat Create Workflow Template |
+| **3. Negosiasi + Approval** | `negotiation_request.status` (`PENDING_APPROVAL` → `APPROVED`/`REJECTED`/`REVISED`) — **field terpisah, bukan sub-status `pricing_proposal.current_status`** | `margin_tier_authority` (tier GPM → role wajib, §11) | Sebagian — tier terlihat di `/admin`, belum ada form edit ambang |
+
+**Kenapa Fase 1 tidak masuk Workflow Template.** Fase ini adalah
+prasyarat data (harga tidak dapat dihitung tanpa input customer/unit
+dari Sales), bukan proses approval — tidak ada aktor yang perlu
+menyetujui/menolak input Sales di titik ini. Karena itu tidak ada
+baris `workflow_step_definition` untuknya, dan Admin tidak bisa
+mengubah "siapa mengisi duluan" lewat UI Workflow Template.
+
+**Kenapa Fase 3 adalah mesin state terpisah dari Fase 2, bukan
+kelanjutannya.** `pricing_proposal.current_status` **tidak pernah**
+berubah menjadi status "sedang negosiasi" — begitu mencapai
+`QUOTATION_RELEASED`, nilai `current_status` proposal tidak berubah
+lagi kecuali menjadi `SUPERSEDED` (§4.6). Proses negosiasi berjalan
+sepenuhnya di tabel `negotiation_request`/`negotiation_decision` yang
+menunjuk balik ke proposal via `pricing_proposal_id`, tapi tidak
+menuliskan statusnya ke `current_status`. Ini yang membuat Fase 2 dan
+Fase 3 dapat dikonfigurasi secara **independen** — mengubah Workflow
+Template (Fase 2) tidak memengaruhi tier margin (Fase 3), dan
+sebaliknya. Kombinasi keduanya (varian Workflow Template × varian
+tier margin) adalah sumber utama mengapa jumlah "workflow" yang
+dipersepsikan pengguna bisnis bisa terasa lebih dari selusin, padahal
+secara struktural hanya ada dua mesin state.
+
+> **Koreksi v3.0.1.** Versi draf sebelumnya (§4.1 di bawah) sempat
+> menuliskan `PENDING_TIER2_APPROVAL`/`PENDING_TIER3_BOD_APPROVAL`
+> seolah nilai `pricing_proposal.current_status`. Ini tidak sesuai
+> implementasi — `ProposalStatus` di `database.ts` tidak memiliki nilai
+> tersebut. Status tier berjalan di `negotiation_request.status`
+> sesuai tabel di atas; diagram §4.1 telah diperbaiki.
+
 ### 4.1 Status Utama Proposal (`pricing_proposal.current_status`)
 
 > **Revisi v3.0 — urutan aktor dikoreksi.** Sales Officer mengisi
@@ -548,12 +591,15 @@ QUOTATION_RELEASED → EXPORTED_TO_ERP
 QUOTATION_RELEASED → SUPERSEDED       ← saat quotation baru pada Project Identifier
                                          yang sama dirilis (FR-2.5, §4.6)
 
-(kondisional, dipicu dari Margin-Tier Negotiation Engine §11):
-    → PENDING_TIER2_APPROVAL          ← GPM akhir jatuh ke Tier 2 (3-pihak AND-join)
-    → PENDING_TIER3_BOD_APPROVAL      ← GPM akhir jatuh ke Tier 3 (2 BOD AND-join)
+(negosiasi diskon berjalan sebagai state machine TERPISAH — §4.0, §11 —
+ `pricing_proposal.current_status` TIDAK berubah menjadi status tier;
+ yang berubah adalah `negotiation_request.status`):
+    negotiation_request.status = PENDING_APPROVAL  ← GPM akhir menentukan tier (1/2/3)
+                                                       via margin_tier_authority (§11.1)
+    negotiation_request.status = APPROVED | REJECTED | REVISED
 
-(dari state manapun sebelum QUOTATION_RELEASED):
-  → REJECTED_TARGETED(target)  → kembali ke step target, status proposal kembali ke
+(dari state manapun sebelum QUOTATION_RELEASED, §4.3):
+  → TARGETED_REJECT(target)    → kembali ke step target, status proposal kembali ke
                                   status milik step tersebut tanpa mereset versi/draft
 ```
 

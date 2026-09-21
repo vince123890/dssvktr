@@ -756,6 +756,26 @@ Tanpa mekanisme ini, quotation disusun memakai asumsi harga baterai yang bisa ja
 
 ## 4. High-Level Data & Process Flow
 
+### 4.1 Tiga Fase, Tiga Batas Kewenangan
+
+Setiap quotation melewati tiga fase yang tegas terpisah. Batas ini
+menentukan **apa yang bisa diatur ulang lewat konfigurasi (Workflow
+Template / Margin-Tier Authority) dan apa yang bersifat tetap**:
+
+| Fase | Deskripsi | Aktor | Dapat dikonfigurasi Admin? |
+|---|---|---|---|
+| **1. Pembuatan** | Sales Officer membuat quotation baru: data customer, unit, kuantitas, estimasi delivery. Tidak melihat/mengisi breakdown biaya COGS. | Sales Officer | **Tidak.** Selalu langkah pertama, tetap (FR-2.0) |
+| **2. Approval** | Validasi COGS berjenjang sesuai Workflow Template yang otomatis terpilih untuk deal tsb, diakhiri persetujuan Chief Sales dan rilis quotation. | VP Operations → VP Finance → Chief Sales (urutan default; dapat berbeda per Workflow Template) | **Ya**, lewat Workflow Template Catalog (FR-2.0.1) |
+| **3. Negosiasi + Approval** | Bila customer meminta diskon, jenjang persetujuan ditentukan oleh tier margin (GPM akhir) yang tersisa — bukan oleh Workflow Template Fase 2. | Tier 1: otomatis. Tier 2: Sales Officer + VP Finance + Chief Sales. Tier 3: 2 anggota BOD | Sebagian, lewat Margin-Tier Discount Authority (FR-6.0) |
+
+Fase 2 dan Fase 3 berjalan sebagai **dua mekanisme approval yang
+independen** — bukan satu rangkaian workflow yang sama diperpanjang.
+Menyetujui/menolak di Fase 2 tidak menyentuh state Fase 3 dan
+sebaliknya; keduanya hanya sama-sama merujuk pada quotation yang sama.
+Pemisahan ini yang membuat jumlah "workflow" yang dirasakan tim bisnis
+tampak banyak (varian Fase 2 dikalikan varian Fase 3), padahal
+strukturnya tetap dua mesin persetujuan yang jelas batasnya.
+
 ```
 [ Master Data CBS Tunggal + COGS Owner ] ─┐
 [ Exchange Rate (CNY↔IDR), auto mingguan]─┤
