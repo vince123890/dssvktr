@@ -10,27 +10,32 @@ import { WorkflowPanel } from "./WorkflowPanel";
 import { SubmitButton } from "./SubmitButton";
 import { OutcomePanel } from "./OutcomePanel";
 import { NegotiationPanel } from "./NegotiationPanel";
+import { RecalculateButton } from "./RecalculateButton";
+import { CreateRevisionButton } from "./CreateRevisionButton";
 import {
   canRecordWinLossOutcome,
   canRequestDiscount,
   ROLE_DEPARTMENT_CODE,
 } from "@/lib/rbac";
-import { loadDiscountLadder } from "@/lib/negotiation/authority";
 import { loadMineralContext } from "@/lib/pricing/mineral";
 import { resolveExchangeRate } from "@/lib/pricing/currency";
 import { evaluatePriceStaleness } from "@/lib/pricing/staleness";
+import { checkRateSensitivity } from "@/lib/pricing/rateSensitivity";
 import { PriceStalenessBadge } from "@/components/ui/PriceStalenessBadge";
 import type {
   CbsTemplate,
   CostItem,
   Department,
+  NegotiationDecision,
   NegotiationRequest,
   PricingProposal,
+  ProjectIdentifier,
   ProposalCalculationResult,
   ProposalCostLine,
   WorkflowStepInstance,
 } from "@/types/database";
 import { formatDate } from "@/lib/utils";
+import { AlertTriangle } from "lucide-react";
 
 export default async function ProposalDetailPage({
   params,
@@ -68,15 +73,21 @@ export default async function ProposalDetailPage({
 
   if (!versionId) notFound();
 
-  const [{ data: version }, { data: template }, { data: departments }] = await Promise.all([
-    supabase
-      .from("pricing_proposal_version")
-      .select("*")
-      .eq("id", versionId)
-      .maybeSingle(),
-    supabase.from("cbs_template").select("*").eq("id", proposal.cbs_template_id).single(),
-    supabase.from("department").select("*"),
-  ]);
+  const [{ data: version }, { data: template }, { data: departments }, { data: projectIdentifier }] =
+    await Promise.all([
+      supabase
+        .from("pricing_proposal_version")
+        .select("*")
+        .eq("id", versionId)
+        .maybeSingle(),
+      supabase.from("cbs_template").select("*").eq("id", proposal.cbs_template_id).single(),
+      supabase.from("department").select("*"),
+      supabase
+        .from("project_identifier")
+        .select("*")
+        .eq("id", proposal.project_identifier_id)
+        .maybeSingle(),
+    ]);
 
   const { data: templateItems } = await supabase
     .from("cbs_template_item")
@@ -87,7 +98,7 @@ export default async function ProposalDetailPage({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((row: any) => row.cost_item)
     .filter(Boolean)
-    .sort((a: CostItem, b: CostItem) => a.category.localeCompare(b.category));
+    .sort((a: CostItem, b: CostItem) => a.cost_group.localeCompare(b.cost_group));
 
   const { data: costLines } = await supabase
     .from("proposal_cost_line")
@@ -109,17 +120,43 @@ export default async function ProposalDetailPage({
   const depts = (departments ?? []) as Department[];
   const ownerDeptCodeById = Object.fromEntries(depts.map((d) => [d.id, d.code]));
 
-  const [{ data: negotiations }, discountLadder, mineralContext, currentExchangeRate] =
+  const [{ data: negotiations }, mineralContext, currentExchangeRate, rateSensitivity, { data: projectSiblings }] =
     await Promise.all([
       supabase
         .from("negotiation_request")
         .select("*")
         .eq("proposal_id", proposal.id)
         .order("created_at", { ascending: false }),
-      loadDiscountLadder(supabase, proposal.business_line),
       loadMineralContext(supabase),
       resolveExchangeRate(supabase),
+      checkRateSensitivity(supabase, proposal),
+      supabase
+        .from("pricing_proposal")
+        .select("id, proposal_number, current_status, created_at")
+        .eq("project_identifier_id", proposal.project_identifier_id)
+        .order("created_at", { ascending: true }),
     ]);
+
+  const negotiationRequests = (negotiations ?? []) as NegotiationRequest[];
+
+  let decisionsByRequestId: Record<string, NegotiationDecision[]> = {};
+  if (negotiationRequests.length > 0) {
+    const { data: decisionRows } = await supabase
+      .from("negotiation_decision")
+      .select("*")
+      .in(
+        "negotiation_request_id",
+        negotiationRequests.map((r) => r.id)
+      );
+
+    decisionsByRequestId = (decisionRows ?? []).reduce(
+      (acc: Record<string, NegotiationDecision[]>, d: NegotiationDecision) => {
+        (acc[d.negotiation_request_id] ??= []).push(d);
+        return acc;
+      },
+      {}
+    );
+  }
 
   const staleness = evaluatePriceStaleness(
     latestResult as ProposalCalculationResult | null,
@@ -147,12 +184,10 @@ export default async function ProposalDetailPage({
 
   // Cost lines stay editable while the workflow is in flight, but only for
   // the COGS Owner whose step is currently active — that is what lets VP
-  // Operations enter logistics costs while VP Finance enters margin
-  // factors, concurrently. A DRAFT is open to whoever is preparing it,
-  // and a released quotation is locked to everyone.
-  //
-  // COGS validation runs in parallel, so match against *any* active step
-  // belonging to this user's department, not merely the first one.
+  // Operations enter COGS/Add-Ons costs while VP Finance enters
+  // Profitability, in the sequential order VP Operations -> VP Finance ->
+  // Chief Sales (PRD FR-2.0). A DRAFT is open to whoever is preparing it,
+  // and a released/superseded quotation is locked to everyone.
   const myDeptCode = ROLE_DEPARTMENT_CODE[profile.role];
   const hasActiveStepForMe = steps.some(
     (s) =>
@@ -161,6 +196,7 @@ export default async function ProposalDetailPage({
 
   const isClosed =
     proposal.current_status === "QUOTATION_RELEASED" ||
+    proposal.current_status === "SUPERSEDED" ||
     proposal.current_status === "REJECTED";
 
   const isReadOnly =
@@ -168,6 +204,8 @@ export default async function ProposalDetailPage({
     (proposal.current_status !== "DRAFT" && !hasActiveStepForMe);
 
   const tmpl = template as CbsTemplate;
+  const project = projectIdentifier as ProjectIdentifier | null;
+  const siblings = (projectSiblings ?? []).filter((p) => p.id !== proposal.id);
 
   return (
     <div className="space-y-6">
@@ -187,10 +225,34 @@ export default async function ProposalDetailPage({
             {proposal.business_line.replaceAll("_", " ")} &middot; {proposal.unit_quantity} unit
             &middot; dibuat {formatDate(proposal.created_at)}
           </p>
+          {project && (
+            <p className="text-xs text-muted mt-1">
+              Project Identifier:{" "}
+              <span className="font-mono">{project.identifier_code}</span>
+              {siblings.length > 0 && (
+                <span className="ml-1.5">
+                  &middot; {siblings.length} quotation lain pada project ini
+                </span>
+              )}
+            </p>
+          )}
         </div>
 
-        {proposal.current_status === "DRAFT" && <SubmitButton proposalId={proposal.id} />}
+        <div className="flex items-center gap-2">
+          {proposal.current_status === "DRAFT" && <SubmitButton proposalId={proposal.id} />}
+          {proposal.current_status === "QUOTATION_RELEASED" && (
+            <CreateRevisionButton proposalId={proposal.id} />
+          )}
+        </div>
       </div>
+
+      {rateSensitivity.needsAttention && (
+        <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning-bg px-4 py-3 text-sm text-warning">
+          <AlertTriangle size={16} className="shrink-0" />
+          <span className="flex-1">{rateSensitivity.message}</span>
+          <RecalculateButton proposalId={proposal.id} versionId={versionId} />
+        </div>
+      )}
 
       {proposal.current_status === "QUOTATION_RELEASED" && (
         <Card>
@@ -227,7 +289,7 @@ export default async function ProposalDetailPage({
                 existingValues={existingValues}
                 ownerDeptCodeById={ownerDeptCodeById}
                 readOnly={isReadOnly}
-                inputCurrency={proposal.input_currency}
+                viewerRole={profile.role}
               />
             </CardContent>
           </Card>
@@ -237,16 +299,18 @@ export default async function ProposalDetailPage({
           {proposal.current_status !== "DRAFT" && (
             <NegotiationPanel
               proposalId={proposal.id}
-              requests={(negotiations ?? []) as NegotiationRequest[]}
+              requests={negotiationRequests}
+              decisionsByRequestId={decisionsByRequestId}
               role={profile.role}
-              ladder={discountLadder}
+              actorId={profile.id}
               // Negotiation is triggered by the customer *after* they
               // receive a quotation, so a released quotation is exactly
-              // when a discount request is expected. Only a rejected one
-              // is closed to negotiation.
+              // when a discount request is expected. Only a rejected or
+              // superseded one is closed to negotiation.
               canRequest={
                 canRequestDiscount(profile.role) &&
-                proposal.current_status !== "REJECTED"
+                proposal.current_status !== "REJECTED" &&
+                proposal.current_status !== "SUPERSEDED"
               }
             />
           )}

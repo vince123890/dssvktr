@@ -12,6 +12,7 @@ import {
   ScrollText,
   Settings,
   LogOut,
+  Package,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -23,8 +24,9 @@ const NAV_ITEMS = [
   { href: "/lifecycle", label: "Lifecycle & Approvals", icon: KanbanSquare },
   { href: "/dss", label: "Decision Support (DSS)", icon: SlidersHorizontal },
   { href: "/master-data", label: "Master Data & CBS", icon: Database },
+  { href: "/master-data/product", label: "Product Master Data", icon: Package },
   { href: "/audit-log", label: "Audit Trail", icon: ScrollText },
-  { href: "/admin", label: "Workflow Admin", icon: Settings },
+  { href: "/admin", label: "Workflow & Margin Tier Admin", icon: Settings },
 ];
 
 export function Sidebar({ profile }: { profile: Profile }) {
@@ -44,8 +46,16 @@ export function Sidebar({ profile }: { profile: Profile }) {
 
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
         {NAV_ITEMS.map((item) => {
+          // Exact-match items whose path is a prefix of another nav item's
+          // path (e.g. /master-data vs /master-data/product) so only one
+          // highlights at a time.
+          const isPrefixOfAnother = NAV_ITEMS.some(
+            (other) => other.href !== item.href && other.href.startsWith(`${item.href}/`)
+          );
           const active =
-            item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+            item.href === "/" || isPrefixOfAnother
+              ? pathname === item.href
+              : pathname.startsWith(item.href);
           const Icon = item.icon;
           return (
             <Link

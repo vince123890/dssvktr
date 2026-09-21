@@ -5,6 +5,8 @@ import { requireProfile } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { resolveCurrentVersionId } from "@/lib/pricing/version";
 import { checkReleaseGate } from "@/lib/workflow/releaseGate";
+import { resolveWorkflowTemplate } from "@/lib/workflow/templateResolution";
+import { supersedePredecessor } from "@/lib/workflow/projectIdentifier";
 import { ROLE_DEPARTMENT_CODE } from "@/lib/rbac";
 import { revalidatePath } from "next/cache";
 import {
@@ -80,16 +82,10 @@ async function runSubmit(proposalId: string) {
 
   const transactionValue = Number(latestResult.final_price);
 
-  const { data: workflowDef } = await supabase
-    .from("workflow_definition")
-    .select("*")
-    .eq("business_line", proposal.business_line)
-    .eq("is_active", true)
-    .lte("min_value", transactionValue)
-    .or(`max_value.is.null,max_value.gte.${transactionValue}`)
-    .order("min_value", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const workflowDef = await resolveWorkflowTemplate(supabase, {
+    businessLine: proposal.business_line,
+    transactionValue,
+  });
 
   if (!workflowDef) {
     await supabase
@@ -352,6 +348,13 @@ async function runDecision({
       .from("workflow_instance")
       .update({ status: "COMPLETED" })
       .eq("id", instance.id);
+
+    // FR-2.5: a revision proposal supersedes its predecessor only once
+    // it is truly released, not when the draft was first created.
+    await supersedePredecessor(supabase, {
+      newProposal: proposal,
+      actorId: profile.id,
+    });
   }
 
   const auditAction =

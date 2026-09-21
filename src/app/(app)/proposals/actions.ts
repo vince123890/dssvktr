@@ -5,11 +5,12 @@ import { requireProfile } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { recalculateAndPersist } from "@/lib/pricing/calculate";
 import { assertCanEditCostLines } from "@/lib/workflow/editGate";
-import { loadMineralContext } from "@/lib/pricing/mineral";
+import { canCreateNewQuotation } from "@/lib/workflow/duplicateGuard";
+import { createProjectIdentifier } from "@/lib/workflow/projectIdentifier";
+import { generateProposalNumber } from "@/lib/workflow/proposalNumber";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { BusinessLine } from "@/types/database";
 
 const CreateProposalSchema = z.object({
   title: z.string().min(3),
@@ -18,63 +19,59 @@ const CreateProposalSchema = z.object({
     "B2B_COMMERCIAL_FLEET",
     "CHARGING_INFRA_BUILDOUT",
   ]),
-  customer_name: z.string().optional(),
+  customer_name: z.string().min(1, "Nama customer wajib diisi"),
+  project_name: z.string().min(1, "Nama proyek/lokasi wajib diisi"),
+  product_master_data_id: z.string().uuid().optional(),
   unit_quantity: z.coerce.number().int().min(1),
-  input_currency: z.enum(["IDR", "USD"]).default("IDR"),
+  input_currency: z.enum(["IDR", "CNY"]).default("CNY"),
 });
-
-async function generateProposalNumber(
-  supabase: Awaited<ReturnType<typeof createClient>>
-) {
-  const year = new Date().getFullYear();
-
-  // Derive the next sequence from the highest existing number rather than
-  // a row count: counting breaks after any deletion (e.g. a demo reset),
-  // which would re-issue a number that still belongs to a later proposal
-  // and collide with the unique constraint.
-  const { data: latest } = await supabase
-    .from("pricing_proposal")
-    .select("proposal_number")
-    .like("proposal_number", `PRC-${year}-%`)
-    .order("proposal_number", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const lastSeq = latest
-    ? Number.parseInt(latest.proposal_number.split("-")[2] ?? "0", 10)
-    : 0;
-
-  const seq = String((Number.isNaN(lastSeq) ? 0 : lastSeq) + 1).padStart(4, "0");
-  return `PRC-${year}-${seq}`;
-}
 
 export async function createProposalAction(formData: FormData) {
   const profile = await requireProfile();
   const parsed = CreateProposalSchema.parse({
     title: formData.get("title"),
     business_line: formData.get("business_line"),
-    customer_name: formData.get("customer_name") || undefined,
+    customer_name: formData.get("customer_name"),
+    project_name: formData.get("project_name"),
+    product_master_data_id: formData.get("product_master_data_id") || undefined,
     unit_quantity: formData.get("unit_quantity"),
-    input_currency: formData.get("input_currency") || "IDR",
+    input_currency: formData.get("input_currency") || "CNY",
   });
 
   const supabase = await createClient();
 
+  // FR-2.6 Duplicate/Fraud Guard — checked before anything else is
+  // created, so a blocked attempt never leaves a half-created project
+  // identifier or proposal behind.
+  const guard = await canCreateNewQuotation(supabase, {
+    salesOfficerId: profile.id,
+    customerName: parsed.customer_name,
+    productMasterDataId: parsed.product_master_data_id ?? null,
+  });
+  if (!guard.allowed) {
+    throw new Error(guard.reason ?? "Quotation baru tidak dapat dibuat saat ini.");
+  }
+
+  // CBS is single (FR-1.1, v3.0) — there is exactly one active
+  // template shared by every business line, so it is no longer
+  // selected by matching business_line.
   const { data: template } = await supabase
     .from("cbs_template")
     .select("id")
-    .eq("business_line", parsed.business_line)
     .eq("status", "active")
+    .order("version", { ascending: false })
+    .limit(1)
     .single();
 
-  if (!template) throw new Error("Tidak ada CBS template aktif untuk lini bisnis ini.");
+  if (!template) throw new Error("Tidak ada CBS master data aktif.");
 
   const proposalNumber = await generateProposalNumber(supabase);
 
-  // Capture the mineral index in force now: later HPM movement is measured
-  // against this baseline, so a quotation is not silently repriced by an
-  // index published after it was drafted (FR-8.3).
-  const mineral = await loadMineralContext(supabase);
+  const projectIdentifier = await createProjectIdentifier(supabase, {
+    customerName: parsed.customer_name,
+    projectName: parsed.project_name,
+    createdBy: profile.id,
+  });
 
   const { data: proposal, error } = await supabase
     .from("pricing_proposal")
@@ -84,10 +81,9 @@ export async function createProposalAction(formData: FormData) {
       business_line: parsed.business_line,
       customer_name: parsed.customer_name,
       cbs_template_id: template.id,
+      project_identifier_id: projectIdentifier.id,
       unit_quantity: parsed.unit_quantity,
       input_currency: parsed.input_currency,
-      baseline_hpm_value: mineral.hpm?.hpmWet ?? null,
-      baseline_hpm_snapshot_id: mineral.primarySnapshot?.id ?? null,
       current_status: "DRAFT",
       created_by: profile.id,
     })
@@ -101,6 +97,7 @@ export async function createProposalAction(formData: FormData) {
     .insert({
       proposal_id: proposal.id,
       version_label: "v1.0",
+      product_master_data_id: parsed.product_master_data_id ?? null,
       is_current: true,
       created_by: profile.id,
     })
@@ -122,8 +119,8 @@ export async function createProposalAction(formData: FormData) {
     action: "CREATE",
     fieldChanges: [
       { field: "proposal_number", old: null, new: proposalNumber },
+      { field: "project_identifier_code", old: null, new: projectIdentifier.identifier_code },
       { field: "input_currency", old: null, new: parsed.input_currency },
-      { field: "baseline_hpm_value", old: null, new: mineral.hpm?.hpmWet ?? null },
     ],
   });
 
@@ -175,12 +172,10 @@ export async function saveCostLinesAction(
   }
 
   await recalculateAndPersist(supabase, {
+    proposalId,
     proposalVersionId: versionId,
     cbsTemplateId: proposal.cbs_template_id,
     unitQuantity: proposal.unit_quantity,
-    businessLine: proposal.business_line as BusinessLine,
-    inputCurrency: proposal.input_currency,
-    baselineHpmValue: proposal.baseline_hpm_value,
     volumeDiscountPct: proposal.applied_discount_pct || undefined,
   });
 

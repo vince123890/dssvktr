@@ -21,12 +21,20 @@ export function CostItemForm({ departments }: { departments: Department[] }) {
       className="grid grid-cols-2 gap-3 lg:grid-cols-4"
     >
       <Field label="Code">
-        <input name="code" required placeholder="BOM-BATT-002" className="input" />
+        <input name="code" required placeholder="ADDON-EXTRA-002" className="input" />
       </Field>
       <Field label="Name" className="lg:col-span-2">
-        <input name="name" required placeholder="Battery Pack Gen 2" className="input" />
+        <input name="name" required placeholder="Additional Service" className="input" />
       </Field>
-      <Field label="Category">
+      <Field label="Cost Group">
+        <select name="cost_group" className="input" required>
+          <option value="COGS">COGS</option>
+          <option value="PROFITABILITY">Profitability</option>
+          <option value="SALES">Sales</option>
+          <option value="ADD_ONS">Add-Ons</option>
+        </select>
+      </Field>
+      <Field label="Category (pelaporan Finance)">
         <select name="category" className="input" required>
           <option value="DIRECT">Direct</option>
           <option value="INDIRECT">Indirect</option>
@@ -34,7 +42,7 @@ export function CostItemForm({ departments }: { departments: Department[] }) {
         </select>
       </Field>
       <Field label="Subcategory">
-        <input name="subcategory" required placeholder="BOM" className="input" />
+        <input name="subcategory" required placeholder="Add-On" className="input" />
       </Field>
       <Field label="Owner Department">
         <select name="owner_department_id" className="input" required>
@@ -52,9 +60,19 @@ export function CostItemForm({ departments }: { departments: Department[] }) {
           <option value="PERCENTAGE">Percentage</option>
         </select>
       </Field>
+      <Field label="Denomination">
+        <select name="denomination" className="input" required defaultValue="IDR">
+          <option value="IDR">IDR</option>
+          <option value="CNY">CNY (RMB)</option>
+        </select>
+      </Field>
       <label className="flex items-center gap-2 text-xs text-muted self-end pb-2">
         <input type="checkbox" name="is_mandatory" defaultChecked className="rounded" />
         Mandatory gate item
+      </label>
+      <label className="flex items-center gap-2 text-xs text-muted self-end pb-2">
+        <input type="checkbox" name="may_follow_later" className="rounded" />
+        Boleh menyusul (tidak menghambat harga dasar)
       </label>
 
       <div className="col-span-2 lg:col-span-4 flex justify-end">

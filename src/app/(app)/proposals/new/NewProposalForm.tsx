@@ -3,8 +3,13 @@
 import { Button } from "@/components/ui/Button";
 import { useState, useTransition } from "react";
 import { createProposalAction } from "../actions";
+import type { ProductMasterData } from "@/types/database";
 
-export function NewProposalForm() {
+export function NewProposalForm({
+  products,
+}: {
+  products: Pick<ProductMasterData, "id" | "name" | "code">[];
+}) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +48,7 @@ export function NewProposalForm() {
         />
       </Field>
 
-      <Field label="Lini Bisnis (Pricing Template)">
+      <Field label="Lini Bisnis">
         <select
           name="business_line"
           required
@@ -56,16 +61,54 @@ export function NewProposalForm() {
             Charging Infrastructure Buildout
           </option>
         </select>
+        <p className="text-[11px] font-normal leading-relaxed text-muted">
+          CBS (struktur biaya) sama untuk semua lini bisnis (FR-1.1) — pilihan
+          ini hanya menentukan Workflow Template approval yang dipakai.
+        </p>
       </Field>
 
-      <Field label="Nama Customer (opsional)">
+      <Field label="Nama Customer">
         <input
           name="customer_name"
+          required
           disabled={isPending}
           placeholder="Dinas Perhubungan DKI Jakarta"
           className="w-full rounded-lg border border-card-border px-3 py-2.5 text-sm bg-white disabled:bg-slate-50 disabled:text-muted"
         />
       </Field>
+
+      <Field label="Nama Proyek/Lokasi">
+        <input
+          name="project_name"
+          required
+          disabled={isPending}
+          placeholder="Pengadaan Bus Listrik Trans Jabar"
+          className="w-full rounded-lg border border-card-border px-3 py-2.5 text-sm bg-white disabled:bg-slate-50 disabled:text-muted"
+        />
+        <p className="text-[11px] font-normal leading-relaxed text-muted">
+          Sistem men-generate Project Identifier dari customer + nama proyek —
+          revisi quotation berikutnya akan ter-link ke identifier yang sama
+          (FR-2.5).
+        </p>
+      </Field>
+
+      {products.length > 0 && (
+        <Field label="Produk (opsional)">
+          <select
+            name="product_master_data_id"
+            disabled={isPending}
+            defaultValue=""
+            className="w-full rounded-lg border border-card-border px-3 py-2.5 text-sm bg-white disabled:bg-slate-50 disabled:text-muted"
+          >
+            <option value="">— Belum dipilih —</option>
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} ({p.code})
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
 
       <Field label="Jumlah Unit">
         <input
@@ -79,21 +122,21 @@ export function NewProposalForm() {
         />
       </Field>
 
-      <Field label="Mata Uang Input">
+      <Field label="Mata Uang Input (Komponen Impor)">
         <select
           name="input_currency"
           required
-          defaultValue="IDR"
+          defaultValue="CNY"
           disabled={isPending}
           className="w-full rounded-lg border border-card-border px-3 py-2.5 text-sm bg-white disabled:bg-slate-50 disabled:text-muted"
         >
+          <option value="CNY">Renminbi / Yuan (CNY)</option>
           <option value="IDR">Rupiah (IDR)</option>
-          <option value="USD">US Dollar (USD)</option>
         </select>
         <p className="text-[11px] font-normal leading-relaxed text-muted">
-          Seluruh komponen biaya pada quotation ini diisi dalam mata uang
-          terpilih. Nilai disimpan apa adanya — konversi ke Rupiah dilakukan
-          sistem saat menghitung, memakai kurs yang berlaku.
+          FOB Price (komponen impor terbesar) dikutip vendor dalam CNY. Nilai
+          disimpan apa adanya — konversi ke Rupiah dilakukan sistem saat
+          menghitung, memakai kurs yang berlaku.
         </p>
       </Field>
 

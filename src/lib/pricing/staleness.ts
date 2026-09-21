@@ -2,14 +2,20 @@ import type { ExchangeRate, ProposalCalculationResult } from "@/types/database";
 import type { MineralContext } from "./mineral";
 
 /**
- * Flags a quotation whose last saved price no longer matches the rate
- * or mineral index currently in force — an admin updated the USD/IDR
- * rate or the HMA/HPM after this quotation was last calculated, so its
- * final price is out of date until someone hits "Hitung Ulang Harga".
+ * Flags a quotation whose last saved price no longer matches the
+ * CNY/IDR rate currently in force — an admin updated the rate after
+ * this quotation was last calculated, so its final price is out of
+ * date until someone hits "Hitung Ulang" (FR-1.4.6). See also
+ * checkRateSensitivity() in rateSensitivity.ts, which applies the
+ * configured threshold percentage rather than a fixed epsilon — this
+ * simpler check remains for the compact list/detail badge.
  *
- * This never blocks anything (mirrors the stale-index rule in
- * mineral.ts) — it only surfaces the fact so Sales isn't quoting a
- * price that quietly drifted underneath them.
+ * `mineralChanged` is always false in v3.0: the HPM adjustment factor
+ * is dormant (Technical Logic §13), so a moving HMA/HPM never makes a
+ * saved price stale on its own — only the exchange rate does.
+ *
+ * This never blocks anything — it only surfaces the fact so Sales
+ * isn't quoting a price that quietly drifted underneath them.
  */
 export interface PriceStalenessInfo {
   isStale: boolean;
@@ -44,8 +50,13 @@ export function evaluatePriceStaleness(
   const rateChanged =
     rateUsed != null && rateCurrent != null && Math.abs(rateCurrent - rateUsed) > RATE_EPSILON;
 
-  const mineralChanged =
-    hpmUsed != null && hpmCurrent != null && Math.abs(hpmCurrent - hpmUsed) > HPM_EPSILON;
+  // Dormant in v3.0 (Technical Logic §13.2/§13.3) — HMA/HPM movement is
+  // reference-only and never drives price on its own, so it never
+  // marks a quotation stale by itself.
+  const mineralChanged = false;
+  void hpmUsed;
+  void hpmCurrent;
+  void HPM_EPSILON;
 
   return {
     isStale: rateChanged || mineralChanged,

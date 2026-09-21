@@ -15,9 +15,12 @@ const CostItemSchema = z.object({
   code: z.string().min(2),
   name: z.string().min(2),
   category: z.enum(["DIRECT", "INDIRECT", "MARGIN_FACTOR"]),
+  cost_group: z.enum(["COGS", "PROFITABILITY", "SALES", "ADD_ONS"]),
   subcategory: z.string().min(1),
   owner_department_id: z.string().uuid(),
   unit_type: z.enum(["FIXED", "PER_UNIT", "PERCENTAGE"]),
+  denomination: z.enum(["IDR", "CNY"]).default("IDR"),
+  may_follow_later: z.coerce.boolean(),
   is_mandatory: z.coerce.boolean(),
   description: z.string().optional(),
 });
@@ -32,9 +35,12 @@ export async function createCostItemAction(formData: FormData) {
     code: formData.get("code"),
     name: formData.get("name"),
     category: formData.get("category"),
+    cost_group: formData.get("cost_group"),
     subcategory: formData.get("subcategory"),
     owner_department_id: formData.get("owner_department_id"),
     unit_type: formData.get("unit_type"),
+    denomination: formData.get("denomination") || "IDR",
+    may_follow_later: formData.get("may_follow_later") === "on",
     is_mandatory: formData.get("is_mandatory") === "on",
     description: formData.get("description") || undefined,
   });
@@ -122,7 +128,8 @@ const ExchangeRateSchema = z.object({
 });
 
 /**
- * FR-1.4.2 — record a new USD→IDR rate. Rates are append-only: a change
+ * FR-1.4.2 — record a new CNY→IDR rate (RMB, the real FOB Price basis
+ * — corrected from USD in v3.0). Rates are append-only: a change
  * inserts a row rather than editing the old one, so a quotation priced
  * yesterday can still be explained with yesterday's rate.
  */
@@ -142,7 +149,7 @@ export async function createExchangeRateAction(formData: FormData): Promise<Acti
     const { data, error } = await supabase
       .from("exchange_rate")
       .insert({
-        base_currency: "USD",
+        base_currency: "CNY",
         quote_currency: "IDR",
         rate: parsed.rate,
         source: parsed.source,
@@ -167,6 +174,56 @@ export async function createExchangeRateAction(formData: FormData): Promise<Acti
   } catch (e) {
     if (isNextControlFlowError(e)) throw e;
     return toActionError(e, "Gagal menyimpan kurs.");
+  }
+}
+
+const RateSensitivitySchema = z.object({
+  threshold_pct: z.coerce.number().min(0).max(100),
+});
+
+/**
+ * FR-1.4.6 — update the rate-move percentage that triggers the "kurs
+ * berubah" banner. Does not itself reprice anything.
+ */
+export async function updateRateSensitivityAction(
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const profile = await requireProfile();
+    if (profile.role !== "SYSTEM_ADMIN") {
+      throw new Error("Hanya System Admin yang dapat mengubah ambang sensitivitas.");
+    }
+
+    const parsed = RateSensitivitySchema.parse({
+      threshold_pct: formData.get("threshold_pct"),
+    });
+
+    const supabase = await createClient();
+    const { data: existing } = await supabase
+      .from("rate_sensitivity_config")
+      .select("id")
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      const { error } = await supabase
+        .from("rate_sensitivity_config")
+        .update({ threshold_pct: parsed.threshold_pct })
+        .eq("id", existing.id);
+      if (error) throw new Error(error.message);
+    } else {
+      const { error } = await supabase
+        .from("rate_sensitivity_config")
+        .insert({ threshold_pct: parsed.threshold_pct, is_active: true });
+      if (error) throw new Error(error.message);
+    }
+
+    revalidatePath("/master-data");
+    return { ok: true };
+  } catch (e) {
+    if (isNextControlFlowError(e)) throw e;
+    return toActionError(e, "Gagal menyimpan ambang sensitivitas.");
   }
 }
 

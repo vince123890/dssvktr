@@ -6,15 +6,24 @@ import {
   CardDescription,
 } from "@/components/ui/Card";
 import { NewProposalForm } from "./NewProposalForm";
+import { createClient } from "@/lib/supabase/server";
 
-export default function NewProposalPage() {
+export default async function NewProposalPage() {
+  const supabase = await createClient();
+  const { data: products } = await supabase
+    .from("product_master_data")
+    .select("id, name, code")
+    .eq("status", "ACTIVE")
+    .order("name");
+
   return (
     <div className="max-w-2xl space-y-6">
       <div>
         <h1 className="text-xl font-semibold">Buat Quotation Baru</h1>
         <p className="text-sm text-muted mt-1">
-          Pilih tipe transaksi (Pricing Template) — CBS dan alur approval
-          akan otomatis mengikuti lini bisnis yang dipilih (FR-1.3).
+          Master data biaya bersifat tunggal untuk semua lini bisnis (FR-1.1) —
+          lini bisnis hanya menentukan alur approval yang dipakai (Workflow
+          Template).
         </p>
       </div>
 
@@ -26,7 +35,7 @@ export default function NewProposalPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <NewProposalForm />
+          <NewProposalForm products={products ?? []} />
         </CardContent>
       </Card>
     </div>

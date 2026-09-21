@@ -10,6 +10,7 @@ export const STATUS_LABEL: Record<ProposalStatus, string> = {
   PENDING_CHIEF_SALES_REVIEW: "Pending Chief Sales Review",
   PENDING_BOD_APPROVAL: "Pending BOD Approval",
   QUOTATION_RELEASED: "Quotation Released",
+  SUPERSEDED: "Digantikan (Superseded)",
   REJECTED: "Rejected",
   CONFIG_ERROR: "Config Error",
 };
@@ -23,6 +24,7 @@ export const STATUS_TONE: Record<
   PENDING_CHIEF_SALES_REVIEW: "info",
   PENDING_BOD_APPROVAL: "warning",
   QUOTATION_RELEASED: "success",
+  SUPERSEDED: "default",
   REJECTED: "danger",
   CONFIG_ERROR: "danger",
 };

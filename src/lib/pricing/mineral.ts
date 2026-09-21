@@ -2,12 +2,20 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { HpmParameter, MineralIndexSnapshot } from "@/types/database";
 
 /**
- * Mineral Index Engine — Technical Logic §13 (FR-8.1 – FR-8.5).
+ * Mineral Index Engine — Technical Logic §13 (FR-8.1 – FR-8.5, v3.0:
+ * reference/transparency only).
  *
  * Battery cost tracks the mineral prices the government publishes: the
  * Harga Mineral Acuan (HMA) sets the Harga Patokan Mineral (HPM). Every
  * constant in the formula comes from `hpm_parameter`, so a change in the
  * Kepmen is a data change rather than a code change.
+ *
+ * The demo review confirmed HMA/HPM's only real path into VKTR's price
+ * is through the CNY/IDR exchange rate (see rateSensitivity.ts) — the
+ * mineral-linked cost item (FOB Price) is otherwise stable in CNY.
+ * `mineralAdjustmentFactor()` below is therefore dormant: it always
+ * returns 1, and the HPM computed here is shown to approvers as market
+ * context (FR-8.4), never multiplied into the calculation.
  */
 
 export interface HpmBreakdown {
@@ -47,15 +55,23 @@ export function computeHpm(
 
 /**
  * Ratio of the current HPM against the quotation's baseline (FR-8.3).
- * Returns 1.0 — no adjustment — when there is nothing to compare to.
+ *
+ * Status v3.0: DORMANT. Always returns 1 (no adjustment) regardless of
+ * input — the global HPM adjustment factor is cut from the active
+ * calculation path (PRD FR-8.3 "dicabut/nonaktif"). The parameters
+ * remain untouched below as a reference specification in case a
+ * mineral component is ever found to move independently of the FX
+ * rate. Do not resurrect this by reading the baseline/current HPM
+ * ratio without an explicit product decision — see Technical Logic
+ * §13.2.
  */
 export function mineralAdjustmentFactor(
   baselineHpm: number | null | undefined,
   currentHpm: number | null | undefined
 ): number {
-  if (!baselineHpm || !currentHpm) return 1;
-  if (baselineHpm <= 0) return 1;
-  return currentHpm / baselineHpm;
+  void baselineHpm;
+  void currentHpm;
+  return 1;
 }
 
 export const DEFAULT_STALE_DAYS = 14;

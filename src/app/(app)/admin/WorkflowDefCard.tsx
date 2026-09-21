@@ -32,6 +32,7 @@ export function WorkflowDefCard({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Badge tone="info">{def.qualifier_type}</Badge>
           <Badge tone={def.is_active ? "success" : "default"}>
             {def.is_active ? "Active" : "Inactive"}
           </Badge>

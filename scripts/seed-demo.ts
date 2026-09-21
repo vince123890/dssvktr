@@ -1,9 +1,9 @@
 /**
  * Demo data seed script — provisions one Supabase Auth account per
- * persona (mirrors PRD §2 Target Pengguna) and a batch of historical
- * pricing proposals (with cost lines + calculation results + outcomes)
- * so the DSS Win/Loss Analytics view and dashboards have something
- * meaningful to show on first run.
+ * persona (mirrors PRD §2 Target Pengguna, v3.0) and a batch of
+ * historical pricing proposals (with cost lines + calculation results
+ * + outcomes) so the DSS Win/Loss Analytics view and dashboards have
+ * something meaningful to show on first run.
  *
  * Usage: npm run seed:demo
  * Requires SUPABASE_SERVICE_ROLE_KEY in .env.local (never expose this
@@ -30,7 +30,9 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-// v2.0 — actors follow the VKTR Commercial Quotation SOP.
+// v3.0 — actors follow the corrected VKTR Commercial Quotation SOP:
+// Sales Officer -> VP Operations -> VP Finance -> Chief Sales, plus
+// Product Owner and a second BOD (Tier 3 needs two different members).
 const DEMO_USERS = [
   {
     email: "sales@vktr.demo",
@@ -39,10 +41,10 @@ const DEMO_USERS = [
     department_code: "SALES",
   },
   {
-    email: "chiefsales@vktr.demo",
-    full_name: "Andi Wijaya",
-    role: "CHIEF_SALES",
-    department_code: "CHIEF_SALES",
+    email: "vpops@vktr.demo",
+    full_name: "Budi Santoso",
+    role: "VP_OPERATIONS",
+    department_code: "VP_OPERATIONS",
   },
   {
     email: "vpfinance@vktr.demo",
@@ -51,14 +53,26 @@ const DEMO_USERS = [
     department_code: "VP_FINANCE",
   },
   {
-    email: "vpops@vktr.demo",
-    full_name: "Budi Santoso",
-    role: "VP_OPERATIONS",
-    department_code: "VP_OPERATIONS",
+    email: "chiefsales@vktr.demo",
+    full_name: "Andi Wijaya",
+    role: "CHIEF_SALES",
+    department_code: "CHIEF_SALES",
   },
   {
-    email: "bod@vktr.demo",
+    email: "product@vktr.demo",
+    full_name: "Rangga Prasetya",
+    role: "PRODUCT_OWNER",
+    department_code: "PRODUCT",
+  },
+  {
+    email: "bod1@vktr.demo",
     full_name: "Robert Halim",
+    role: "BOD",
+    department_code: "BOD",
+  },
+  {
+    email: "bod2@vktr.demo",
+    full_name: "Linda Wijaya",
     role: "BOD",
     department_code: "BOD",
   },
@@ -88,9 +102,9 @@ async function ensureDemoUsers() {
     if (found) {
       userIds[u.email] = found.id;
 
-      // Reconcile rather than skip: an account seeded under the old role
-      // model would otherwise keep a role that no longer exists, leaving
-      // it unable to act anywhere in the workflow.
+      // Reconcile rather than skip: an account seeded under an older
+      // role model would otherwise keep a role that no longer exists,
+      // leaving it unable to act anywhere in the workflow.
       const { data: profile } = await supabase
         .from("profile")
         .select("role, department_id")
@@ -143,15 +157,18 @@ async function ensureDemoUsers() {
 }
 
 /**
- * Accounts from the v1 role model. Their roles no longer exist, so
- * logging in as one leaves the user unable to act anywhere — cleaner to
- * remove them than to leave dead credentials in a demo environment.
+ * Accounts from earlier role models (v1's Procurement/Engineering/...
+ * and v2.0's single bod@vktr.demo, now split into bod1/bod2). Their
+ * roles/addresses no longer match the current demo script, so logging
+ * in as one leaves the user unable to act anywhere — cleaner to remove
+ * them than to leave dead credentials in a demo environment.
  */
 const RETIRED_DEMO_EMAILS = [
   "procurement@vktr.demo",
   "engineering@vktr.demo",
   "finance@vktr.demo",
   "clevel@vktr.demo",
+  "bod@vktr.demo",
 ];
 
 async function removeRetiredUsers() {
@@ -193,22 +210,23 @@ const HISTORICAL_PROPOSALS: {
   title: string;
   businessLine: BusinessLine;
   customer: string;
+  project: string;
   unitQuantity: number;
   outcome: "WON" | "LOST";
   markupTargetPct: number; // controls margin factor % to hit a realistic won/lost band
 }[] = [
-  { title: "20 Unit EV Bus — Dishub DKI Jakarta", businessLine: "B2G_TENDER_BUS", customer: "Dishub DKI Jakarta", unitQuantity: 20, outcome: "WON", markupTargetPct: 15 },
-  { title: "10 Unit EV Bus — Pemkot Surabaya", businessLine: "B2G_TENDER_BUS", customer: "Pemkot Surabaya", unitQuantity: 10, outcome: "WON", markupTargetPct: 14 },
-  { title: "15 Unit EV Bus — Dishub Bandung", businessLine: "B2G_TENDER_BUS", customer: "Dishub Kota Bandung", unitQuantity: 15, outcome: "LOST", markupTargetPct: 22 },
-  { title: "8 Unit EV Bus — Pemprov Bali", businessLine: "B2G_TENDER_BUS", customer: "Pemprov Bali", unitQuantity: 8, outcome: "WON", markupTargetPct: 13 },
-  { title: "25 Unit EV Bus — Kemenhub RI", businessLine: "B2G_TENDER_BUS", customer: "Kementerian Perhubungan", unitQuantity: 25, outcome: "LOST", markupTargetPct: 24 },
-  { title: "5 Unit EV Truck — Logistik Cepat", businessLine: "B2B_COMMERCIAL_FLEET", customer: "PT Logistik Cepat Nusantara", unitQuantity: 5, outcome: "WON", markupTargetPct: 17 },
-  { title: "12 Unit EV Truck — Anteraja Fleet", businessLine: "B2B_COMMERCIAL_FLEET", customer: "PT Anteraja Logistik", unitQuantity: 12, outcome: "WON", markupTargetPct: 16 },
-  { title: "8 Unit EV Truck — Sinar Distribusi", businessLine: "B2B_COMMERCIAL_FLEET", customer: "PT Sinar Distribusi Utama", unitQuantity: 8, outcome: "LOST", markupTargetPct: 26 },
-  { title: "20 Unit EV Truck — J&T Fleet Expansion", businessLine: "B2B_COMMERCIAL_FLEET", customer: "PT J&T Ekspres", unitQuantity: 20, outcome: "WON", markupTargetPct: 18 },
-  { title: "Charging Hub — Rest Area KM 57", businessLine: "CHARGING_INFRA_BUILDOUT", customer: "PT Jasa Marga", unitQuantity: 1, outcome: "WON", markupTargetPct: 19 },
-  { title: "Charging Hub — Mall Kelapa Gading", businessLine: "CHARGING_INFRA_BUILDOUT", customer: "PT Summarecon Agung", unitQuantity: 1, outcome: "WON", markupTargetPct: 20 },
-  { title: "Charging Hub — Bandara Kertajati", businessLine: "CHARGING_INFRA_BUILDOUT", customer: "PT Angkasa Pura", unitQuantity: 1, outcome: "LOST", markupTargetPct: 28 },
+  { title: "20 Unit EV Bus — Dishub DKI Jakarta", businessLine: "B2G_TENDER_BUS", customer: "Dishub DKI Jakarta", project: "Trans Jakarta Elektrifikasi", unitQuantity: 20, outcome: "WON", markupTargetPct: 15 },
+  { title: "10 Unit EV Bus — Pemkot Surabaya", businessLine: "B2G_TENDER_BUS", customer: "Pemkot Surabaya", project: "Suroboyo Bus Listrik", unitQuantity: 10, outcome: "WON", markupTargetPct: 14 },
+  { title: "15 Unit EV Bus — Dishub Bandung", businessLine: "B2G_TENDER_BUS", customer: "Dishub Kota Bandung", project: "Bandung Smart Transit", unitQuantity: 15, outcome: "LOST", markupTargetPct: 22 },
+  { title: "8 Unit EV Bus — Pemprov Bali", businessLine: "B2G_TENDER_BUS", customer: "Pemprov Bali", project: "Bali Green Transport", unitQuantity: 8, outcome: "WON", markupTargetPct: 13 },
+  { title: "25 Unit EV Bus — Kemenhub RI", businessLine: "B2G_TENDER_BUS", customer: "Kementerian Perhubungan", project: "Nasional Bus Listrik Fase 1", unitQuantity: 25, outcome: "LOST", markupTargetPct: 24 },
+  { title: "5 Unit EV Truck — Logistik Cepat", businessLine: "B2B_COMMERCIAL_FLEET", customer: "PT Logistik Cepat Nusantara", project: "Armada EV Jabodetabek", unitQuantity: 5, outcome: "WON", markupTargetPct: 17 },
+  { title: "12 Unit EV Truck — Anteraja Fleet", businessLine: "B2B_COMMERCIAL_FLEET", customer: "PT Anteraja Logistik", project: "Armada EV Truck Jabodetabek", unitQuantity: 12, outcome: "WON", markupTargetPct: 16 },
+  { title: "8 Unit EV Truck — Sinar Distribusi", businessLine: "B2B_COMMERCIAL_FLEET", customer: "PT Sinar Distribusi Utama", project: "Distribusi EV Jawa Barat", unitQuantity: 8, outcome: "LOST", markupTargetPct: 26 },
+  { title: "20 Unit EV Truck — J&T Fleet Expansion", businessLine: "B2B_COMMERCIAL_FLEET", customer: "PT J&T Ekspres", project: "J&T Fleet Elektrifikasi", unitQuantity: 20, outcome: "WON", markupTargetPct: 18 },
+  { title: "Charging Hub — Rest Area KM 57", businessLine: "CHARGING_INFRA_BUILDOUT", customer: "PT Jasa Marga", project: "Charging Hub Tol Trans Jawa", unitQuantity: 1, outcome: "WON", markupTargetPct: 19 },
+  { title: "Charging Hub — Mall Kelapa Gading", businessLine: "CHARGING_INFRA_BUILDOUT", customer: "PT Summarecon Agung", project: "Charging Hub Mal Jakarta", unitQuantity: 1, outcome: "WON", markupTargetPct: 20 },
+  { title: "Charging Hub — Bandara Kertajati", businessLine: "CHARGING_INFRA_BUILDOUT", customer: "PT Angkasa Pura", project: "Charging Hub Bandara Jabar", unitQuantity: 1, outcome: "LOST", markupTargetPct: 28 },
 ];
 
 // A handful of "in-flight" proposals left as DRAFT / mid-workflow so the
@@ -217,17 +235,87 @@ const LIVE_PROPOSALS: {
   title: string;
   businessLine: BusinessLine;
   customer: string;
+  project: string;
   unitQuantity: number;
 }[] = [
-  { title: "18 Unit EV Bus — Dishub Kota Medan", businessLine: "B2G_TENDER_BUS", customer: "Dishub Kota Medan", unitQuantity: 18 },
-  { title: "6 Unit EV Truck — Paxel Same-Day", businessLine: "B2B_COMMERCIAL_FLEET", customer: "PT Paxel Algorita Ecommerce", unitQuantity: 6 },
-  { title: "Charging Hub — Terminal Pulo Gebang", businessLine: "CHARGING_INFRA_BUILDOUT", customer: "Dishub DKI Jakarta", unitQuantity: 1 },
+  { title: "18 Unit EV Bus — Dishub Kota Medan", businessLine: "B2G_TENDER_BUS", customer: "Dishub Kota Medan", project: "Medan Bus Listrik", unitQuantity: 18 },
+  { title: "6 Unit EV Truck — Paxel Same-Day", businessLine: "B2B_COMMERCIAL_FLEET", customer: "PT Paxel Algorita Ecommerce", project: "Paxel Armada EV", unitQuantity: 6 },
+  { title: "Charging Hub — Terminal Pulo Gebang", businessLine: "CHARGING_INFRA_BUILDOUT", customer: "Dishub DKI Jakarta", project: "Charging Hub Terminal Jakarta", unitQuantity: 1 },
 ];
 
 async function seedProposalNumber(index: number) {
   const year = new Date().getFullYear();
   return `PRC-${year}-${String(index).padStart(4, "0")}`;
 }
+
+function slugify(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toUpperCase();
+}
+
+async function createProjectIdentifier(
+  customerName: string,
+  projectName: string,
+  createdBy: string,
+  sequence: number
+): Promise<string | null> {
+  const code = `PRJ-${slugify(customerName).slice(0, 12) || "CUST"}-${slugify(projectName).slice(0, 12) || "PROJ"}-${new Date().getFullYear()}-${String(sequence).padStart(3, "0")}`;
+
+  const { data, error } = await supabase
+    .from("project_identifier")
+    .insert({ identifier_code: code, customer_name: customerName, project_name: projectName, created_by: createdBy })
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error(`  ! Failed to create project identifier for ${customerName}:`, error.message);
+    return null;
+  }
+  return data.id;
+}
+
+// Realistic per-unit values for the real VKTR/BTEL cost structure
+// (34 items, docs/BTEL-CostStructure.xlsx). FOB Price is denominated
+// in CNY; everything else is IDR (cost_item.denomination drives the
+// actual conversion at calculation time).
+const BASE_VALUES: Record<string, number> = {
+  // COGS (CNY except FOB Price in IDR, which stays 0/unused)
+  "COGS-FOB-CNY": 283_000,
+  "COGS-FRT-001": 13_600_000,
+  "COGS-DUT-001": 20_800_000,
+  "COGS-PHC-001": 6_200_000,
+  "COGS-CAR-001": 76_700_000,
+  "COGS-ASM-001": 16_900_000,
+  "COGS-LOC-001": 9_700_000,
+  "COGS-ACC-001": 3_100_000,
+  "COGS-TEL-001": 2_100_000,
+  "COGS-WHS-001": 1_550_000,
+  "COGS-WAR-001": 12_000_000,
+  "COGS-NRG-001": 1_050_000,
+  "COGS-ADM-001": 1_950_000,
+  // PROFITABILITY
+  "PROFIT-VKTS-PBT": 5_800_000,
+  "PROFIT-VKTS-MGN": 8,
+  "PROFIT-VKTR-PBF": 3_200_000,
+  "PROFIT-FIN-COST": 6,
+  "PROFIT-VKTR-MAF": 5,
+  // SALES
+  "SALES-STNK-001": 3_500_000,
+  "SALES-INS-001": 2_200_000,
+  "SALES-INC-INT": 1_500_000,
+  "SALES-INC-EXT": 1_000_000,
+  "SALES-PROC-001": 800_000,
+  "SALES-AGENCY": 0,
+  // ADD_ONS
+  "ADDON-PROC-001": 1_350_000,
+  "ADDON-DLV-001": 2_500_000,
+  "ADDON-KEUR-001": 900_000,
+  "ADDON-EXTRA-001": 0,
+};
 
 async function main() {
   const userIds = await ensureDemoUsers();
@@ -240,19 +328,39 @@ async function main() {
   }
 
   console.log("\nLoading reference data...");
-  const { data: templates } = await supabase.from("cbs_template").select("*");
-  const { data: fxSnapshot } = await supabase
-    .from("external_rate_snapshot")
+  const { data: template } = await supabase
+    .from("cbs_template")
     .select("*")
-    .eq("rate_type", "FX_USD_IDR")
-    .order("effective_at", { ascending: false })
+    .eq("status", "active")
+    .order("version", { ascending: false })
     .limit(1)
     .single();
 
-  const fxRate = fxSnapshot ? Number(fxSnapshot.value) : 16350;
-  const templateByBusinessLine = Object.fromEntries(
-    (templates ?? []).map((t) => [t.business_line, t])
-  );
+  const { data: exchangeRate } = await supabase
+    .from("exchange_rate")
+    .select("*")
+    .eq("base_currency", "CNY")
+    .eq("quote_currency", "IDR")
+    .order("effective_from", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const fxRate = exchangeRate ? Number(exchangeRate.rate) : 2600;
+
+  if (!template) {
+    console.error("No active CBS template found — run migrations 0011-0013 first.");
+    return;
+  }
+
+  const { data: templateItems } = await supabase
+    .from("cbs_template_item")
+    .select("cost_item_id, cost_item(*)")
+    .eq("template_id", template.id);
+
+  const costItems: CostItem[] = (templateItems ?? [])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((row: any) => row.cost_item)
+    .filter(Boolean);
 
   const allProposals = [
     ...HISTORICAL_PROPOSALS.map((p) => ({ ...p, isLive: false as const })),
@@ -278,6 +386,7 @@ async function main() {
     .reduce((max, n) => Math.max(max, n), 0);
 
   let seq = highest + 1;
+  let projectSeq = 1;
 
   const toSeed = allProposals.filter((p) => !existingTitles.has(p.title));
   const skipped = allProposals.length - toSeed.length;
@@ -287,64 +396,41 @@ async function main() {
   }
   console.log(`\nSeeding ${toSeed.length} proposals...`);
 
+  // Generate plausible per-unit cost values with light randomness so
+  // outlier detection has real variance to work against.
+  const jitter = () => 0.92 + Math.random() * 0.16; // +/-8%
+
   for (const p of toSeed) {
-    const template = templateByBusinessLine[p.businessLine];
-    if (!template) continue;
-
-    const { data: templateItems } = await supabase
-      .from("cbs_template_item")
-      .select("cost_item_id, cost_item(*)")
-      .eq("template_id", template.id);
-
-    const costItems: CostItem[] = (templateItems ?? [])
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((row: any) => row.cost_item)
-      .filter(Boolean);
-
-    // Generate plausible per-unit cost values with light randomness so
-    // outlier detection has real variance to work against.
-    const jitter = () => 0.92 + Math.random() * 0.16; // +/-8%
-    const BASE_VALUES: Record<string, number> = {
-      "BOM-BATT-001": 850_000_000,
-      "BOM-CHAS-001": 420_000_000,
-      "BOM-PWTR-001": 310_000_000,
-      "DIR-KAR-001": 260_000_000,
-      "DIR-BEA-001": 180_000_000,
-      "DIR-LOG-001": 45_000_000,
-      "IND-TST-001": 35_000_000,
-      "IND-TYP-001": 18_000_000,
-      "IND-OVH-001": 25_000_000,
-      "IND-WAR-001": 40_000_000,
-      "IND-AMS-001": 20_000_000,
-      "MGN-COF-001": 3,
-      "MGN-LSE-001": 1.5,
-      "MGN-COM-001": 2,
-      "MGN-CTG-001": 2,
-    };
-
     // Charging infra is a project (fixed), not per-unit vehicle BOM — scale down.
     const scaleFactor = p.businessLine === "CHARGING_INFRA_BUILDOUT" ? 0.35 : 1;
 
     const costLineValues: Record<string, number> = {};
     for (const item of costItems) {
-      const base = BASE_VALUES[item.code] ?? (item.unit_type === "PERCENTAGE" ? 2 : 10_000_000);
-      if (item.category === "MARGIN_FACTOR") {
-        // Distribute the target markup across the margin-factor percentage items
-        costLineValues[item.id] = item.code === "MGN-COF-001" ? p.markupTargetPct * 0.4 : base;
+      const base = BASE_VALUES[item.code] ?? (item.unit_type === "PERCENTAGE" ? 2 : 5_000_000);
+      if (item.cost_group === "PROFITABILITY" && item.unit_type === "PERCENTAGE") {
+        // Distribute the target markup across the margin percentage items.
+        costLineValues[item.id] = item.code === "PROFIT-VKTS-MGN" ? p.markupTargetPct * 0.5 : base;
       } else {
         costLineValues[item.id] = Math.round(base * scaleFactor * jitter());
       }
     }
 
     const result = calculatePricing({
-      businessLine: p.businessLine,
       costItems,
       costLineValues,
       unitQuantity: p.unitQuantity,
-      fxUsdIdrRate: fxRate,
+      fxRate,
       fxBaselineRate: fxRate,
       minGpmThreshold: Number(template.min_gpm_threshold),
     });
+
+    const projectIdentifierId = await createProjectIdentifier(
+      p.customer,
+      p.project,
+      adminId,
+      projectSeq++
+    );
+    if (!projectIdentifierId) continue;
 
     const proposalNumber = await seedProposalNumber(seq++);
     const isFinal = !p.isLive;
@@ -357,7 +443,9 @@ async function main() {
         business_line: p.businessLine,
         customer_name: p.customer,
         cbs_template_id: template.id,
+        project_identifier_id: projectIdentifierId,
         unit_quantity: p.unitQuantity,
+        input_currency: "CNY",
         current_status: isFinal ? "QUOTATION_RELEASED" : "DRAFT",
         transaction_value: isFinal ? result.finalPrice : 0,
         outcome: p.outcome,
@@ -389,7 +477,7 @@ async function main() {
 
     await supabase
       .from("pricing_proposal")
-      .update({ current_version_id: version.id })
+      .update({ current_version_id: version.id, last_calculated_rate_id: exchangeRate?.id ?? null })
       .eq("id", proposal.id);
 
     const costLineRows = Object.entries(costLineValues).map(([cost_item_id, value]) => ({
@@ -413,6 +501,10 @@ async function main() {
       fx_usd_idr_rate: result.effectiveFxRate,
       breakdown: result.breakdown,
       is_below_gpm_threshold: result.isBelowGpmThreshold,
+      exchange_rate_used: result.effectiveFxRate,
+      exchange_rate_id: exchangeRate?.id ?? null,
+      mineral_adjustment_factor: result.effectiveMineralFactor,
+      input_currency: "CNY",
     });
 
     console.log(
@@ -431,17 +523,8 @@ async function main() {
 
 async function recomputeCostItemStats() {
   const { data: lines } = await supabase.from("proposal_cost_line").select("cost_item_id, value");
-  const { data: costItems } = await supabase.from("cost_item").select("id, category");
-  const { data: proposals } = await supabase
-    .from("pricing_proposal")
-    .select("id, business_line, current_version_id");
-
+  const { data: costItems } = await supabase.from("cost_item").select("id, cost_group");
   if (!lines || !costItems) return;
-
-  const versionToBusinessLine = new Map<string, BusinessLine>();
-  for (const p of proposals ?? []) {
-    if (p.current_version_id) versionToBusinessLine.set(p.current_version_id, p.business_line);
-  }
 
   const byItem = new Map<string, number[]>();
   for (const line of lines) {
@@ -450,7 +533,9 @@ async function recomputeCostItemStats() {
     byItem.set(line.cost_item_id, arr);
   }
 
-  const businessLineByItemCategory = "B2G_TENDER_BUS"; // POC: stats aggregated across lines for simplicity
+  // POC: stats aggregated across business lines for simplicity (the CBS
+  // is single/shared now, so the business_line column here is nominal).
+  const nominalBusinessLine = "B2G_TENDER_BUS";
 
   for (const [costItemId, values] of byItem.entries()) {
     if (values.length === 0) continue;
@@ -462,7 +547,7 @@ async function recomputeCostItemStats() {
     await supabase.from("cost_item_stat").upsert(
       {
         cost_item_id: costItemId,
-        business_line: businessLineByItemCategory,
+        business_line: nominalBusinessLine,
         sample_count: values.length,
         mean_value: mean,
         stddev_value: stddev,

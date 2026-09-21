@@ -5,12 +5,14 @@ import { requireProfile } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { resolveCurrentVersionId } from "@/lib/pricing/version";
 import {
+  checkTierApprovalComplete,
   computeMarginImpact,
-  isWithinAuthority,
-  loadDiscountLadder,
-  resolveRequiredRole,
-} from "@/lib/negotiation/authority";
+  loadMarginTierLadder,
+  normalizeDiscountInput,
+} from "@/lib/negotiation/marginTier";
 import { canRequestDiscount } from "@/lib/rbac";
+import { createRevisionProposal } from "@/lib/workflow/projectIdentifier";
+import { generateProposalNumber } from "@/lib/workflow/proposalNumber";
 import { revalidatePath } from "next/cache";
 import {
   isNextControlFlowError,
@@ -19,17 +21,26 @@ import {
 } from "@/lib/actionResult";
 import { z } from "zod";
 import type {
-  BusinessLine,
+  DiscountInputMode,
+  MarginTierAuthority,
   NegotiationDecisionType,
   NegotiationRequest,
   PricingProposal,
+  UserRole,
 } from "@/types/database";
 
-const DiscountSchema = z.coerce.number().min(0.01).max(100);
+const RequestDiscountSchema = z.object({
+  mode: z.enum(["AMOUNT", "PERCENTAGE"]),
+  amount: z.coerce.number().min(0).optional(),
+  pct: z.coerce.number().min(0.01).max(100).optional(),
+  customer_note: z.string().optional(),
+});
 
 /**
- * FR-6.2 — raise a customer discount request. The approver is resolved
- * by the server from the discount ladder; the requester cannot pick it.
+ * FR-6.2 — raise a customer discount request. The tier (and therefore
+ * who must approve) is resolved by the server from the GPM this
+ * discount would produce; the requester cannot pick it (v3.0,
+ * Technical Logic §11.1).
  */
 export async function requestDiscountAction(
   proposalId: string,
@@ -50,8 +61,12 @@ async function runRequestDiscount(proposalId: string, formData: FormData) {
     throw new Error("Hanya Sales Officer / Chief Sales yang dapat mengajukan diskon.");
   }
 
-  const discountPct = DiscountSchema.parse(formData.get("discount_pct"));
-  const customerNote = String(formData.get("customer_note") ?? "") || null;
+  const parsed = RequestDiscountSchema.parse({
+    mode: formData.get("mode"),
+    amount: formData.get("amount") || undefined,
+    pct: formData.get("pct") || undefined,
+    customer_note: formData.get("customer_note") || undefined,
+  });
 
   const supabase = await createClient();
 
@@ -77,25 +92,28 @@ async function runRequestDiscount(proposalId: string, formData: FormData) {
     );
   }
 
-  const impact = await buildMarginImpact(supabase, proposal, discountPct);
-  const ladder = await loadDiscountLadder(
+  const { impact, discountAmount, discountPct, ladder } = await buildMarginImpact(
     supabase,
-    proposal.business_line as BusinessLine
+    proposal,
+    { mode: parsed.mode as DiscountInputMode, amount: parsed.amount, pct: parsed.pct }
   );
-  const requiredRole = resolveRequiredRole(discountPct, ladder);
+  void ladder;
 
   const { data: request, error } = await supabase
     .from("negotiation_request")
     .insert({
       proposal_id: proposalId,
       requested_discount_pct: discountPct,
-      customer_note: customerNote,
-      required_role: requiredRole,
+      discount_input_mode: parsed.mode,
+      requested_discount_amount: discountAmount,
+      customer_note: parsed.customer_note ?? null,
+      required_tier: impact.tier.tier,
+      required_roles_snapshot: impact.tier.required_roles,
       status: "PENDING_APPROVAL",
       price_before: impact.priceBefore,
       price_after: impact.priceAfter,
       gpm_after: impact.gpmAfter,
-      is_below_gpm_threshold: impact.isBelowThreshold,
+      is_below_gpm_threshold: impact.tier.tier > 1,
       requested_by: profile.id,
     })
     .select("id")
@@ -109,26 +127,31 @@ async function runRequestDiscount(proposalId: string, formData: FormData) {
     proposalId,
     actorId: profile.id,
     action: "NEGOTIATION_REQUEST",
-    reason: customerNote ?? undefined,
+    reason: parsed.customer_note ?? undefined,
     fieldChanges: [
+      { field: "discount_input_mode", old: null, new: parsed.mode },
       { field: "requested_discount_pct", old: null, new: discountPct },
-      { field: "required_role", old: null, new: requiredRole },
+      { field: "required_tier", old: null, new: impact.tier.tier },
     ],
   });
 
   revalidatePath(`/proposals/${proposalId}`);
-  revalidatePath("/negotiations");
+  revalidatePath("/lifecycle");
 }
 
 /**
- * FR-6.3 — decide on a discount request. APPROVE applies the discount,
- * REJECT closes it, REVISE supersedes it with a counter-offer whose
- * authority is re-evaluated from scratch (§11.2).
+ * FR-6.3 — decide on a discount request. Every required role for the
+ * resolved tier must APPROVE (AND-join, Technical Logic §11.2) before
+ * the discount is actually applied. REJECT from anyone on the tier
+ * closes the request immediately. REVISE supersedes it with a
+ * counter-offer whose tier is re-evaluated from scratch.
  */
 export async function decideNegotiationAction(params: {
   requestId: string;
   decision: NegotiationDecisionType;
-  counterDiscountPct?: number;
+  counterMode?: DiscountInputMode;
+  counterAmount?: number;
+  counterPct?: number;
   note?: string;
 }): Promise<ActionResult> {
   try {
@@ -143,10 +166,12 @@ export async function decideNegotiationAction(params: {
 async function runDecideNegotiation(params: {
   requestId: string;
   decision: NegotiationDecisionType;
-  counterDiscountPct?: number;
+  counterMode?: DiscountInputMode;
+  counterAmount?: number;
+  counterPct?: number;
   note?: string;
 }) {
-  const { requestId, decision, counterDiscountPct, note } = params;
+  const { requestId, decision, counterMode, counterAmount, counterPct, note } = params;
   const profile = await requireProfile();
   const supabase = await createClient();
 
@@ -172,24 +197,31 @@ async function runDecideNegotiation(params: {
   if (!proposalRow) throw new Error("Proposal not found");
   const proposal = proposalRow as PricingProposal;
 
-  const ladder = await loadDiscountLadder(
-    supabase,
-    proposal.business_line as BusinessLine
-  );
+  const requiredRoles = request.required_roles_snapshot as UserRole[];
 
-  // Authority check — enforced server-side so it cannot be bypassed by
-  // calling the action directly (FR-6.2).
-  const authorised =
-    profile.role === request.required_role ||
-    isWithinAuthority(profile.role, Number(request.requested_discount_pct), ladder);
-
+  // Authority check — the actor's role must be one of the tier's
+  // required roles (or the tier requires none, Tier 1). Enforced
+  // server-side so it cannot be bypassed by calling the action directly.
+  const authorised = requiredRoles.includes(profile.role);
   if (!authorised) {
     throw new Error(
-      `Diskon ${request.requested_discount_pct}% berada di luar wewenang Anda — memerlukan ${request.required_role}.`
+      `Tier ${request.required_tier} memerlukan persetujuan ${requiredRoles.join(", ")} — peran Anda (${profile.role}) tidak termasuk.`
     );
   }
 
-  if (decision === "REVISE" && !counterDiscountPct) {
+  const { data: existingDecisionsRaw } = await supabase
+    .from("negotiation_decision")
+    .select("*")
+    .eq("negotiation_request_id", requestId);
+
+  const existingDecisions = existingDecisionsRaw ?? [];
+
+  const alreadyDecided = existingDecisions.some((d) => d.actor_id === profile.id);
+  if (alreadyDecided) {
+    throw new Error("Anda sudah memberikan keputusan untuk permintaan ini.");
+  }
+
+  if (decision === "REVISE" && counterAmount === undefined && counterPct === undefined) {
     throw new Error("Nilai diskon tandingan wajib diisi untuk keputusan Revise.");
   }
 
@@ -198,63 +230,73 @@ async function runDecideNegotiation(params: {
     .insert({
       negotiation_request_id: requestId,
       actor_id: profile.id,
+      approver_role: profile.role,
       decision,
-      counter_discount_pct: counterDiscountPct ?? null,
+      counter_discount_pct: decision === "REVISE" ? counterPct ?? null : null,
+      counter_discount_amount: decision === "REVISE" ? counterAmount ?? null : null,
       note: note ?? null,
     });
 
   if (decisionError) throw new Error(decisionError.message);
 
-  if (decision === "APPROVE") {
-    await supabase
-      .from("negotiation_request")
-      .update({ status: "APPROVED" })
-      .eq("id", requestId);
+  const ladder = await loadMarginTierLadder(supabase, proposal.business_line);
+  const tier = ladder.find((t) => t.tier === request.required_tier) as
+    | MarginTierAuthority
+    | undefined;
 
-    // Applying the discount is what actually moves the quotation price.
-    // A sub-threshold margin is only permitted when the BOD signed it off.
-    await supabase
-      .from("pricing_proposal")
-      .update({
-        applied_discount_pct: request.requested_discount_pct,
-        has_bod_margin_approval:
-          profile.role === "BOD" ? true : proposal.has_bod_margin_approval,
-      })
-      .eq("id", proposal.id);
-
-    await recalculateWithDiscount(
-      supabase,
-      proposal,
-      Number(request.requested_discount_pct)
-    );
-  } else if (decision === "REJECT") {
+  if (decision === "REJECT") {
     await supabase
       .from("negotiation_request")
       .update({ status: "REJECTED" })
       .eq("id", requestId);
-  } else {
-    // REVISE — supersede the old request and open a counter-offer.
+  } else if (decision === "REVISE") {
     await supabase
       .from("negotiation_request")
       .update({ status: "SUPERSEDED" })
       .eq("id", requestId);
 
-    const impact = await buildMarginImpact(supabase, proposal, counterDiscountPct!);
-    const newRequiredRole = resolveRequiredRole(counterDiscountPct!, ladder);
+    const { impact, discountAmount, discountPct } = await buildMarginImpact(
+      supabase,
+      proposal,
+      {
+        mode: counterMode ?? "PERCENTAGE",
+        amount: counterAmount,
+        pct: counterPct,
+      }
+    );
 
     await supabase.from("negotiation_request").insert({
       proposal_id: proposal.id,
-      requested_discount_pct: counterDiscountPct!,
+      requested_discount_pct: discountPct,
+      discount_input_mode: counterMode ?? "PERCENTAGE",
+      requested_discount_amount: discountAmount,
       customer_note: note ?? "Counter-offer dari approver",
-      required_role: newRequiredRole,
+      required_tier: impact.tier.tier,
+      required_roles_snapshot: impact.tier.required_roles,
       status: "PENDING_APPROVAL",
       price_before: impact.priceBefore,
       price_after: impact.priceAfter,
       gpm_after: impact.gpmAfter,
-      is_below_gpm_threshold: impact.isBelowThreshold,
+      is_below_gpm_threshold: impact.tier.tier > 1,
       parent_request_id: requestId,
       requested_by: profile.id,
     });
+  } else if (decision === "APPROVE" && tier) {
+    const allDecisions = [
+      ...existingDecisions,
+      { actor_id: profile.id, approver_role: profile.role, decision: "APPROVE" as const },
+    ];
+
+    if (checkTierApprovalComplete(tier, allDecisions)) {
+      await supabase
+        .from("negotiation_request")
+        .update({ status: "APPROVED" })
+        .eq("id", requestId);
+
+      await applyApprovedDiscount(supabase, proposal, request, profile.id);
+    }
+    // Otherwise the AND-join is still incomplete — request stays
+    // PENDING_APPROVAL until the remaining required roles decide.
   }
 
   await writeAuditLog(supabase, {
@@ -266,53 +308,98 @@ async function runDecideNegotiation(params: {
     reason: note,
     fieldChanges: [
       { field: "decision", old: request.status, new: decision },
-      ...(counterDiscountPct
-        ? [{ field: "counter_discount_pct", old: null, new: counterDiscountPct }]
-        : []),
+      { field: "approver_role", old: null, new: profile.role },
     ],
   });
 
   revalidatePath(`/proposals/${proposal.id}`);
-  revalidatePath("/negotiations");
+  revalidatePath("/lifecycle");
+}
+
+/**
+ * Applies an APPROVED discount. If the quotation has already been
+ * released, the negotiation loop is bounded to that quotation
+ * (FR-6.3): the discount is applied to a NEW revision proposal on the
+ * same Project Identifier instead of mutating the released one.
+ */
+async function applyApprovedDiscount(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  proposal: PricingProposal,
+  request: NegotiationRequest,
+  actorId: string
+) {
+  const discountPct = Number(request.requested_discount_pct);
+
+  if (proposal.current_status === "QUOTATION_RELEASED") {
+    const proposalNumber = await generateProposalNumber(supabase);
+    const { proposalId: newProposalId } = await createRevisionProposal(supabase, {
+      existingProposal: proposal,
+      changeReason: `Negosiasi disetujui: diskon ${discountPct.toFixed(2)}%`,
+      actorId,
+      proposalNumber,
+    });
+
+    await supabase
+      .from("pricing_proposal")
+      .update({ applied_discount_pct: discountPct })
+      .eq("id", newProposalId);
+
+    return;
+  }
+
+  await supabase
+    .from("pricing_proposal")
+    .update({
+      applied_discount_pct: discountPct,
+      has_bod_margin_approval: request.required_tier === 3 ? true : proposal.has_bod_margin_approval,
+    })
+    .eq("id", proposal.id);
+
+  await recalculateWithDiscount(supabase, proposal, discountPct);
 }
 
 async function buildMarginImpact(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   proposal: PricingProposal,
-  discountPct: number
+  input: { mode: DiscountInputMode; amount?: number; pct?: number }
 ) {
   const versionId = await resolveCurrentVersionId(supabase, proposal);
   if (!versionId) throw new Error("Proposal ini belum memiliki versi.");
 
-  const [{ data: result }, { data: template }] = await Promise.all([
-    supabase
-      .from("proposal_calculation_result")
-      .select("*")
-      .eq("proposal_version_id", versionId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("cbs_template")
-      .select("min_gpm_threshold")
-      .eq("id", proposal.cbs_template_id)
-      .maybeSingle(),
-  ]);
+  const { data: result } = await supabase
+    .from("proposal_calculation_result")
+    .select("*")
+    .eq("proposal_version_id", versionId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   if (!result) {
     throw new Error("Belum ada hasil kalkulasi — lengkapi CBS terlebih dahulu.");
   }
 
-  const baseCost =
-    Number(result.total_direct_cost) + Number(result.total_indirect_cost);
+  const priceBefore = Number(result.final_price);
+  const baseCost = Number(result.total_direct_cost) + Number(result.total_margin_amount);
 
-  return computeMarginImpact({
-    priceBefore: Number(result.final_price),
-    baseCost,
-    discountPct,
-    minGpmThreshold: template ? Number(template.min_gpm_threshold) : 0,
+  const { amount: discountAmount, pct: discountPct } = normalizeDiscountInput({
+    mode: input.mode,
+    amount: input.amount,
+    pct: input.pct,
+    priceBeforeDiscount: priceBefore,
   });
+
+  const ladder = await loadMarginTierLadder(supabase, proposal.business_line);
+
+  const impact = computeMarginImpact({
+    priceBefore,
+    baseCost,
+    discountAmount,
+    ladder,
+  });
+
+  return { impact, discountAmount, discountPct, ladder };
 }
 
 /**
@@ -331,12 +418,10 @@ async function recalculateWithDiscount(
   if (!versionId) return;
 
   await recalculateAndPersist(supabase, {
+    proposalId: proposal.id,
     proposalVersionId: versionId,
     cbsTemplateId: proposal.cbs_template_id,
     unitQuantity: proposal.unit_quantity,
-    businessLine: proposal.business_line as BusinessLine,
-    inputCurrency: proposal.input_currency,
-    baselineHpmValue: proposal.baseline_hpm_value,
     volumeDiscountPct: discountPct,
   });
 }

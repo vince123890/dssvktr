@@ -5,7 +5,7 @@ import { resolveExchangeRate } from "@/lib/pricing/currency";
 import { loadMineralContext, mineralAdjustmentFactor } from "@/lib/pricing/mineral";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import type { BusinessLine, CostItem } from "@/types/database";
+import type { CostItem } from "@/types/database";
 
 /**
  * FR-4.1 What-If Sensitivity Simulator — stateless endpoint.
@@ -81,33 +81,32 @@ export async function POST(request: Request) {
     loadMineralContext(supabase, mineralCode),
   ]);
 
-  const fxRate = exchangeRate ? Number(exchangeRate.rate) : 16350;
+  const fxRate = exchangeRate ? Number(exchangeRate.rate) : 2600;
+  // Dormant in v3.0 — always 1 regardless of baseline/current HPM
+  // (Technical Logic §13.2). hmaDeltaPct below only shifts the
+  // reference HPM number, never the price.
   const baseMineralFactor = mineralAdjustmentFactor(
     proposal.baseline_hpm_value,
     mineral.hpm?.hpmWet ?? null
   );
 
   const baseCase = calculatePricing({
-    businessLine: proposal.business_line as BusinessLine,
     costItems,
     costLineValues,
     unitQuantity: proposal.unit_quantity,
-    fxUsdIdrRate: fxRate,
+    fxRate,
     fxBaselineRate: fxRate,
     minGpmThreshold: Number(template?.min_gpm_threshold ?? 0.12),
-    inputCurrency: proposal.input_currency,
     mineralAdjustmentFactor: baseMineralFactor,
   });
 
   const simulatedCase = calculatePricing({
-    businessLine: proposal.business_line as BusinessLine,
     costItems,
     costLineValues,
     unitQuantity: proposal.unit_quantity,
-    fxUsdIdrRate: fxRate,
+    fxRate,
     fxBaselineRate: fxRate,
     minGpmThreshold: Number(template?.min_gpm_threshold ?? 0.12),
-    inputCurrency: proposal.input_currency,
     mineralAdjustmentFactor: baseMineralFactor,
     simulation: {
       fxDeltaPct: body.fxDeltaPct,

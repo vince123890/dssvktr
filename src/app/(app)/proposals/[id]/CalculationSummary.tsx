@@ -4,7 +4,7 @@ import { formatIDR, formatPercent } from "@/lib/utils";
 import type { ProposalCalculationResult, UserRole } from "@/types/database";
 import { canViewRawMargin } from "@/lib/rbac";
 import { AlertTriangle, TrendingUp, Scale, Target, Coins, Pickaxe } from "lucide-react";
-import { formatUSD, fromBaseCurrency } from "@/lib/pricing/currency";
+import { formatCNY, fromBaseCurrency } from "@/lib/pricing/currency";
 import type { MineralContext } from "@/lib/pricing/mineral";
 
 export function CalculationSummary({
@@ -20,9 +20,7 @@ export function CalculationSummary({
 }) {
   const canSeeMargin = canViewRawMargin(role);
   const rate = Number(result.exchange_rate_used) || 0;
-  const finalPriceUsd = fromBaseCurrency(Number(result.final_price), "USD", rate);
-  const mineralFactor = Number(result.mineral_adjustment_factor) || 1;
-  const mineralDeltaPct = (mineralFactor - 1) * 100;
+  const finalPriceCny = fromBaseCurrency(Number(result.final_price), "CNY", rate);
 
   return (
     <div className="space-y-3">
@@ -42,7 +40,7 @@ export function CalculationSummary({
           icon={Target}
           label="Final Price"
           value={formatIDR(result.final_price)}
-          subValue={rate > 0 ? formatUSD(finalPriceUsd) : undefined}
+          subValue={rate > 0 ? formatCNY(finalPriceCny) : undefined}
           tone="primary"
         />
         <MetricCard
@@ -67,18 +65,17 @@ export function CalculationSummary({
 
       <Card>
         <CardContent className="grid grid-cols-2 gap-4 text-xs lg:grid-cols-4">
-          <SubMetric label="Total Direct Cost" value={formatIDR(result.total_direct_cost)} />
-          <SubMetric label="Total Indirect Cost" value={formatIDR(result.total_indirect_cost)} />
+          <SubMetric label="Base Cost (COGS + Add-Ons)" value={formatIDR(result.total_direct_cost)} />
           <SubMetric
-            label="Total Margin Amount"
+            label="Margin (Profitability)"
             value={canSeeMargin ? formatIDR(result.total_margin_amount) : "••••"}
           />
-          <SubMetric label="FX Rate Used (USD/IDR)" value={result.fx_usd_idr_rate.toLocaleString("id-ID")} />
+          <SubMetric label="Kurs CNY/IDR (RMB)" value={rate.toLocaleString("id-ID")} />
         </CardContent>
       </Card>
 
-      {/* FR-8.4 — the basis of the mineral adjustment is shown openly, so a
-          price rise is never buried inside the total. */}
+      {/* FR-8.4 — reference only in v3.0: HMA/HPM is shown as market
+          context, not multiplied into the calculation (see mineral.ts). */}
       {mineral?.hpm && (
         <Card>
           <CardContent className="space-y-3">
@@ -89,7 +86,7 @@ export function CalculationSummary({
                 </div>
                 <div>
                   <div className="text-xs font-semibold">
-                    Mineral Index Adjustment (HMA → HPM)
+                    Mineral Index (Referensi) — HMA → HPM
                   </div>
                   <div className="text-[11px] text-muted">
                     {mineral.primarySnapshot?.regulation_ref ?? "Kepmen ESDM"} ·
@@ -97,11 +94,7 @@ export function CalculationSummary({
                   </div>
                 </div>
               </div>
-              <Badge tone={Math.abs(mineralDeltaPct) < 0.01 ? "default" : "info"}>
-                Faktor {mineralFactor.toFixed(4)}
-                {Math.abs(mineralDeltaPct) >= 0.01 &&
-                  ` (${mineralDeltaPct > 0 ? "+" : ""}${mineralDeltaPct.toFixed(2)}%)`}
-              </Badge>
+              <Badge tone="default">Tidak memengaruhi harga (v3.0)</Badge>
             </div>
 
             <div className="grid grid-cols-2 gap-4 text-xs lg:grid-cols-4">
@@ -117,23 +110,19 @@ export function CalculationSummary({
                 label="HPM berjalan (US$/WMT)"
                 value={mineral.hpm.hpmWet.toFixed(2)}
               />
-              <SubMetric
-                label="HPM baseline quotation"
-                value={
-                  result.hpm_value_used && mineralFactor !== 1
-                    ? (Number(result.hpm_value_used) / mineralFactor).toFixed(2)
-                    : mineral.hpm.hpmWet.toFixed(2)
-                }
-              />
             </div>
+
+            <p className="text-[11px] text-muted">
+              Dampak pergerakan mineral internasional terhadap harga VKTR berjalan
+              melalui kurs CNY/IDR — bukan faktor pengali terpisah (PRD FR-8.3).
+            </p>
 
             {mineral.isStale && (
               <div className="flex items-start gap-2 rounded-md border border-warning/25 bg-warning-bg px-2.5 py-2 text-xs text-warning">
                 <AlertTriangle size={14} className="mt-0.5 shrink-0" />
                 <span>
                   <strong>Indeks mineral kedaluwarsa.</strong> HMA terakhir sudah
-                  melewati batas kesegaran — dasar harga mineral perlu
-                  diperbarui. Quotation tetap dapat diproses.
+                  melewati batas kesegaran. Quotation tetap dapat diproses.
                 </span>
               </div>
             )}
@@ -144,9 +133,8 @@ export function CalculationSummary({
       {rate > 0 && (
         <p className="text-[11px] text-muted flex items-center gap-1.5">
           <Coins size={12} />
-          Input quotation ini dalam{" "}
-          <strong>{result.input_currency}</strong>; dikonversi memakai kurs{" "}
-          {rate.toLocaleString("id-ID")} IDR/USD yang tersimpan bersama hasil ini.
+          Komponen impor (FOB Price) dikonversi memakai kurs{" "}
+          {rate.toLocaleString("id-ID")} IDR/CNY yang tersimpan bersama hasil ini.
         </p>
       )}
 

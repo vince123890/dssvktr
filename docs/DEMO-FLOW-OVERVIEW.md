@@ -1,34 +1,43 @@
-# Flow Besar & Peta Peran — Demo VKTR-PriceCore
+# Flow Besar & Peta Peran — Demo VKTR-PriceCore (v3.0)
 
-Peta menyeluruh alur demo POC: siapa berperan apa, di titik mana mereka
-masuk, dan kontrol apa yang berjalan di tiap perpindahan.
+Peta menyeluruh alur demo pasca-revisi: siapa berperan apa, di titik mana
+mereka masuk, dan kontrol apa yang berjalan di tiap perpindahan.
+
+> **Status dokumen.** Merupakan revisi struktural penuh mengikuti hasil
+> demo review POC v2.1 (`transcribe.md`) dan `PRD-VKTR-PriceCore.md` /
+> `TECHNICAL-LOGIC-VKTR-PriceCore.md` v3.0. Skenario di bawah adalah
+> **blueprint untuk build berikutnya** — urutan aktor, struktur cost
+> item, dan model discount authority di sini **berbeda secara
+> fundamental** dari POC yang sudah didemokan (lihat §8 untuk daftar
+> perubahan terhadap versi lama).
 
 Dokumen ini adalah **gambaran besarnya**. Untuk langkah rinci beserta
 angka yang harus diketik:
 
-- [`DEMO-SCENARIO.md`](DEMO-SCENARIO.md) — skenario utama, B2G dengan
-  input Rupiah.
-- [`DEMO-SCENARIO-USD.md`](DEMO-SCENARIO-USD.md) — skenario kedua, B2B
-  dengan input **USD** plus penyesuaian **HMA/HPM**.
+- [`DEMO-SCENARIO.md`](DEMO-SCENARIO.md) — skenario utama, cost structure
+  riil VKTR/BTEL dengan input IDR.
+- [`DEMO-SCENARIO-CNY.md`](DEMO-SCENARIO-CNY.md) — skenario kedua,
+  komponen impor dengan input **CNY (RMB)** dan Rate Sensitivity Threshold.
 
 | | |
 |---|---|
-| **Versi** | 2.1 (Multi-Currency & Mineral Index) |
-| **Dokumen sumber** | Commercial Quotation Approval System Requirement for VKTR · Simulasi_HPM_Nikel_Kepmen_2026.xlsx |
-| **Dokumen turunan** | [`PRD-VKTR-PriceCore.md`](PRD-VKTR-PriceCore.md) · [`TECHNICAL-LOGIC-VKTR-PriceCore.md`](TECHNICAL-LOGIC-VKTR-PriceCore.md) |
+| **Versi** | 3.0 (Post-Demo Revision) |
+| **Dokumen sumber** | `transcribe.md` (demo review) · `BTEL-CostStructure.xlsx` · Commercial Quotation Approval System Requirement for VKTR |
+| **Dokumen turunan** | [`PRD-VKTR-PriceCore.md`](PRD-VKTR-PriceCore.md) v3.0 · [`TECHNICAL-LOGIC-VKTR-PriceCore.md`](TECHNICAL-LOGIC-VKTR-PriceCore.md) v3.0 |
 
 ---
 
-## 1. Enam Peran dalam Satu Halaman
+## 1. Tujuh Peran dalam Satu Halaman
 
 | Peran | Akun demo | Masuk di tahap | Wewenang khas | Yang **tidak** bisa dilakukan |
 |---|---|---|---|---|
-| **Sales Officer** | `sales@vktr.demo` | Awal & negosiasi | Membuat quotation, mengajukan diskon, approve diskon ≤ 3% | Melihat *raw margin* (tampil `••••`); approve diskon > 3% |
-| **VP Operations** | `vpops@vktr.demo` | Validasi COGS (paralel) | Mengisi & memvalidasi **13 komponen** operasional | Menyetujui diskon; mengisi komponen milik VP Finance saat bukan gilirannya |
-| **VP Finance** | `vpfinance@vktr.demo` | Validasi COGS (paralel) | Mengisi & memvalidasi **5 komponen** finansial/margin | Menyetujui diskon |
-| **Chief Sales** | `chiefsales@vktr.demo` | Perakitan final & negosiasi | Approve tahap akhir (memicu Release Gate), approve diskon ≤ 8% | Approve diskon > 8%; melewati COGS Owner |
-| **BOD** | `bod@vktr.demo` | Eskalasi diskon besar | Approve / Reject / **Revise** diskon tanpa batas; satu-satunya yang boleh menembus ambang margin | — |
-| **System Admin** | `admin@vktr.demo` | Sebelum/sesudah demo | Master data, CBS template, workflow, ambang diskon | Ikut dalam alur approval quotation |
+| **Sales Officer** | `sales@vktr.demo` | Awal & negosiasi | Input data customer/unit/qty/delivery/komisi makelar; mengisi kelompok cost **`SALES`** (STNK, Insurance, Incentive, Agency Fee); mengajukan & approve diskon Tier 1/2 (sebagai salah satu dari 3 pihak) | Melihat kelompok cost `COGS`/`PROFITABILITY`/`ADD_ONS` sama sekali (bukan cuma margin — disamarkan penuh) |
+| **VP Operations** | `vpops@vktr.demo` | Validasi COGS (isi lebih dulu) | Mengisi & memvalidasi kelompok **`COGS`** dan **`ADD_ONS`** (Delivery Service boleh menyusul) | Menyetujui diskon; mengisi kelompok `PROFITABILITY`/`SALES` |
+| **VP Finance** | `vpfinance@vktr.demo` | Validasi COGS (paralel/setelah VP Ops) | Mengisi & memvalidasi kelompok **`PROFITABILITY`**; approve diskon Tier 2 (sebagai Profitability Owner) | Mengisi kelompok `COGS`/`ADD_ONS`/`SALES` |
+| **Product Owner** | `product@vktr.demo` | Sebelum/selama quotation disusun | Mengelola Product Master Data (spesifikasi, gambar, brosur, varian karoseri) yang dirujuk quotation | Mengisi cost line apa pun; ikut alur approval harga |
+| **Chief Sales** | `chiefsales@vktr.demo` | Perakitan final & negosiasi | Meninjau hasil rakitan seluruh COGS Owner, approve tahap akhir (memicu Release Gate); approve diskon Tier 2 (sebagai Pricing Owner) | Approve diskon Tier 3 sendirian; melewati COGS Owner |
+| **BOD** | `bod1@vktr.demo`, `bod2@vktr.demo` | Eskalasi Tier 3 | Approve / Reject / **Revise** diskon Tier 3 — **wajib dua BOD berbeda** (AND-join) | Meloloskan Tier 3 sendirian (satu approval tidak cukup) |
+| **System Admin** | `admin@vktr.demo` | Sebelum/sesudah demo | Master data, Workflow Template Catalog, Margin Tier Authority, Exchange Rate config | Ikut dalam alur approval quotation |
 
 Password seluruh akun: `PriceCore123!`
 
@@ -38,25 +47,26 @@ Password seluruh akun: `PriceCore123!`
 
 ```mermaid
 flowchart TD
-    A["<b>Sales Officer</b><br/>Buat quotation request<br/>isi Direct Costs"] --> B{{"Submit<br/>gate: hasil kalkulasi +<br/>workflow definition cocok"}}
+    A["<b>Sales Officer</b><br/>Input data customer, unit, qty,<br/>estimasi delivery, komisi makelar<br/>+ isi kelompok SALES<br/>TANPA akses COGS"] --> B{{"Submit<br/>gate: resolveWorkflowTemplate<br/>(qualifier deal)"}}
 
-    B --> C["status: <b>PENDING_COGS_VALIDATION</b><br/>dua step aktif bersamaan"]
+    B --> C["status: <b>PENDING_COGS_VALIDATION</b><br/>Workflow Template terpilih otomatis"]
 
-    C --> D["<b>VP Operations</b><br/>13 komponen<br/>logistik · STNK · delivery<br/>SLA 24 jam"]
-    C --> E["<b>VP Finance</b><br/>5 komponen<br/>OPEX · margin · cost of funds<br/>SLA 24 jam"]
+    C --> D["<b>VP Operations</b><br/>Kelompok COGS + ADD_ONS<br/>Delivery Service boleh menyusul<br/>SLA 24 jam"]
+    C --> E["<b>VP Finance</b><br/>Kelompok PROFITABILITY<br/>SLA 24 jam"]
 
     D --> F{{"<b>AND-JOIN</b><br/>menunggu KEDUANYA<br/>satu approve tidak cukup"}}
     E --> F
 
-    F --> G["status: <b>PENDING_CHIEF_SALES_REVIEW</b><br/><b>Chief Sales</b> approve"]
+    F --> G["status: <b>PENDING_CHIEF_SALES_REVIEW</b><br/><b>Chief Sales</b> meninjau & approve"]
 
-    G --> H{{"<b>RELEASE GATE</b><br/>1 · komponen COGS mandatory lengkap<br/>2 · semua COGS Owner menyetujui<br/>3 · margin ≥ ambang ATAU ada approval BOD"}}
+    G --> H{{"<b>RELEASE GATE</b><br/>1 · komponen mandatory lengkap (incl. may_follow_later)<br/>2 · semua COGS Owner menyetujui<br/>3 · Tier margin terpenuhi approvalnya"}}
 
     H -->|GAGAL| I["Ditolak dengan alasan spesifik<br/><i>quotation tidak dirilis</i>"]
-    H -->|LOLOS| J["status: <b>QUOTATION_RELEASED</b><br/>harga sampai ke pelanggan"]
+    H -->|LOLOS| J["status: <b>QUOTATION_RELEASED</b><br/>PDF via Format Quotation Template<br/>harga sampai ke pelanggan"]
 
     I -.->|perbaiki| C
     J --> K(["Pelanggan meminta diskon<br/>→ alur negosiasi §3"])
+    J --> L(["Revisi qty/harga<br/>→ quotation baru, link Project Identifier §5"])
 
     classDef sales fill:#dbeafe,stroke:#1d4ed8,color:#0f172a
     classDef cogs fill:#dcfce7,stroke:#16a34a,color:#0f172a
@@ -69,303 +79,252 @@ flowchart TD
     class D,E cogs
     class G chief
     class B,F,H gate
-    class J,K ok
+    class J,K,L ok
     class I bad
 ```
 
-**Tiga kontrol yang membedakan sistem ini dari spreadsheet:**
+**Kontrol yang membedakan sistem ini dari spreadsheet:**
 
-1. **AND-join** — quotation tidak bergerak hanya karena satu VP setuju.
-2. **Release Gate** — komponen COGS yang belum lengkap menghentikan rilis,
-   bukan sekadar memberi peringatan.
-3. **Field masking** — Sales Officer melihat harga final, bukan raw margin.
+1. **Urutan aktor sesuai SOP riil** — Sales tidak pernah melihat
+   breakdown COGS; VP Operations mengisi lebih dulu, baru VP Finance.
+2. **AND-join** — quotation tidak bergerak hanya karena satu COGS Owner
+   setuju.
+3. **`may_follow_later`** — Delivery Service boleh disusulkan tanpa
+   menghambat harga dasar, namun tetap wajib terisi sebelum rilis.
+4. **Release Gate berbasis Tier margin** — bukan ambang GPM tunggal,
+   melainkan tiga tingkat wewenang (§3).
+5. **Workflow Template Catalog** — alur approval dipilih otomatis dari
+   katalog (bukan satu alur baku), mendukung puluhan varian di masa
+   depan (§4).
 
 ---
 
-## 3. Flow Negosiasi — Delegated Discount Authority
+## 3. Flow Negosiasi — Margin-Tier Discount Authority
 
 Berjalan **setelah** quotation dirilis: pelanggan menerima harga, lalu
-meminta diskon.
+meminta diskon (dalam Rupiah **atau** persentase).
 
 ```mermaid
 flowchart TD
-    A(["Pelanggan meminta diskon X%"]) --> B["<b>Sales Officer</b> mengajukan permintaan<br/><i>hanya mengisi besaran + konteks</i>"]
+    A(["Pelanggan minta diskon<br/>Rupiah atau %"]) --> B["<b>Sales Officer</b> mengajukan<br/><i>pilih mode input, isi konteks</i>"]
 
-    B --> C{{"<b>SERVER</b> menghitung siapa yang berwenang<br/>pengaju TIDAK memilih approver<br/><i>authority bypass mustahil</i>"}}
+    B --> C{{"<b>SERVER</b> menghitung GPM akhir<br/>→ resolveMarginTier<br/><i>pengaju TIDAK memilih approver</i>"}}
 
-    C -->|"X ≤ 3%"| D["<b>Sales Officer</b><br/>approve sendiri"]
-    C -->|"3% &lt; X ≤ 8%"| E["<b>Chief Sales</b><br/>approve"]
-    C -->|"X &gt; 8%"| F["<b>BOD</b><br/>Approve / Reject / Revise"]
+    C -->|"GPM ≥ Tier 1<br/>(≥15%)"| D["<b>Auto-release</b><br/>tanpa approval tambahan"]
+    C -->|"Tier 2<br/>(12%–15%)"| E["<b>3 Pihak (AND-join)</b><br/>Sales ∨ VP Finance ∨ Chief Sales<br/>semua wajib ACK"]
+    C -->|"Tier 3<br/>(&lt;12%)"| F["<b>2 BOD (AND-join)</b><br/>dua approval BOD berbeda wajib"]
 
-    F -->|"Approve / Reject"| G
-    F -->|"<b>Revise</b> counter Y%"| H["Request lama → <b>SUPERSEDED</b><br/>request baru Y% dibuat otomatis"]
+    E -->|"Semua approve"| G
+    F -->|"Approve (2x)"| G
+    F -->|"<b>Revise</b> counter"| H["Request lama → <b>SUPERSEDED</b><br/>request baru dgn GPM baru dibuat"]
+    E -->|"<b>Revise</b> counter"| H
 
     H --> C
 
     D --> G["Diskon diterapkan<br/>harga &amp; GPM dihitung ulang<br/>tercatat di audit trail"]
-    E --> G
 
     classDef start fill:#e0e7ff,stroke:#4338ca,color:#0f172a
     classDef sales fill:#dbeafe,stroke:#1d4ed8,color:#0f172a
-    classDef chief fill:#fef3c7,stroke:#d97706,color:#0f172a
+    classDef mid fill:#fef3c7,stroke:#d97706,color:#0f172a
     classDef bod fill:#fae8ff,stroke:#a21caf,color:#0f172a
     classDef gate fill:#ede9fe,stroke:#7c3aed,color:#0f172a
     classDef ok fill:#bbf7d0,stroke:#15803d,color:#0f172a
 
     class A start
     class B,D sales
-    class E chief
+    class E mid
     class F,H bod
     class C gate
     class G ok
 ```
 
-**Kunci yang sering terlewat:** panah dari *Revise* kembali ke kotak
-perhitungan wewenang. Ketika BOD menurunkan diskon dari 15% menjadi 7%,
-sistem **menghitung ulang** siapa yang berwenang — 7% jatuh ke Chief
-Sales, bukan otomatis disetujui hanya karena BOD yang mengusulkannya.
+**Kunci yang sering terlewat:**
+
+1. **Tier ditentukan oleh GPM akhir**, bukan oleh besaran diskon mentah
+   — dua permintaan diskon 5% pada quotation berbeda bisa jatuh ke tier
+   berbeda tergantung margin dasarnya.
+2. **AND-join di dalam tier**, bukan satu approver tunggal — Tier 2
+   butuh ketiganya (Sales, VP Finance, Chief Sales), Tier 3 butuh dua
+   BOD berbeda.
+3. **Loop dibatasi satu quotation** — begitu quotation pertama
+   `QUOTATION_RELEASED`, diskon yang disetujui pada permintaan
+   berikutnya menghasilkan **quotation baru** (link ke Project
+   Identifier yang sama, §5), bukan negosiasi berlapis pada quotation
+   yang sama.
+4. **Panah dari Revise kembali ke perhitungan tier** — bila BOD
+   menurunkan diskon sehingga GPM naik dari 7% ke 13%, sistem
+   menghitung ulang: 13% jatuh ke Tier 2 (3 pihak), bukan otomatis
+   disetujui.
 
 ### Peringatan margin muncul sebelum keputusan
 
 Setiap permintaan diskon menampilkan dampaknya **saat itu juga** — harga
-sesudah diskon, GPM baru, dan penanda merah bila menembus ambang. Angka
-ini di-*snapshot* ketika permintaan dibuat, sehingga approver melihat
-dasar yang sama persis dengan pengaju.
+sesudah diskon, GPM baru, dan tier yang berlaku. Angka ini di-*snapshot*
+ketika permintaan dibuat, sehingga seluruh pihak (Sales, VP Finance,
+Chief Sales, BOD) melihat dasar yang sama persis.
 
 > Inilah jawaban langsung atas *"limited visibility of actual
 > profitability during commercial negotiations"* pada dokumen kebutuhan.
 
-**Catatan penting untuk demo.** Pada quotation contoh, GPM 15,25% dengan
-ambang 14% — jaraknya hanya 1,25 poin. Karena diskon memotong harga jual
-sementara biaya tetap, **diskon 2% pun sudah menembus ambang**. Peringatan
-yang muncul sejak diskon terkecil bukan kelemahan; justru itu yang ingin
-diperlihatkan.
-
 ---
 
-## 4. Urutan Login Sepanjang Sesi Demo
+## 4. Workflow Template Catalog — Bukan Satu Alur Baku
 
-Satu sesi lengkap butuh **8 kali perpindahan peran**. Urutan ini tidak
-boleh diacak — tiap tahap membuka tahap berikutnya.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor SO as Sales Officer
-    actor VPO as VP Operations
-    actor VPF as VP Finance
-    actor CS as Chief Sales
-    actor BOD as BOD
-    participant SYS as PriceCore
-
-    SO->>SYS: Buat quotation + Direct Costs → Submit
-    SYS-->>SO: status PENDING_COGS_VALIDATION
-
-    par Validasi COGS berjalan paralel
-        VPO->>SYS: Isi 13 komponen operasional → Approve
-        SYS-->>VPO: menunggu VP Finance (AND-join)
-    and
-        VPF->>SYS: Isi margin rendah
-        SYS-->>VPF: ⚠ Guardrail: GPM di bawah 14%
-        VPF->>SYS: Perbaiki margin → Approve
-    end
-
-    SYS-->>CS: status PENDING_CHIEF_SALES_REVIEW
-    CS->>SYS: Approve
-    SYS->>SYS: Release Gate (3 syarat)
-    SYS-->>CS: status QUOTATION_RELEASED
-
-    Note over SO,BOD: Pelanggan menerima harga, lalu menawar
-
-    SO->>SYS: Ajukan diskon 2%
-    SYS-->>SO: wewenang Anda → Approve sendiri
-
-    SO->>SYS: Ajukan diskon 6%
-    SYS-->>CS: eskalasi → Chief Sales
-    CS->>SYS: Approve
-
-    SO->>SYS: Ajukan diskon 15%
-    SYS-->>BOD: eskalasi → BOD
-    BOD->>SYS: Revise → counter 7%
-    SYS-->>CS: wewenang dihitung ulang → Chief Sales
-    CS->>SYS: Approve
-```
-
-| # | Login sebagai | Yang dikerjakan | Status setelahnya |
-|---|---|---|---|
-| 1 | Sales Officer | Buat quotation, isi Direct Costs, submit | `PENDING_COGS_VALIDATION` |
-| 2 | VP Operations | Isi 13 komponen operasional → Approve | tetap (menunggu VP Finance) |
-| 3 | VP Finance | Isi margin **rendah** → picu guardrail | tetap |
-| 4 | VP Finance | Perbaiki margin → Approve | `PENDING_CHIEF_SALES_REVIEW` |
-| 5 | Chief Sales | Approve → Release Gate berjalan | `QUOTATION_RELEASED` |
-| 6 | Sales Officer | Ajukan diskon 2% → approve sendiri | dirilis, diskon 2% |
-| 7 | Sales Officer → Chief Sales | Ajukan 6% → eskalasi → Chief Sales approve | dirilis, diskon 6% |
-| 8 | Sales Officer → BOD → Chief Sales | Ajukan 15% → BOD **Revise** jadi 7% → Chief Sales approve | dirilis, diskon 7% |
-
-> **Tips demo.** Buka beberapa jendela Incognito terpisah, satu per peran,
-> supaya tidak perlu logout-login berulang.
-
----
-
-## 5. Dua Faktor Global yang Membentuk Harga (v2.1)
-
-Sebelum quotation dihitung, dua penyesuaian berjalan otomatis. Keduanya
-**tidak memerlukan approval terpisah** — sudah disetujui secara sistem —
-tetapi selalu tercatat di audit trail.
+Perbedaan paling mendasar dari POC lama: alur approval **dipilih dari
+katalog**, bukan hardcode satu alur untuk semua quotation.
 
 ```mermaid
 flowchart LR
-    subgraph IN["Input cost line"]
-        A["Nilai asli<br/><i>USD atau IDR</i><br/>disimpan apa adanya"]
-    end
+    A["Proposal baru dibuat<br/>qualifier: business_line,<br/>transaction_value, dll."] --> B{{"resolveWorkflowTemplate<br/>cari kandidat cocok"}}
 
-    subgraph CONV["1 · Konversi mata uang"]
-        B["<b>Exchange Rate</b><br/>master data USD→IDR<br/><i>effective_from</i>"]
-        C["Semua nilai → IDR<br/><i>satuan internal</i>"]
-    end
+    B --> C["Katalog Workflow Template<br/>(terus bertambah)"]
 
-    subgraph MIN["2 · Penyesuaian mineral"]
-        D["<b>HMA</b> dari Kepmen ESDM<br/>US$/dmt · update mingguan"]
-        E["<b>HPM</b> = f(kadar, CF, MC)<br/>US$/WMT"]
-        F["Faktor = HPM kini ÷ HPM baseline"]
-    end
+    C --> D["<b>Basic #1</b><br/>Margin-Tier<br/>(qualifier_type=MARGIN_TIER)"]
+    C --> E["<b>Basic #2</b><br/>Segmen Customer<br/>(qualifier_type=BUSINESS_LINE)"]
+    C --> F["<b>...template ke-N</b><br/>ditambah Admin kapan saja"]
 
-    G["Hanya item ber-flag<br/><b>is_mineral_linked</b><br/><i>mis. Battery Pack</i>"]
-    H["<b>Pricing Engine</b><br/>GPM · EBITDA · BEP"]
-
-    A --> B --> C
-    D --> E --> F
-    C --> H
-    F --> G --> H
-
-    H --> I["Hasil disimpan bersama<br/>kurs &amp; HPM yang dipakai<br/><i>agar dapat direkonstruksi</i>"]
+    D --> G["workflow_instance dibuat,<br/>mengunci template versi ini"]
+    E --> G
+    F --> G
 
     classDef input fill:#dbeafe,stroke:#1d4ed8,color:#0f172a
-    classDef curr fill:#fef3c7,stroke:#d97706,color:#0f172a
-    classDef min fill:#dcfce7,stroke:#16a34a,color:#0f172a
-    classDef eng fill:#ede9fe,stroke:#7c3aed,color:#0f172a
+    classDef cat fill:#fef3c7,stroke:#d97706,color:#0f172a
+    classDef tpl fill:#dcfce7,stroke:#16a34a,color:#0f172a
     classDef out fill:#bbf7d0,stroke:#15803d,color:#0f172a
 
     class A input
-    class B,C curr
-    class D,E,F,G min
-    class H eng
-    class I out
+    class B,C cat
+    class D,E,F tpl
+    class G out
 ```
 
-**Urutan tidak boleh dibalik.** Konversi mata uang lebih dulu, baru faktor
-penyesuaian. Mengalikan faktor pada angka yang belum satu satuan
-menghasilkan nilai salah yang tidak terlihat salah.
+**Basic Workflow minimal dua varian tersedia sejak go-live** (PRD
+FR-2.0.2):
 
-### Formula HPM (Kepmen ESDM No. 144.K/2026)
+| # | Nama | Qualifier | Efeknya |
+|---|---|---|---|
+| 1 | Margin-Tier Escalation | `MARGIN_TIER` | Mengatur eskalasi **diskon** (Auto/3-Pihak/2-BOD) — dipakai bersama Negotiation Engine (§3) |
+| 2 | Segmen Customer | `BUSINESS_LINE` (B2G/B2B/B2C) | Mengatur tahap **approval COGS tambahan** untuk segmen tertentu, mis. B2G mensyaratkan dokumentasi lebih ketat |
 
-```
-CF(Ni)       = 0,30 + ((kadar_Ni − 0,016) × 10)
-Nilai Ni     = kadar_Ni × CF(Ni) × HMA_Ni
-Bonus Co     = kadar_Co × CF(Co) × HMA_Co
-Total kering = Nilai Ni + Bonus Co             [US$/dmt]
-HPM basah    = Total kering × (1 − Moisture)   [US$/WMT]
-```
-
-Dengan HMA Ni US$ 16.646/dmt, HMA Co US$ 28.500/dmt, MC 35%:
-
-| Kadar Ni | CF | HPM (US$/WMT) |
-|---|---|---|
-| 1,3% | 27,0% | 41,68 |
-| 1,5% | 29,0% | 50,77 |
-| **1,6% (anchor)** | **30,0%** | **55,64** |
-| 1,7% | 31,0% | 60,73 |
-| 1,8% | 32,0% | 66,03 |
-
-Contoh: baseline 55,64 → HPM berjalan 60,73 menghasilkan faktor **1,0915**,
-sehingga komponen Battery Pack naik **9,15%** secara otomatis.
-
-> Bila HMA terakhir sudah lewat 14 hari, quotation ditandai *stale index* —
-> **tidak diblokir**, karena menghentikan proses komersial akibat
-> keterlambatan publikasi regulasi lebih merugikan daripada risikonya.
+Keduanya bisa aktif **bersamaan** untuk satu proposal — satu mengatur
+approval COGS, satu lagi mengatur approval diskon. Admin dapat menambah
+template baru kapan saja tanpa mengubah kode; VKTR memperkirakan
+puluhan varian akan muncul organik dalam 6 bulan pertama.
 
 ---
 
-## 6. Peta Modul → Peran → Kontrol
+## 5. Project Identifier — Melacak Revisi Quotation
+
+```mermaid
+flowchart TD
+    A["Sales input: nama customer<br/>+ nama proyek/lokasi"] --> B["Sistem generate<br/><b>Project Identifier</b><br/>(kode alfanumerik)"]
+
+    B --> C["Quotation #1<br/>v1.0 → QUOTATION_RELEASED"]
+
+    C --> D{{"Ada revisi?<br/>(qty berubah, dst.)"}}
+    D -->|Ya| E["Quotation #2 baru dibuat<br/>supersedes_proposal_id → #1<br/>project_identifier_id SAMA"]
+    E --> F["#2 QUOTATION_RELEASED<br/>→ #1 otomatis SUPERSEDED"]
+    D -->|Tidak| G["Selesai — #1 tetap berlaku"]
+
+    F --> H{{"Revisi lagi?"}}
+    H -->|Ya| I["Quotation #3...<br/>linimasa terus terekam"]
+
+    classDef input fill:#dbeafe,stroke:#1d4ed8,color:#0f172a
+    classDef proc fill:#fef3c7,stroke:#d97706,color:#0f172a
+    classDef out fill:#bbf7d0,stroke:#15803d,color:#0f172a
+    classDef sup fill:#fee2e2,stroke:#dc2626,color:#0f172a
+
+    class A input
+    class B,D,H proc
+    class C,G out
+    class E,F,I sup
+```
+
+- Revisi **tidak pernah** mengedit quotation yang sudah rilis — selalu
+  quotation baru, agar histori harga yang pernah dikirim ke pelanggan
+  tetap utuh untuk audit.
+- Dashboard (Module 3) mengelompokkan seluruh quotation pada satu
+  Project Identifier sebagai satu linimasa.
+
+---
+
+## 6. Cost Structure Riil VKTR/BTEL — Empat Kelompok
+
+Menggantikan daftar item ilustratif (Battery/Chassis/Powertrain sebagai
+item terpisah) pada POC lama. Sumber: `BTEL-CostStructure.xlsx`.
+
+> **Kenapa hanya "FOB Price", bukan rincian Battery/Chassis/Powertrain?**
+> VKTR membeli unit dari BTEL sebagai **satu barang jadi** — sudah
+> dirakit sebelum masuk ke PriceCore ("sampai keluar dari mesin
+> produksi, semua sama", demo review). Sistem ini tidak merakit mobil
+> dari sub-komponen; **FOB Price** adalah satu angka gabungan yang
+> sudah mencakup nilai battery, chassis, dan powertrain di dalamnya.
+
+| Kelompok | Contoh Item | Pengisi *(asumsi, perlu konfirmasi VKTR)* |
+|---|---|---|
+| **COGS** | FOB Price (CNY/IDR) — harga beli unit jadi, Freight & Insurance, Custom Duties, Port Handling & PDI, Carrosserie Allocation, Assembly Cost, Local Parts, Accessories, Telematics, Warehousing, Warranty Cost, Initial Energy Injection, Administrative Cost | **VP Operations** |
+| **Profitability** | VKTS Profit Before Tax, VKTS Margin, VKTR Profit Before Financing Cost, Financing Cost, VKTR Margin After Financing Cost | **VP Finance** |
+| **Sales** | STNK, Insurance, Incentive Internal, Incentive External, Sales Processing Cost, Agency Fee | **Sales Officer** |
+| **Add-Ons** | Processing Service, Delivery Service *(may_follow_later)*, KEUR, Additional | **VP Operations** |
+
+> **Satu master data untuk semua lini bisnis.** Struktur ini **sama**
+> untuk B2G/B2B/B2C — yang membedakan segmen hanyalah Workflow Template
+> (§4) dan biaya tambahan pada kelompok Sales, bukan struktur CBS-nya.
+
+---
+
+## 7. Peta Modul → Peran → Kontrol
 
 | Modul | Peran utama | Kontrol yang dibuktikan |
 |---|---|---|
-| Master Data & CBS | System Admin | Setiap komponen biaya punya COGS Owner yang jelas |
-| Pricing Engine | VP Finance, VP Operations | GPM/EBITDA/BEP terhitung otomatis tiap perubahan |
-| Multi-Currency | Semua pengisi | Input USD/IDR; konversi oleh sistem, kurs tersimpan di hasil |
-| Mineral Index | System Admin (input HMA) | HPM dihitung dari Kepmen; faktor global ke komponen mineral |
-| COGS Validation | VP Finance ∥ VP Operations | AND-join: dua validator paralel, quotation menunggu keduanya |
-| Release Gate | Chief Sales | Tiga syarat wajib sebelum harga sampai ke pelanggan |
-| Negotiation | Sales Officer → Chief Sales → BOD | Approver ditentukan server; Revise menghitung ulang wewenang |
-| RBAC | Sales Officer vs VP Finance | `••••` vs angka margin sesungguhnya |
-| Observability | Semua | Kanban, SLA timer, audit trail *append-only* |
-| DSS | BOD, VP Finance | What-If slider, guardrail alert, Win/Loss price band |
+| Master Data & CBS (tunggal) | System Admin | Satu struktur cost untuk semua lini bisnis; setiap item punya owner jelas |
+| Product Master Data | Product Owner | Spesifikasi/gambar/brosur terpisah dari cost, dirujuk quotation |
+| Pricing Engine | VP Operations, VP Finance | GPM/EBITDA/BEP terhitung otomatis; formula tunggal untuk semua lini bisnis |
+| Multi-Currency + Rate Sensitivity | Semua pengisi | Input CNY/IDR (basis FOB Price, RMB); notifikasi saat kurs bergerak melebihi ambang; hitung ulang eksplisit |
+| Mineral Index (referensi) | System Admin | HMA/HPM tampil sebagai konteks, dampak riil lewat kurs |
+| Workflow Template Catalog | System Admin | Alur approval dipilih otomatis dari katalog, bukan hardcode |
+| COGS Validation | VP Operations ∥ VP Finance | AND-join: sekuens VP Ops → VP Finance, quotation menunggu keduanya |
+| Release Gate | Chief Sales | Termasuk pengecualian `may_follow_later` tanpa mengorbankan kelengkapan rilis |
+| Margin-Tier Negotiation | Sales → 3 Pihak / 2 BOD | Tier dihitung server dari GPM akhir; AND-join di dalam tier |
+| Project Identifier | Sales, Chief Sales | Revisi quotation terlacak sebagai satu linimasa, bukan quotation lepas |
+| Duplicate/Fraud Guard | Sales Officer | Maksimal 1 quotation/hari per customer+tipe unit |
+| RBAC | Sales Officer vs VP Finance/Operations | Sales tidak melihat kelompok COGS/Profitability/Add-Ons sama sekali |
+| Observability | Semua | Kanban per Project Identifier, SLA timer, audit trail *append-only* |
+| DSS | BOD, VP Finance | What-If slider (FX aktif, HMA referensi), guardrail alert |
 
 ---
 
-## 7. Konfigurasi yang Berlaku Saat Demo
+## 8. Perubahan Terhadap POC Lama (v2.1 → v3.0)
 
-Nilai-nilai berikut sudah terpasang di database demo.
-
-**Ambang GPM minimum per lini bisnis**
-
-| Lini bisnis | Ambang |
-|---|---|
-| B2G Tender Bus | 14,0% |
-| B2B Commercial Fleet | 16,0% |
-| Charging Infra Buildout | 18,0% |
-
-**Tangga wewenang diskon**
-
-| Urutan | Peran | Batas |
+| Aspek | POC lama (v2.1) | Revisi v3.0 |
 |---|---|---|
-| 1 | Sales Officer | ≤ 3% |
-| 2 | Chief Sales | ≤ 8% |
-| 3 | BOD | tanpa batas |
-
-**Kepemilikan komponen biaya**
-
-| COGS Owner | Jumlah komponen aktif |
-|---|---|
-| VP Operations | 13 |
-| VP Finance | 5 |
-
-**Workflow B2G Quotation Approval**
-
-| Urutan | Peran | Grup paralel | SLA |
-|---|---|---|---|
-| 1 | VP Finance | `COGS` | 24 jam |
-| 1 | VP Operations | `COGS` | 24 jam |
-| 2 | Chief Sales | — | 24 jam |
-
-> Seluruh angka ini adalah **konfigurasi, bukan hardcode** — dapat diubah
-> lewat master data tanpa rilis ulang aplikasi. Ambang diskon 3%/8% masih
-> ilustratif dan perlu dikonfirmasi ke Chief Sales & BOD.
-
----
-
-## 8. Yang Belum Ada di POC
-
-Perlu disampaikan terbuka bila ditanya saat demo.
-
-| Kebutuhan | Status |
-|---|---|
-| Customer KYC & Opportunity Assessment | Tercatat di PRD Module 7, **belum dibangun** |
-| Notifikasi SLA ke Email/Teams/WhatsApp | Hanya badge "SLA Breached" di UI |
-| Ekspor ke ERP/CRM | Quotation berhenti di PriceCore |
-| Write lock per-field | Baru per-step: COGS Owner yang aktif bisa mengubah semua baris |
-| Formula builder no-code | Rumus fixed per lini bisnis; komponen & nilainya tetap dinamis |
-| Tarik kurs & HMA otomatis dari API | Diinput manual sebagai master data; sumber otomatis masih keputusan terbuka |
+| Master data | CBS berbeda per lini bisnis (asumsi) | **Satu CBS tunggal**, struktur riil BTEL (4 kelompok) |
+| Urutan aktor | Chief Sales menyusun di awal | **Sales → VP Operations → VP Finance → Chief Sales** |
+| Aktor | 6 peran | **7 peran** (+ Product Owner) |
+| Workflow | Satu alur baku (VP Finance ∥ VP Operations → Chief Sales) | **Katalog Workflow Template**, dipilih otomatis dari qualifier |
+| Discount authority | Tangga % diskon (3%/8%/BOD) | **Tangga GPM akhir** (Auto/3-Pihak/2-BOD) |
+| Input diskon | Persentase saja | **Rupiah atau persentase** |
+| Versioning quotation | `pricing_proposal_version` per proposal | **Project Identifier** lintas-proposal, quotation baru per revisi |
+| Exchange rate | Input manual, basis USD | **Otomatis mingguan dari API bank, basis CNY/RMB** (dikoreksi dari USD — FOB Price dikutip vendor dalam CNY) + override manual |
+| Rate sensitivity | Tidak ada | **Ambang % + notifikasi + tombol Hitung Ulang eksplisit** |
+| Mineral Index | Faktor pengali otomatis independen | **Referensi/transparansi saja** — dampak riil lewat kurs |
+| Fraud guard | Tidak ada | **Maks. 1 quotation/hari** per customer+tipe unit |
+| Format Quotation | Tidak dispesifikasikan | **Template PDF baku** (FR-1.5.3) |
 
 ---
 
 ## 9. Menyiapkan & Mengulang Demo
+
+> **Catatan.** Skrip di bawah mengasumsikan build v3.0 sudah tersedia.
+> Sebelum build baru selesai, `npm run seed:demo` / `reset:demo` masih
+> mengacu ke skema POC lama — jangan dijalankan terhadap ekspektasi
+> skenario di dokumen ini sampai migrasi data selesai.
 
 ```bash
 npm run reset:demo      # kembalikan ke kondisi sebelum demo
 ```
 
 Menghapus quotation buatan demo beserta workflow, negosiasi, dan audit
-log-nya; mengembalikan 15 quotation historis ke posisi semula. Master data
-dan keenam akun demo tidak disentuh — tidak perlu seed ulang maupun
-membuka Supabase Dashboard. Aman dijalankan berkali-kali.
+log-nya; mengembalikan quotation historis ke posisi semula. Master data
+dan akun demo tidak disentuh — tidak perlu seed ulang maupun membuka
+Supabase Dashboard. Aman dijalankan berkali-kali.

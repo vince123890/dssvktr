@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PricingProposal } from "@/types/database";
+import {
+  checkTierApprovalComplete,
+  loadMarginTierLadder,
+  resolveMarginTier,
+} from "@/lib/negotiation/marginTier";
 
 export interface ReleaseGateResult {
   canRelease: boolean;
@@ -15,9 +20,15 @@ export interface ReleaseGateResult {
  * producing a margin far below target.
  *
  * Three independent checks, all enforced server-side:
- *   1. every mandatory COGS component is filled — regardless of owner
- *   2. every COGS Owner has approved
- *   3. margin is above threshold, unless BOD explicitly signed it off
+ *   1. every mandatory COGS component is filled — regardless of owner.
+ *      Items flagged may_follow_later (e.g. Delivery Service) are
+ *      still included here: they are only excluded from the "can a
+ *      base price be calculated" gate, not from release (FR-2.2).
+ *   2. every COGS Owner has approved.
+ *   3. the margin tier (FR-6.1) this quotation resolves to has all its
+ *      required approvals recorded — Tier 1 needs none; Tier 2/3 need
+ *      their full AND-join, not the old single has_bod_margin_approval
+ *      flag.
  */
 export async function checkReleaseGate(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -106,30 +117,54 @@ export async function checkReleaseGate(
     }
   }
 
-  // --- 3. Margin guardrail ---------------------------------------------
-  const [{ data: result }, { data: template }] = await Promise.all([
-    supabase
-      .from("proposal_calculation_result")
-      .select("gpm, is_below_gpm_threshold")
-      .eq("proposal_version_id", versionId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("cbs_template")
-      .select("min_gpm_threshold")
-      .eq("id", proposal.cbs_template_id)
-      .maybeSingle(),
-  ]);
+  // --- 3. Margin tier guardrail -----------------------------------------
+  const { data: result } = await supabase
+    .from("proposal_calculation_result")
+    .select("gpm")
+    .eq("proposal_version_id", versionId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  if (result?.is_below_gpm_threshold && !proposal.has_bod_margin_approval) {
-    const threshold = template ? Number(template.min_gpm_threshold) * 100 : null;
+  if (!result) {
+    return { canRelease: false, reason: "Belum ada hasil kalkulasi harga." };
+  }
+
+  const ladder = await loadMarginTierLadder(supabase, proposal.business_line);
+  const tier = resolveMarginTier(Number(result.gpm) * 100, ladder);
+
+  if (tier.tier === 1) {
+    return { canRelease: true };
+  }
+
+  // Tier 2/3 approvals are recorded as negotiation_decision rows tied
+  // to a negotiation_request on this proposal — reuse the same AND-join
+  // check the negotiation engine uses (Technical Logic §11.4).
+  const { data: pendingRequest } = await supabase
+    .from("negotiation_request")
+    .select("id")
+    .eq("proposal_id", proposal.id)
+    .eq("status", "APPROVED")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!pendingRequest) {
     return {
       canRelease: false,
-      reason:
-        `Margin (${(Number(result.gpm) * 100).toFixed(2)}%) di bawah ambang` +
-        (threshold ? ` ${threshold.toFixed(1)}%` : "") +
-        " — perlu persetujuan BOD sebelum quotation dapat dirilis.",
+      reason: `Margin (GPM ${(Number(result.gpm) * 100).toFixed(2)}%) jatuh ke Tier ${tier.tier} — memerlukan persetujuan ${tier.required_roles.join(", ")} melalui Commercial Negotiation sebelum dirilis.`,
+    };
+  }
+
+  const { data: decisions } = await supabase
+    .from("negotiation_decision")
+    .select("actor_id, approver_role, decision")
+    .eq("negotiation_request_id", pendingRequest.id);
+
+  if (!checkTierApprovalComplete(tier, decisions ?? [])) {
+    return {
+      canRelease: false,
+      reason: `Margin Tier ${tier.tier} belum lengkap disetujui seluruh pihak wajib (${tier.required_roles.join(", ")}).`,
     };
   }
 

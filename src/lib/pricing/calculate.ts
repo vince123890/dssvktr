@@ -1,10 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type {
-  CbsTemplate,
-  CostItem,
-  CurrencyCode,
-  ProposalCalculationResult,
-} from "@/types/database";
+import type { CostItem, ProposalCalculationResult } from "@/types/database";
 import { calculatePricing } from "./engine";
 import { resolveExchangeRate } from "./currency";
 import { loadMineralContext, mineralAdjustmentFactor } from "./mineral";
@@ -17,24 +12,22 @@ import { loadMineralContext, mineralAdjustmentFactor } from "./mineral";
  * in read-only mode (Technical Logic §3.3/§7.1 — same engine, two
  * callers).
  *
- * The rate and mineral index in force are stored alongside the result so
- * an approved price can always be explained by the figures that produced
- * it, and does not drift when either moves (FR-1.4.3, FR-8.4).
+ * The rate in force is stored alongside the result so an approved
+ * price can always be explained by the figures that produced it, and
+ * does not drift when it moves later (FR-1.4.3). HMA/HPM is stored for
+ * reference/transparency only (FR-8.4) — it no longer drives the
+ * price (§13).
  */
 export async function recalculateAndPersist(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any>,
   params: {
+    proposalId: string;
     proposalVersionId: string;
     cbsTemplateId: string;
     unitQuantity: number;
-    businessLine: CbsTemplate["business_line"];
     /** Approved negotiation discount, applied to the official price (§11.4). */
     volumeDiscountPct?: number;
-    /** Currency the cost lines were entered in (FR-1.4.1). */
-    inputCurrency?: CurrencyCode;
-    /** HPM captured when the quotation was created (FR-8.3). */
-    baselineHpmValue?: number | null;
   }
 ): Promise<ProposalCalculationResult> {
   const [{ data: template }, { data: templateItems }, { data: costLines }] =
@@ -62,10 +55,8 @@ export async function recalculateAndPersist(
     costLineValues[line.cost_item_id] = Number(line.value);
   }
 
-  const inputCurrency: CurrencyCode = params.inputCurrency ?? "IDR";
-
-  // Which mineral this quotation's components track. Falls back to
-  // nickel, the only index seeded for the demo CBS.
+  // Which mineral this quotation's components track (reference only —
+  // see mineral.ts). Falls back to nickel, the only index seeded.
   const mineralCode =
     costItems.find((c) => c.is_mineral_linked)?.mineral_code ?? "NI";
 
@@ -74,19 +65,18 @@ export async function recalculateAndPersist(
     loadMineralContext(supabase, mineralCode),
   ]);
 
-  const fxRate = exchangeRate ? Number(exchangeRate.rate) : 16350;
+  const fxRate = exchangeRate ? Number(exchangeRate.rate) : 2600;
   const currentHpm = mineral.hpm?.hpmWet ?? null;
-  const factor = mineralAdjustmentFactor(params.baselineHpmValue, currentHpm);
+  // Dormant in v3.0 — always 1 regardless of baseline/current HPM.
+  const factor = mineralAdjustmentFactor(null, currentHpm);
 
   const result = calculatePricing({
-    businessLine: params.businessLine,
     costItems,
     costLineValues,
     unitQuantity: params.unitQuantity,
-    fxUsdIdrRate: fxRate,
+    fxRate,
     fxBaselineRate: fxRate,
     minGpmThreshold: Number(template.min_gpm_threshold),
-    inputCurrency,
     mineralAdjustmentFactor: factor,
     simulation: params.volumeDiscountPct
       ? { volumeDiscountPct: params.volumeDiscountPct }
@@ -111,11 +101,17 @@ export async function recalculateAndPersist(
       exchange_rate_id: exchangeRate?.id ?? null,
       hpm_value_used: currentHpm,
       mineral_adjustment_factor: result.effectiveMineralFactor,
-      input_currency: inputCurrency,
+      input_currency: "CNY",
     })
     .select("*")
     .single();
 
   if (error) throw new Error(error.message);
+
+  await supabase
+    .from("pricing_proposal")
+    .update({ last_calculated_rate_id: exchangeRate?.id ?? null })
+    .eq("id", params.proposalId);
+
   return saved as ProposalCalculationResult;
 }

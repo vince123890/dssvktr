@@ -71,7 +71,7 @@ export function WhatIfSimulator({ proposals }: { proposals: PricingProposal[] })
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
           <SliderField
-            label="Fluktuasi Kurs USD/IDR"
+            label="Fluktuasi Kurs CNY/IDR (RMB)"
             value={fxDeltaPct}
             onChange={setFxDeltaPct}
             min={-10}
@@ -80,7 +80,7 @@ export function WhatIfSimulator({ proposals }: { proposals: PricingProposal[] })
             suffix="%"
           />
           <SliderField
-            label="Perubahan Harga Material Baterai/Impor"
+            label="Perubahan Harga Material (FOB/Impor)"
             value={materialCostDeltaPct}
             onChange={setMaterialCostDeltaPct}
             min={-20}
@@ -98,7 +98,7 @@ export function WhatIfSimulator({ proposals }: { proposals: PricingProposal[] })
             suffix="%"
           />
           <SliderField
-            label="Harga Mineral Acuan (HMA)"
+            label="Harga Mineral Acuan (HMA) — referensi"
             value={hmaDeltaPct}
             onChange={setHmaDeltaPct}
             min={-25}
@@ -109,8 +109,10 @@ export function WhatIfSimulator({ proposals }: { proposals: PricingProposal[] })
         </div>
 
         <p className="text-[11px] text-muted">
-          Slider HMA menggeser Harga Mineral Acuan → HPM dihitung ulang → faktor
-          penyesuaian pada komponen berbahan mineral ikut bergerak (FR-8.3).
+          Slider HMA menggeser angka HPM referensi saja — dampak pergerakan
+          mineral internasional terhadap harga VKTR berjalan lewat kurs
+          CNY/IDR (slider pertama), bukan faktor pengali terpisah (PRD FR-8.3,
+          nonaktif v3.0).
         </p>
 
         {result && (

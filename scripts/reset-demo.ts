@@ -5,15 +5,18 @@
  * What it REMOVES:
  *   - every proposal created during a demo (anything beyond the seeded
  *     historical set), together with its versions, cost lines,
- *     calculation results, workflow instance and steps
+ *     calculation results, workflow instance/steps, negotiations, and
+ *     its Project Identifier if nothing else references it (FR-2.5)
  *   - workflow progress on the seeded proposals (they go back to
  *     QUOTATION_RELEASED / DRAFT as the seed left them)
  *   - audit log entries produced by demo activity
  *
  * What it KEEPS:
- *   - master data: cost items, CBS templates, workflow definitions,
- *     departments, FX rates
- *   - the six demo user accounts
+ *   - master data: cost items (COGS/Profitability/Sales/Add-Ons),
+ *     the single CBS template, workflow definitions, margin tier
+ *     authority, departments, exchange rates
+ *   - the eight demo user accounts (v3.0: Sales, VP Ops, VP Finance,
+ *     Chief Sales, Product Owner, 2x BOD, Admin)
  *   - the seeded historical proposals that feed Win/Loss Analytics
  *
  * Usage: npm run reset:demo
@@ -218,14 +221,41 @@ async function deleteProposalCascade(proposalId: string) {
 
   await supabase.from("audit_log_entry").delete().eq("proposal_id", proposalId);
 
-  // Break the FK from proposal -> version before deleting the versions.
+  const { data: proposalRow } = await supabase
+    .from("pricing_proposal")
+    .select("project_identifier_id")
+    .eq("id", proposalId)
+    .maybeSingle();
+
+  // Break FKs before deleting: proposal -> version, and any proposal
+  // that supersedes/was superseded by this one (FR-2.5 revision chain).
   await supabase
     .from("pricing_proposal")
     .update({ current_version_id: null })
     .eq("id", proposalId);
+  await supabase
+    .from("pricing_proposal")
+    .update({ supersedes_proposal_id: null })
+    .eq("supersedes_proposal_id", proposalId);
 
   await supabase.from("pricing_proposal_version").delete().eq("proposal_id", proposalId);
   await supabase.from("pricing_proposal").delete().eq("id", proposalId);
+
+  // Clean up the Project Identifier too, but only if no other proposal
+  // (e.g. a seeded one) still references it.
+  if (proposalRow?.project_identifier_id) {
+    const { count } = await supabase
+      .from("pricing_proposal")
+      .select("id", { count: "exact", head: true })
+      .eq("project_identifier_id", proposalRow.project_identifier_id);
+
+    if ((count ?? 0) === 0) {
+      await supabase
+        .from("project_identifier")
+        .delete()
+        .eq("id", proposalRow.project_identifier_id);
+    }
+  }
 }
 
 main().catch((err) => {

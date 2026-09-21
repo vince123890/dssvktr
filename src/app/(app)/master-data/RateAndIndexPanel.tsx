@@ -5,10 +5,14 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { formatDate } from "@/lib/utils";
 import { indexAgeDays, isIndexStale, type HpmBreakdown } from "@/lib/pricing/mineral";
-import type { ExchangeRate, MineralIndexSnapshot } from "@/types/database";
-import { AlertTriangle, Coins, Pickaxe } from "lucide-react";
+import type { ExchangeRate, MineralIndexSnapshot, RateSensitivityConfig } from "@/types/database";
+import { AlertTriangle, Coins, Gauge, Pickaxe } from "lucide-react";
 import { useState, useTransition } from "react";
-import { createExchangeRateAction, createMineralIndexAction } from "./actions";
+import {
+  createExchangeRateAction,
+  createMineralIndexAction,
+  updateRateSensitivityAction,
+} from "./actions";
 
 const inputClass =
   "w-full rounded-lg border border-card-border px-2.5 py-1.5 text-sm bg-white disabled:bg-slate-50";
@@ -32,9 +36,11 @@ export function ExchangeRatePanel({
             <Coins size={14} />
           </div>
           <div>
-            <CardTitle>Nilai Tukar USD → IDR</CardTitle>
+            <CardTitle>Nilai Tukar CNY → IDR (RMB)</CardTitle>
             <p className="text-[11px] text-muted mt-0.5">
-              Dasar konversi input quotation berdenominasi USD (FR-1.4.2)
+              Dasar konversi FOB Price &amp; komponen impor lain (FR-1.4.2) —
+              ditarik otomatis mingguan dari API bank; simpan manual di sini
+              untuk override
             </p>
           </div>
         </div>
@@ -58,14 +64,14 @@ export function ExchangeRatePanel({
             className="flex flex-wrap items-end gap-3"
           >
             <label className="text-xs text-muted space-y-1 flex-1 min-w-[200px]">
-              <span>Kurs baru (IDR per 1 USD)</span>
+              <span>Kurs baru (IDR per 1 CNY)</span>
               <input
                 type="number"
                 name="rate"
                 step="0.01"
                 min="0.01"
                 required
-                placeholder="16350"
+                placeholder="2600"
                 disabled={isPending}
                 className={inputClass}
               />
@@ -134,6 +140,77 @@ export function ExchangeRatePanel({
   );
 }
 
+export function RateSensitivityPanel({
+  config,
+  canEdit,
+}: {
+  config: RateSensitivityConfig | null;
+  canEdit: boolean;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-sky-50 text-sky-700">
+            <Gauge size={14} />
+          </div>
+          <div>
+            <CardTitle>Rate Sensitivity Threshold</CardTitle>
+            <p className="text-[11px] text-muted mt-0.5">
+              Ambang pergerakan kurs CNY/IDR sebelum notifikasi &quot;kurs
+              berubah&quot; muncul (FR-1.4.6) — tidak memicu hitung ulang
+              otomatis
+            </p>
+          </div>
+        </div>
+        {config && <Badge tone="info">{Number(config.threshold_pct).toFixed(1)}%</Badge>}
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {canEdit && (
+          <form
+            action={(formData) => {
+              setError(null);
+              startTransition(async () => {
+                const result = await updateRateSensitivityAction(formData);
+                if (!result.ok) setError(result.error ?? "Gagal menyimpan");
+              });
+            }}
+            className="flex flex-wrap items-end gap-3"
+          >
+            <label className="text-xs text-muted space-y-1 flex-1 min-w-[160px]">
+              <span>Ambang (%)</span>
+              <input
+                type="number"
+                name="threshold_pct"
+                step="0.1"
+                min="0"
+                max="100"
+                required
+                defaultValue={config ? Number(config.threshold_pct) : 2}
+                disabled={isPending}
+                className={inputClass}
+              />
+            </label>
+            <Button type="submit" size="sm" loading={isPending}>
+              Simpan Ambang
+            </Button>
+          </form>
+        )}
+        {error && <p className="text-xs text-danger">{error}</p>}
+        <p className="text-[11px] text-muted">
+          Selama pergerakan kurs berada di bawah ambang ini, harga quotation
+          yang sudah ada tetap memakai kurs lama. Melebihi ambang memunculkan
+          banner di halaman quotation; harga tetap butuh &quot;Hitung
+          Ulang&quot; eksplisit.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function MineralIndexPanel({
   snapshots,
   canEdit,
@@ -159,9 +236,11 @@ export function MineralIndexPanel({
             <Pickaxe size={14} />
           </div>
           <div>
-            <CardTitle>Harga Mineral Acuan (HMA) — ESDM</CardTitle>
+            <CardTitle>Harga Mineral Acuan (HMA) — Referensi</CardTitle>
             <p className="text-[11px] text-muted mt-0.5">
-              Dasar perhitungan HPM, diperbarui mingguan / dua mingguan (FR-8.1)
+              Konteks pasar mineral, diperbarui mingguan / dua mingguan
+              (FR-8.1) — dampak ke harga VKTR berjalan lewat kurs CNY/IDR,
+              bukan faktor pengali HPM (FR-8.3, nonaktif v3.0)
             </p>
           </div>
         </div>
