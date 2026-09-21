@@ -361,9 +361,11 @@ bukan Chief Sales yang menyusun di awal seperti asumsi v2.0.
 
 - **FR-2.0 Alur Quotation Baku (Urutan Pengisi Cost Line — Dikoreksi)**
 
-  Urutan pengisian cost line yang sesungguhnya berjalan **sekuensial**
-  antar fungsi (bukan Chief Sales menyusun di awal seperti asumsi v2.0),
-  dengan validasi paralel tetap terjadi di dalam tahap COGS:
+  Urutan pengisian cost line yang sesungguhnya berjalan **sekuensial
+  penuh** antar fungsi — termasuk di dalam tahap COGS Validation itu
+  sendiri (VP Operations lalu VP Finance, bukan keduanya bersamaan) —
+  bukan Chief Sales menyusun di awal seperti asumsi v2.0, dan bukan
+  pula VP Operations ∥ VP Finance paralel seperti asumsi v2.0/v2.1:
 
   ```
   Sales Officer          VP Operations         VP Finance            Chief Sales
@@ -387,15 +389,21 @@ bukan Chief Sales yang menyusun di awal seperti asumsi v2.0.
                                 Final Quotation Released
   ```
 
-  - **VP Operations mengisi lebih dulu**, diikuti **VP Finance** —
-    keduanya dapat bekerja **paralel** bila urutan bisnis tidak
-    mensyaratkan sekuensial (AND-join tetap berlaku sebagai syarat
-    lanjut ke Chief Sales); harga dasar sudah dapat dihitung begitu
-    komponen utama (BOM, karoseri, bea masuk) terisi, sementara
-    komponen pelengkap seperti **biaya pengiriman/delivery boleh
-    disusulkan** tanpa menghentikan penyusunan harga.
+  - **Alur bersifat sekuensial, bukan paralel**: **VP Operations wajib
+    menyelesaikan approval-nya lebih dulu**, baru tahap **VP Finance**
+    terbuka untuk diisi — ini adalah koreksi tegas terhadap asumsi v2.0
+    yang menempatkan keduanya sebagai satu tahap paralel (AND-join
+    dalam satu `step_order`). Basic Workflow v3.0 memodelkan keduanya
+    sebagai dua `step_order` terpisah (1 = VP Operations, 2 = VP
+    Finance), bukan satu `parallel_group_id`. Harga dasar sudah dapat
+    dihitung begitu komponen utama (FOB Price, karoseri, bea masuk)
+    terisi oleh VP Operations, sementara komponen pelengkap seperti
+    **biaya pengiriman/Delivery Service boleh disusulkan**
+    (`may_follow_later`) tanpa menghentikan penyusunan harga dasar.
   - Quotation hanya dapat dirilis setelah **seluruh** COGS Owner
-    menyetujui (*AND-join*) — prinsip ini tidak berubah dari v2.0.
+    menyetujui secara berurutan — prinsip *AND-join lintas tahap*
+    (setiap tahap harus selesai sebelum tahap berikutnya dibuka) tetap
+    berlaku, tanpa ada tahap yang dapat dilewati (FR-2.2).
   - **Sales Officer tidak memiliki akses melihat breakdown COGS/margin**
     di tahap manapun (ditegakkan lewat RBAC/ABAC, lihat Module 5) — ia
     hanya melihat karakteristik input yang mempengaruhi harga (mis. tier
@@ -507,7 +515,7 @@ bukan Chief Sales yang menyusun di awal seperti asumsi v2.0.
 
 - **FR-3.1 Quotation Lifecycle Tracker (Kanban & Table View)**
   - Pelacakan status quotation secara visual (*Drafting*, *Pending COGS Validation*, *Pending Chief Sales Review*, *Pending BOD Approval*, *Quotation Released*).
-  - Menampilkan status per COGS Owner secara terpisah saat tahap paralel berjalan (mis. VP Finance ✔ / VP Operations ⏳).
+  - Menampilkan status per COGS Owner secara terpisah sesuai tahapnya masing-masing (mis. VP Operations ✔ selesai → VP Finance ⏳ sedang berjalan) — bukan dua status paralel bersamaan.
   - Filter kompleks: berdasarkan pemilik COGS, status, tanggal, dan nilai transaksi.
 - **FR-3.2 SLA Timer & Automated Escalation**
   - Indikator durasi di setiap tahapan. Integrasi notifikasi (Email, MS Teams, atau WhatsApp API) jika *review* tertahan melebihi batas SLA (misal: > 24 jam).
@@ -811,7 +819,7 @@ Tanpa mekanisme ini, quotation disusun memakai asumsi harga baterai yang bisa ja
 
 | Fase | Fokus Utama | Target Deliverables |
 |---|---|---|
-| **Phase 1: Core Governance** | Master Data CBS Tunggal + COGS Ownership, Product Master Data, Quotation Workflow (Workflow Template Catalog — minimal 2 varian dasar, paralel VP Operations ∥ VP Finance), Release Gate, Project Identifier & Versioning, SLA Tracking, ERP Integration. | Eliminasi *process bypass* & jaminan validasi COGS lengkap sebelum rilis. |
+| **Phase 1: Core Governance** | Master Data CBS Tunggal + COGS Ownership, Product Master Data, Quotation Workflow (Workflow Template Catalog — minimal 2 varian dasar, alur sekuensial VP Operations → VP Finance), Release Gate, Project Identifier & Versioning, SLA Tracking, ERP Integration. | Eliminasi *process bypass* & jaminan validasi COGS lengkap sebelum rilis. |
 | **Phase 2: Negotiation & Tracking** | Margin-Tier Commercial Negotiation Engine (3-pihak/2-BOD), Dynamic Workflow Builder (tambah template baru), Format Quotation PDF, Targeted Rejection, Audit Trail, Dashboard Observabilitas, Duplicate/Fraud Guard. | Kepatuhan hierarki wewenang berbasis margin & transparansi status *real-time*. |
 | **Phase 3: DSS & Analytics** | What-If Simulation Engine, Margin Guardrails, AI Outlier Detection, Win/Loss Analytics. | Kecepatan dan ketepatan pengambilan keputusan harga oleh manajemen. |
 
@@ -826,7 +834,7 @@ Ringkasan hasil pemetaan detail effort (lihat *Timeline & Effort Detail*); pemba
 | Auth & User Management | Login, User Management (CRUD), RBAC/ABAC Permission, Access Audit Log |
 | Master Data | Master Cost Item **tunggal** (struktur riil: COGS/Profitability/Sales/Add-Ons) + COGS Owner (+ Import Excel bulk), **Product Master Data & Quotation PDF Template (baru)**, Margin & Financial Factor, **Margin Tier Authority Matrix (direvisi dari Discount Authority Matrix %)**, **Exchange Rate otomatis mingguan + Rate Sensitivity Threshold (direvisi)**, HMA Mineral Index (referensi, bukan adjustment) |
 | Dynamic Pricing | CBS Builder (tree, tunggal), Formula Engine (satu formula dasar), **Multi-Currency Input (toggle CNY/IDR, basis FOB — direvisi dari USD)**, Price Calculation (GPM/EBITDA/BEP), Row-Level Versioning, **Project/Customer Identifier & Quotation Linking (baru)**, Export PDF |
-| Quotation Approval Workflow | **Workflow Template Catalog & Assignment (baru, menggantikan alur tunggal)**, **Basic Workflow minimal 2 varian: margin-tier & segmen customer (baru)**, **Parallel COGS Validation — VP Operations ∥ VP Finance (AND-join)**, Strict Gatekeeping & Release Gate, Rejection & Routing, Dynamic Form Adjustment, **Duplicate/Fraud Guard harian (baru)** |
+| Quotation Approval Workflow | **Workflow Template Catalog & Assignment (baru, menggantikan alur tunggal)**, **Basic Workflow minimal 2 varian: margin-tier & segmen customer (baru)**, **Sequential COGS Validation — VP Operations lebih dulu, baru VP Finance (bukan paralel — lihat FR-2.0)**, Strict Gatekeeping & Release Gate, Rejection & Routing, Dynamic Form Adjustment, **Duplicate/Fraud Guard harian (baru)** |
 | **Commercial Negotiation** | **Margin-Tier Discount Request (Rupiah/%), Tier Evaluation (Auto/3-Pihak/2-BOD), Auto-Escalation Routing, BOD Approve/Reject/Revise, Real-Time Margin Impact (semua direvisi ke basis margin)** |
 | State Tracking & Observability | Quotation Lifecycle Dashboard (Kanban+Table, **dikelompokkan per Project Identifier**), SLA Timer & Escalation Notif, Immutable Audit Trail |
 | DSS & Simulation | What-If Sensitivity Simulator, Margin Guardrails & Anomaly Detection, Win/Loss Pricing Analytics |

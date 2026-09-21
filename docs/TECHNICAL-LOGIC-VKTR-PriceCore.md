@@ -517,21 +517,30 @@ Untuk **What-If Simulator (FR-4.1)**, langkah 4–8 dijalankan ulang secara *sta
 
 > **Revisi v3.0 — urutan aktor dikoreksi.** Sales Officer mengisi
 > **lebih dulu** (data customer/unit, tanpa akses breakdown biaya), lalu
-> **VP Operations**, lalu **VP Finance** (keduanya dapat paralel
-> tergantung Workflow Template — lihat §4.1a), baru **Chief Sales**
-> merakit & merilis. Ini mengoreksi urutan v2.0 yang menempatkan Chief
-> Sales sebagai penyusun awal.
+> **VP Operations wajib menyelesaikan approval-nya lebih dulu**, baru
+> **VP Finance** terbuka untuk diisi (**sekuensial, dua `step_order`
+> terpisah** — bukan satu `parallel_group_id` seperti asumsi v2.0/v2.1),
+> baru **Chief Sales** merakit & merilis. Ini mengoreksi dua hal
+> sekaligus: urutan v2.0 yang menempatkan Chief Sales sebagai penyusun
+> awal, dan asumsi v2.0/v2.1 bahwa VP Operations ∥ VP Finance berjalan
+> paralel. Mekanisme `PARALLEL_GROUP` (§4.2) tetap tersedia sebagai
+> kapabilitas Workflow Template lain yang mungkin dibutuhkan di masa
+> depan (lihat §4.1a), tapi **Basic Workflow default v3.0 sekuensial
+> penuh**.
 
 ```
 DRAFT                                 ← Sales Officer input data customer,
                                          unit, qty, estimasi delivery,
                                          komisi makelar (FR-2.0). TIDAK
                                          mengisi/melihat breakdown COGS.
-  → PENDING_COGS_VALIDATION           ← satu status, step(s) sesuai Workflow
-                                         Template terpilih (§4.1a), tipikal:
-      ├── VP_OPERATIONS  (COGS, Add-Ons operasional — delivery may_follow_later)
-      └── VP_FINANCE     (Profitability, margin policy, OPEX)
-                  │ AND-join: seluruh step harus APPROVED
+  → PENDING_COGS_VALIDATION           ← satu status, step_order berurutan
+                                         (bukan paralel) sesuai Workflow
+                                         Template terpilih (§4.1a), default:
+      1. VP_OPERATIONS  (COGS, Add-Ons operasional — delivery may_follow_later)
+      2. VP_FINANCE     (Profitability, margin policy, OPEX) — terbuka
+                          HANYA setelah step 1 APPROVED
+                  │ Setiap step harus APPROVED sebelum step berikutnya
+                  │ dibuka (canAdvanceToStep, §4.2)
                   ▼
     → PENDING_CHIEF_SALES_REVIEW      ← Chief Sales meninjau hasil rakitan & approve
         → QUOTATION_RELEASED          ← release gate: semua COGS mandatory terisi (FR-2.2)
@@ -553,12 +562,17 @@ Urutan step konkret **tidak** hardcoded — diturunkan dari
 (§4.1a), bukan lagi sekadar `business_line` + `transaction_value`
 bucket seperti v2.1 (mendukung FR-2.0.1/FR-2.1 no-code configurator).
 
-**Catatan status paralel.** `PENDING_COGS_VALIDATION` adalah satu status
-proposal yang menaungi step-step dengan `step_order` sama dan
-`parallel_group_id` identik — pada Basic Workflow default berisi
-VP Operations ∥ VP Finance. UI menampilkan progres per COGS Owner secara
-terpisah (FR-3.1), sementara state machine memperlakukan keduanya
-sebagai satu gerbang.
+**Catatan status `PENDING_COGS_VALIDATION`.** Status ini adalah satu
+label proposal yang menaungi **dua `step_order` berurutan** (VP
+Operations = 1, VP Finance = 2) pada Basic Workflow default v3.0 —
+**bukan** satu `step_order` bersama dengan `parallel_group_id` identik
+seperti asumsi v2.0/v2.1. UI menampilkan progres per COGS Owner secara
+terpisah (FR-3.1) sehingga tetap terlihat sebagai satu fase besar bagi
+pengguna, namun state machine di baliknya menegakkan urutan sekuensial:
+step VP Finance baru `IN_PROGRESS` setelah step VP Operations
+`APPROVED`. Mekanisme `parallel_group_id` (AND-join dalam satu
+`step_order`, §4.2) tetap ada di skema dan dapat dipakai Workflow
+Template *lain* yang dibuat lewat `/admin` bila suatu saat dibutuhkan.
 
 ### 4.1a Workflow Template Resolution (FR-2.0.1 — baru)
 
@@ -624,9 +638,12 @@ function canApproveStep(step, proposal):
 
 **Mode PARALLEL_GROUP.** Seluruh step dalam `parallel_group_id` yang sama
 di-set `IN_PROGRESS` bersamaan saat grup dibuka. Step berikutnya baru bisa
-maju setelah **semua** anggota grup `APPROVED` (AND-join) — inilah yang
-memodelkan "VP Finance dan VP Operations bekerja paralel, quotation
-menunggu keduanya".
+maju setelah **semua** anggota grup `APPROVED` (AND-join). Mekanisme ini
+**tidak dipakai Basic Workflow default v3.0** — VP Operations dan VP
+Finance di sana adalah dua `step_order` sekuensial, bukan satu
+`parallel_group_id` — tapi tersedia sebagai kapabilitas skema untuk
+Workflow Template lain yang di masa depan benar-benar memerlukan
+beberapa approver bekerja bersamaan pada satu tahap.
 
 ### 4.2.1 Release Gate (FR-2.2 — penjaga *margin leakage*)
 

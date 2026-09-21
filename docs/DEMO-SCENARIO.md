@@ -82,9 +82,10 @@ Incognito terpisah per peran) supaya semua sesi tetap aktif.
 ## 1. Skenario Utama: "30 Unit EV Bus — Dishub Provinsi Jawa Barat"
 
 Skenario ini dirancang agar menyentuh **semua** kontrol kunci: urutan
-aktor terkoreksi, cost structure riil BTEL, validasi COGS sekuensial/
-paralel, release gate dengan `may_follow_later`, guardrail margin, dan
-eskalasi diskon sampai ke 2 BOD.
+aktor terkoreksi, cost structure riil BTEL, validasi COGS sekuensial
+(VP Operations wajib selesai lebih dulu, baru VP Finance terbuka),
+release gate dengan `may_follow_later`, guardrail margin, dan eskalasi
+diskon sampai ke 2 BOD.
 
 ### Langkah 0 — Product Owner menyiapkan Product Master Data
 
@@ -167,11 +168,11 @@ Fee) dan ringkasan harga jual final yang terlihat.
    dihitung **meski Delivery Service masih kosong**, lalu klik
    **Approve**.
 
-**Perhatikan:** quotation **tidak** langsung maju ke VP Finance/Chief
-Sales. Panel menampilkan bahwa sistem masih menunggu VP Finance —
-**AND-join** (bila Workflow Template mengatur keduanya paralel) atau
-lanjut sekuensial ke VP Finance (bila template mengatur sekuensial —
-tergantung konfigurasi Workflow Template yang terpilih di Langkah 1).
+**Perhatikan:** quotation **tidak** langsung maju ke Chief Sales.
+Setelah VP Operations approve, tahap berikutnya yang terbuka adalah
+**VP Finance** (step_order 2) — bukan keduanya berjalan bersamaan.
+Basic Workflow default v3.0 bersifat sekuensial penuh: VP Finance baru
+bisa mulai mengisi setelah VP Operations benar-benar `APPROVED`.
 
 **Yang didemokan:** FR-2.0 (urutan VP Operations lebih dulu, cost
 structure riil BTEL), `may_follow_later` (FR-2.2 — Delivery Service
@@ -215,8 +216,9 @@ tidak menghambat harga dasar).
    yang sama sekali tidak menampilkan kelompok ini).
 4. Klik **Approve**.
 
-Kedua COGS Owner kini approved → AND-join terpenuhi → status maju ke
-`Pending Chief Sales Review`.
+Kedua COGS Owner (VP Operations lebih dulu, lalu VP Finance) kini
+approved secara berurutan → status maju ke `Pending Chief Sales
+Review`.
 
 ### Langkah 6 — Chief Sales merakit quotation final
 

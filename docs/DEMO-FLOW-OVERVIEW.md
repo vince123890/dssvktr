@@ -33,7 +33,7 @@ angka yang harus diketik:
 |---|---|---|---|---|
 | **Sales Officer** | `sales@vktr.demo` | Awal & negosiasi | Input data customer/unit/qty/delivery/komisi makelar; mengisi kelompok cost **`SALES`** (STNK, Insurance, Incentive, Agency Fee); mengajukan & approve diskon Tier 1/2 (sebagai salah satu dari 3 pihak) | Melihat kelompok cost `COGS`/`PROFITABILITY`/`ADD_ONS` sama sekali (bukan cuma margin — disamarkan penuh) |
 | **VP Operations** | `vpops@vktr.demo` | Validasi COGS (isi lebih dulu) | Mengisi & memvalidasi kelompok **`COGS`** dan **`ADD_ONS`** (Delivery Service boleh menyusul) | Menyetujui diskon; mengisi kelompok `PROFITABILITY`/`SALES` |
-| **VP Finance** | `vpfinance@vktr.demo` | Validasi COGS (paralel/setelah VP Ops) | Mengisi & memvalidasi kelompok **`PROFITABILITY`**; approve diskon Tier 2 (sebagai Profitability Owner) | Mengisi kelompok `COGS`/`ADD_ONS`/`SALES` |
+| **VP Finance** | `vpfinance@vktr.demo` | Validasi COGS (setelah VP Operations selesai) | Mengisi & memvalidasi kelompok **`PROFITABILITY`**; approve diskon Tier 2 (sebagai Profitability Owner) | Mengisi kelompok `COGS`/`ADD_ONS`/`SALES` |
 | **Product Owner** | `product@vktr.demo` | Sebelum/selama quotation disusun | Mengelola Product Master Data (spesifikasi, gambar, brosur, varian karoseri) yang dirujuk quotation | Mengisi cost line apa pun; ikut alur approval harga |
 | **Chief Sales** | `chiefsales@vktr.demo` | Perakitan final & negosiasi | Meninjau hasil rakitan seluruh COGS Owner, approve tahap akhir (memicu Release Gate); approve diskon Tier 2 (sebagai Pricing Owner) | Approve diskon Tier 3 sendirian; melewati COGS Owner |
 | **BOD** | `bod1@vktr.demo`, `bod2@vktr.demo` | Eskalasi Tier 3 | Approve / Reject / **Revise** diskon Tier 3 — **wajib dua BOD berbeda** (AND-join) | Meloloskan Tier 3 sendirian (satu approval tidak cukup) |
@@ -51,13 +51,10 @@ flowchart TD
 
     B --> C["status: <b>PENDING_COGS_VALIDATION</b><br/>Workflow Template terpilih otomatis"]
 
-    C --> D["<b>VP Operations</b><br/>Kelompok COGS + ADD_ONS<br/>Delivery Service boleh menyusul<br/>SLA 24 jam"]
-    C --> E["<b>VP Finance</b><br/>Kelompok PROFITABILITY<br/>SLA 24 jam"]
+    C --> D["<b>1. VP Operations</b><br/>Kelompok COGS + ADD_ONS<br/>Delivery Service boleh menyusul<br/>SLA 24 jam"]
+    D -->|APPROVED| E["<b>2. VP Finance</b><br/>Kelompok PROFITABILITY<br/>SLA 24 jam<br/><i>baru terbuka setelah step 1 selesai</i>"]
 
-    D --> F{{"<b>AND-JOIN</b><br/>menunggu KEDUANYA<br/>satu approve tidak cukup"}}
-    E --> F
-
-    F --> G["status: <b>PENDING_CHIEF_SALES_REVIEW</b><br/><b>Chief Sales</b> meninjau & approve"]
+    E --> G["status: <b>PENDING_CHIEF_SALES_REVIEW</b><br/><b>3. Chief Sales</b> meninjau & approve"]
 
     G --> H{{"<b>RELEASE GATE</b><br/>1 · komponen mandatory lengkap (incl. may_follow_later)<br/>2 · semua COGS Owner menyetujui<br/>3 · Tier margin terpenuhi approvalnya"}}
 
@@ -78,7 +75,7 @@ flowchart TD
     class A sales
     class D,E cogs
     class G chief
-    class B,F,H gate
+    class B,H gate
     class J,K,L ok
     class I bad
 ```
@@ -86,9 +83,11 @@ flowchart TD
 **Kontrol yang membedakan sistem ini dari spreadsheet:**
 
 1. **Urutan aktor sesuai SOP riil** — Sales tidak pernah melihat
-   breakdown COGS; VP Operations mengisi lebih dulu, baru VP Finance.
-2. **AND-join** — quotation tidak bergerak hanya karena satu COGS Owner
-   setuju.
+   breakdown COGS; VP Operations wajib menyelesaikan approval-nya lebih
+   dulu, baru tahap VP Finance terbuka (sekuensial, bukan paralel).
+2. **Strict gatekeeping** — tahap berikutnya tidak terbuka sampai tahap
+   sebelumnya benar-benar `APPROVED`; quotation tidak bisa "melompat"
+   ke Chief Sales sebelum kedua COGS Owner menyetujui secara berurutan.
 3. **`may_follow_later`** — Delivery Service boleh disusulkan tanpa
    menghambat harga dasar, namun tetap wajib terisi sebelum rilis.
 4. **Release Gate berbasis Tier margin** — bukan ambang GPM tunggal,
@@ -283,7 +282,7 @@ item terpisah) pada POC lama. Sumber: `BTEL-CostStructure.xlsx`.
 | Multi-Currency + Rate Sensitivity | Semua pengisi | Input CNY/IDR (basis FOB Price, RMB); notifikasi saat kurs bergerak melebihi ambang; hitung ulang eksplisit |
 | Mineral Index (referensi) | System Admin | HMA/HPM tampil sebagai konteks, dampak riil lewat kurs |
 | Workflow Template Catalog | System Admin | Alur approval dipilih otomatis dari katalog, bukan hardcode |
-| COGS Validation | VP Operations ∥ VP Finance | AND-join: sekuens VP Ops → VP Finance, quotation menunggu keduanya |
+| COGS Validation | VP Operations → VP Finance | Sekuensial: VP Finance baru terbuka setelah VP Operations APPROVED, quotation menunggu keduanya selesai berurutan |
 | Release Gate | Chief Sales | Termasuk pengecualian `may_follow_later` tanpa mengorbankan kelengkapan rilis |
 | Margin-Tier Negotiation | Sales → 3 Pihak / 2 BOD | Tier dihitung server dari GPM akhir; AND-join di dalam tier |
 | Project Identifier | Sales, Chief Sales | Revisi quotation terlacak sebagai satu linimasa, bukan quotation lepas |
@@ -301,7 +300,7 @@ item terpisah) pada POC lama. Sumber: `BTEL-CostStructure.xlsx`.
 | Master data | CBS berbeda per lini bisnis (asumsi) | **Satu CBS tunggal**, struktur riil BTEL (4 kelompok) |
 | Urutan aktor | Chief Sales menyusun di awal | **Sales → VP Operations → VP Finance → Chief Sales** |
 | Aktor | 6 peran | **7 peran** (+ Product Owner) |
-| Workflow | Satu alur baku (VP Finance ∥ VP Operations → Chief Sales) | **Katalog Workflow Template**, dipilih otomatis dari qualifier |
+| Workflow | Satu alur baku (VP Finance ∥ VP Operations paralel → Chief Sales) | **Katalog Workflow Template**, dipilih otomatis dari qualifier — default sekuensial VP Operations → VP Finance → Chief Sales |
 | Discount authority | Tangga % diskon (3%/8%/BOD) | **Tangga GPM akhir** (Auto/3-Pihak/2-BOD) |
 | Input diskon | Persentase saja | **Rupiah atau persentase** |
 | Versioning quotation | `pricing_proposal_version` per proposal | **Project Identifier** lintas-proposal, quotation baru per revisi |
