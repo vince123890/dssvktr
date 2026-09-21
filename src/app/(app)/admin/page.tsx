@@ -9,6 +9,7 @@ import type {
 } from "@/types/database";
 import { WorkflowDefCard } from "./WorkflowDefCard";
 import { MarginTierCard } from "./MarginTierCard";
+import { CreateWorkflowForm } from "./CreateWorkflowForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 
 export default async function AdminPage() {
@@ -68,6 +69,17 @@ export default async function AdminPage() {
           </div>
         </CardContent>
       </Card>
+
+      {canEdit && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Tambah Workflow Template Baru</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CreateWorkflowForm departments={depts} />
+          </CardContent>
+        </Card>
+      )}
 
       <div>
         <h2 className="text-sm font-semibold text-muted mb-3">Workflow Template Catalog</h2>
