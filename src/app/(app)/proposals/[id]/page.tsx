@@ -12,6 +12,7 @@ import { OutcomePanel } from "./OutcomePanel";
 import { NegotiationPanel } from "./NegotiationPanel";
 import { RecalculateButton } from "./RecalculateButton";
 import { CreateRevisionButton } from "./CreateRevisionButton";
+import { QuotationPreview } from "./QuotationPreview";
 import {
   canRecordWinLossOutcome,
   canRequestDiscount,
@@ -29,7 +30,9 @@ import type {
   NegotiationDecision,
   NegotiationRequest,
   PricingProposal,
+  ProductMasterData,
   ProjectIdentifier,
+  Profile,
   ProposalCalculationResult,
   ProposalCostLine,
   WorkflowStepInstance,
@@ -182,6 +185,37 @@ export default async function ProposalDetailPage({
     }
   }
 
+  // FR-1.5.2/FR-1.5.3 — quotation document preview: the product this
+  // version quotes, and approval step metadata with human-readable
+  // department/actor names.
+  const productMasterDataId = (version as { product_master_data_id?: string | null } | null)
+    ?.product_master_data_id;
+
+  const [{ data: productRow }, { data: actorProfiles }] = await Promise.all([
+    productMasterDataId
+      ? supabase.from("product_master_data").select("*").eq("id", productMasterDataId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    steps.length > 0
+      ? supabase
+          .from("profile")
+          .select("id, full_name")
+          .in("id", steps.map((s) => s.actor_id).filter((id): id is string => Boolean(id)))
+      : Promise.resolve({ data: [] as Pick<Profile, "id" | "full_name">[] }),
+  ]);
+
+  const product = productRow as ProductMasterData | null;
+  const actorNameById = Object.fromEntries(
+    (actorProfiles ?? []).map((p: Pick<Profile, "id" | "full_name">) => [p.id, p.full_name])
+  );
+  const deptNameById = Object.fromEntries(depts.map((d) => [d.id, d.name]));
+  const approvalSteps = steps.map((s) => ({
+    stepOrder: s.step_order,
+    departmentName: deptNameById[s.department_id] ?? "—",
+    status: s.status,
+    actorName: s.actor_id ? actorNameById[s.actor_id] ?? null : null,
+    completedAt: s.completed_at,
+  }));
+
   // Cost lines stay editable while the workflow is in flight, but only for
   // the COGS Owner whose step is currently active — that is what lets VP
   // Operations enter COGS/Add-Ons costs while VP Finance enters
@@ -239,6 +273,14 @@ export default async function ProposalDetailPage({
         </div>
 
         <div className="flex items-center gap-2">
+          <QuotationPreview
+            proposal={proposal}
+            project={project}
+            result={latestResult as ProposalCalculationResult | null}
+            product={product}
+            approvalSteps={approvalSteps}
+            viewerRole={profile.role}
+          />
           {proposal.current_status === "DRAFT" && <SubmitButton proposalId={proposal.id} />}
           {proposal.current_status === "QUOTATION_RELEASED" && (
             <CreateRevisionButton proposalId={proposal.id} />
