@@ -16,7 +16,13 @@ import {
 } from "@/lib/rbac";
 
 const WorkflowStepInputSchema = z.object({
-  department_id: z.string().uuid(),
+  // Not z.string().uuid(): seed department rows use illustrative ids
+  // like "11111111-0000-0000-0000-000000000001" (version/variant
+  // nibbles don't satisfy RFC 4122), which strict UUID validation
+  // rejects outright. The department lookup below (existence + code
+  // whitelist) is the real authority here, so a non-empty string is
+  // enough at the schema layer.
+  department_id: z.string().min(1),
   is_mandatory_gate: z.boolean(),
   sla_hours: z.coerce.number().int().min(1),
 });

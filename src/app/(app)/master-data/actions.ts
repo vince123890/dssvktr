@@ -17,7 +17,10 @@ const CostItemSchema = z.object({
   category: z.enum(["DIRECT", "INDIRECT", "MARGIN_FACTOR"]),
   cost_group: z.enum(["COGS", "PROFITABILITY", "SALES", "ADD_ONS"]),
   subcategory: z.string().min(1),
-  owner_department_id: z.string().uuid(),
+  // Not .uuid(): seed department ids (e.g. "11111111-...-0001") aren't
+  // RFC 4122-valid, which strict uuid() rejects. The FK constraint on
+  // insert is the real authority here.
+  owner_department_id: z.string().min(1),
   unit_type: z.enum(["FIXED", "PER_UNIT", "PERCENTAGE"]),
   denomination: z.enum(["IDR", "CNY"]).default("IDR"),
   may_follow_later: z.coerce.boolean(),

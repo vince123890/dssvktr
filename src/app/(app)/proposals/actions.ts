@@ -21,7 +21,10 @@ const CreateProposalSchema = z.object({
   ]),
   customer_name: z.string().min(1, "Nama customer wajib diisi"),
   project_name: z.string().min(1, "Nama proyek/lokasi wajib diisi"),
-  product_master_data_id: z.string().uuid().optional(),
+  // Not .uuid(): seed product_master_data ids (e.g. "55555555-...-0001")
+  // aren't RFC 4122-valid, which strict uuid() rejects. The FK
+  // constraint on insert is the real authority here.
+  product_master_data_id: z.string().min(1).optional(),
   unit_quantity: z.coerce.number().int().min(1),
   input_currency: z.enum(["IDR", "CNY"]).default("CNY"),
 });
