@@ -102,16 +102,20 @@ export async function createWorkflowDefinitionAction(
     }
 
     // Rule 2: every step before the last must be a real COGS Owner or
-    // Sales (PRD FR-1.1) — Chief Sales/BOD are reserved for the final
-    // review/release step, and Product/Admin own no cost group to
-    // validate.
+    // Sales (PRD FR-1.1), OR Chief Sales immediately escalating to BOD
+    // in the very next step — a two-tier final review (Chief Sales
+    // signs off first, then BOD for the higher authority) rather than
+    // a COGS validation stage. Chief Sales elsewhere in the middle, or
+    // BOD anywhere but the last step, is still rejected.
     const middleSteps = stepCodes.slice(0, -1);
-    const invalidMiddle = middleSteps.filter(
-      (c) => !COGS_STEP_DEPARTMENT_CODES.includes(c)
-    );
+    const invalidMiddle = middleSteps.filter((c, i) => {
+      if (COGS_STEP_DEPARTMENT_CODES.includes(c)) return false;
+      const isChiefSalesEscalatingToBod = c === "CHIEF_SALES" && stepCodes[i + 1] === "BOD";
+      return !isChiefSalesEscalatingToBod;
+    });
     if (invalidMiddle.length > 0) {
       throw new Error(
-        `Step selain yang terakhir harus diisi COGS Owner (Sales/VP Operations/VP Finance) — ditemukan: ${invalidMiddle.join(", ")}.`
+        `Step selain yang terakhir harus diisi COGS Owner (Sales/VP Operations/VP Finance), atau Chief Sales yang langsung diikuti BOD (eskalasi) — ditemukan: ${invalidMiddle.join(", ")}.`
       );
     }
 

@@ -111,8 +111,11 @@ export const FINAL_STEP_DEPARTMENT_CODES: string[] = ["CHIEF_SALES", "BOD"];
 
 /**
  * Departments allowed for a non-final ("COGS validation") step — must
- * be a real COGS Owner or Sales (PRD FR-1.1), not Chief Sales/BOD
- * (reserved for the final step) or Product/Admin (own no cost group).
+ * be a real COGS Owner or Sales (PRD FR-1.1), not Product/Admin (own
+ * no cost group). Chief Sales is also allowed in a non-final step, but
+ * only immediately before a BOD final step (two-tier escalation — see
+ * createWorkflowDefinitionAction Rule 2); that exception is checked
+ * separately since it depends on position, not just department code.
  */
 export const COGS_STEP_DEPARTMENT_CODES: string[] = [
   "SALES",

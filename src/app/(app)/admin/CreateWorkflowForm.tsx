@@ -50,10 +50,15 @@ function validateStepOrder(
   }
 
   const middle = codes.slice(0, -1);
-  const invalidMiddle = middle.filter((c) => c && !COGS_STEP_DEPARTMENT_CODES.includes(c));
+  const invalidMiddle = middle.filter((c, i) => {
+    if (!c) return false;
+    if (COGS_STEP_DEPARTMENT_CODES.includes(c)) return false;
+    const isChiefSalesEscalatingToBod = c === "CHIEF_SALES" && codes[i + 1] === "BOD";
+    return !isChiefSalesEscalatingToBod;
+  });
   if (invalidMiddle.length > 0) {
     problems.push(
-      `Step selain terakhir harus COGS Owner (Sales/VP Operations/VP Finance) — bukan ${[...new Set(invalidMiddle)].join(", ")}.`
+      `Step selain terakhir harus COGS Owner (Sales/VP Operations/VP Finance), atau Chief Sales yang langsung diikuti BOD (eskalasi) — bukan ${[...new Set(invalidMiddle)].join(", ")}.`
     );
   }
 
@@ -166,7 +171,9 @@ export function CreateWorkflowForm({ departments }: { departments: Department[] 
       <div className="space-y-2">
         <p className="text-xs font-medium text-muted">
           Urutan Step Approval (sekuensial — step selain terakhir harus
-          COGS Owner, step terakhir harus Chief Sales/BOD)
+          COGS Owner, atau Chief Sales yang langsung diikuti BOD
+          [eskalasi ke otoritas lebih tinggi]; step terakhir harus
+          Chief Sales/BOD)
         </p>
         <p className="text-[11px] text-muted">
           Hanya department aktif sesuai SOP VKTR yang bisa dipilih —
