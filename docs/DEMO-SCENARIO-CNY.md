@@ -1,341 +1,235 @@
-# Skenario Demo 2 — Quotation Berdenominasi CNY & Rate Sensitivity (v3.0)
+# Skenario Demo 2 — FOB dalam CNY & Rate Sensitivity (v4.0)
 
-> **Status terhadap PRD/Technical Logic v3.0.** Revisi struktural penuh
-> mengikuti hasil demo review (`transcribe.md`). Menggantikan mekanisme
-> "Mineral Index Global Adjustment" (v2.1) — dikonfirmasi bahwa dampak
-> HMA/HPM ke harga VKTR berjalan **hanya lewat kurs**, sehingga fokus
-> skenario ini bergeser ke **Rate Sensitivity Threshold** (FR-1.4.6):
-> exchange rate otomatis mingguan, notifikasi saat kurs bergerak
-> melebihi ambang, dan tombol Hitung Ulang eksplisit.
->
-> **Koreksi mata uang (baru).** Skenario ini sebelumnya bernama
-> `DEMO-SCENARIO-USD.md` dengan basis USD. Demo review mengoreksi hal
-> ini: FOB Price komponen impor VKTR dikutip vendor **dalam CNY**
-> (BOM bersumber dari Cina), dan diskusi *rate sensitivity threshold*
-> BOD eksplisit membahas **RMB** (kurs ilustratif Rp 2.500–2.700/RMB) —
-> bukan USD/IDR (Rp 16.000-an). Seluruh angka pada dokumen ini kini
-> memakai basis **CNY→IDR**. USD tetap tersedia sebagai *toggle
-> tampilan opsional* ke customer, terpisah dari basis kalkulasi.
+> **Status terhadap PRD/Technical Logic v4.0.** Revisi mengikuti
+> `BTEL - Cost and Roles and Flow.xlsx`. Perbedaan utama terhadap v3.0:
+> FOB Price in CNY kini diinput **di cost structure varian** oleh COGS
+> Owner lewat Maker → Checker → Releaser — bukan per quotation oleh VP
+> Operations — dan **kurs dikunci per versi cost structure**. Peran,
+> tier (15% / 10%), dan alur Official Quotation mengikuti
+> [`DEMO-SCENARIO.md`](DEMO-SCENARIO.md).
 
-Skenario kedua untuk mendemokan kemampuan v3.0: **input multi-currency
-(CNY)** pada komponen impor kelompok **COGS** (FOB Price in CNY), dan
-**Rate Sensitivity Threshold** yang menggantikan adjustment mineral
-independen.
+Skenario ini menunjukkan tiga hal:
 
-Berbeda dari [`DEMO-SCENARIO.md`](DEMO-SCENARIO.md) yang memakai lini
-B2G dengan input Rupiah, skenario ini memakai **B2B Commercial Fleet
-dengan input CNY** — mencerminkan kenyataan bahwa FOB Price dikutip
-vendor dalam Renminbi (Yuan China).
+1. FOB Price diinput dalam **CNY (Renminbi/Yuan)**, dikonversi otomatis
+   ke IDR dengan kurs yang **dikunci** pada versi cost structure.
+2. **Rate Sensitivity Threshold** — pergerakan kurs di bawah ambang
+   diabaikan; di atas ambang memunculkan banner dan **Release Gate
+   menahan** quotation yang belum dihitung ulang.
+3. Mengapa ini penting: tanpa ambang, harga tetap memakai kurs lama
+   sementara biaya riil naik — GM bisa turun diam-diam ke tier yang
+   seharusnya butuh approval.
 
 | | |
 |---|---|
-| **Lini bisnis** | B2B Commercial Fleet |
-| **Mata uang input** | CNY (Renminbi/Yuan) |
-| **Margin Tier Authority** | Sama seperti skenario 1 (Tier 1 ≥15%, Tier 2 12–15%, Tier 3 <12%) — dapat di-*scope* berbeda per lini bisnis bila dikonfirmasi VKTR |
-| **Fitur yang disorot** | FR-1.4 (multi-currency, basis CNY), FR-1.4.6 (Rate Sensitivity Threshold), FR-8 (Mineral Index — referensi saja), Module 6 (margin-tier negotiation) |
+| **Varian** | VKTR Light Duty Truck 4x2, Medium Wheelbase, Aluminium Box, Battery 132 kWh, CKD, loco Magelang |
+| **Customer** | PT Nusantara Kargo Elektrik *(fiktif)* — B2B Commercial Fleet |
+| **Kuantitas** | 12 unit → band ≥ 10, **manual** |
+| **Kurs awal / ambang** | Rp 2.600 per CNY / **2%** |
+| **PPN** | 11% efektif (ilustratif) |
 
-> **Prasyarat.** Skema v3.0 (`cost_item` 4 kelompok, `exchange_rate`
-> dengan `base_currency = CNY` dan `source = bank-api`,
-> `rate_sensitivity_config`) sudah di-migrasi, dan `npm run seed:demo`
-> sudah dijalankan. Untuk mengulang skenario, gunakan `npm run reset:demo`.
-
----
-
-## 0. Peran yang Dipakai
-
-| Login sebagai | Email | Tugas |
-|---|---|---|
-| **System Admin** | admin@vktr.demo | Menetapkan kurs CNY awal & ambang sensitivitas sebelum demo dimulai |
-| **Sales Officer** | sales@vktr.demo | Membuat quotation CNY, mengajukan diskon |
-| **VP Operations** | vpops@vktr.demo | Mengisi kelompok COGS & Add-Ons (dalam CNY) |
-| **VP Finance** | vpfinance@vktr.demo | Mengisi kelompok Profitability |
-| **Chief Sales** | chiefsales@vktr.demo | Approve akhir (memicu Release Gate) |
-| **BOD 1 & BOD 2** | bod1@vktr.demo, bod2@vktr.demo | Memutus diskon Tier 3 |
-
-Password semua akun: `PriceCore123!`
+Peran & akun sama dengan skenario 1 (§0 `DEMO-SCENARIO.md`). Password
+semua akun: `PriceCore123!`.
 
 ---
 
-## 1. Persiapan — Admin menetapkan kurs CNY awal & ambang sensitivitas
+## 1. Persiapan — Admin menetapkan kurs & ambang
 
-Seluruh angka pada dokumen ini dihitung dengan **kurs awal 2.600**
-(Rp per 1 CNY/RMB) dan **ambang sensitivitas 2%** — konsisten dengan
-angka ilustratif yang didiskusikan BOD pada demo review (kisaran
-2.500–2.700).
-
-1. Login sebagai **admin@vktr.demo** → **Master Data & Exchange Rate**.
-2. Panel **Nilai Tukar CNY → IDR**: bila kurs berlaku bukan `2600`,
-   simpan kurs baru `2600` dengan `source = manual` (mensimulasikan
-   override sebelum job otomatis pertama berjalan).
-3. Panel **Rate Sensitivity Config**: pastikan `threshold_pct = 2%`.
-4. *(Opsional)* Panel **Nilai Tukar USD → IDR** — kurs tampilan
-   terpisah, tidak memengaruhi kalkulasi COGS. Boleh dilewati bila
-   toggle USD tidak didemokan.
-5. *(Opsional, untuk konteks)* Panel **Harga Mineral Acuan (HMA)** tetap
-   ada sebagai referensi — pastikan HMA `NI` terisi `16646`, periode
-   hari ini. **Catat**: nilai ini **tidak lagi memengaruhi kalkulasi
-   harga** pada v3.0 (lihat §5).
-
-> Bila kurs Anda berbeda, seluruh angka Rupiah di bawah akan bergeser
-> proporsional. Angka **CNY** dan **GPM** tetap sama karena tidak
-> bergantung pada kurs.
+1. Login sebagai **admin@vktr.demo** → **Settings → Exchange Rate**.
+2. **CNY → IDR**: bila kurs berlaku bukan `2600`, simpan `2600` dengan
+   `source = manual` (mensimulasikan override sebelum tarik otomatis
+   Senin 00:01).
+3. **Rate Sensitivity**: `threshold_pct = 2%`.
+4. *(Opsional)* **Mineral Index**: HMA `NI` = 16.646 — hanya referensi
+   (§8).
 
 ---
 
-## 2. Langkah 1 — Sales Officer membuat quotation CNY
+## 2. Cost Structure v1 dengan FOB dalam CNY
 
-1. Login sebagai **sales@vktr.demo** → **Pricing Proposals → Proposal Baru**.
-2. Isi:
-   - Nama Customer: `PT Anteraja Logistik`
-   - Nama Proyek/Lokasi: `Armada EV Truck Jabodetabek`
-   - Sistem generate Project Identifier, mis. `PRJ-AAL-2026-004`
-   - Lini Bisnis: **B2B Commercial Fleet**
-   - Jumlah Unit: `12`
-   - **Mata Uang Input: CNY (Renminbi/Yuan)** ← inti skenario ini
-3. Klik **Buat Draft & Submit** → `resolveWorkflowTemplate` memilih
-   Workflow Template untuk `B2B_FLEET`.
+1. **procurement@vktr.demo** (Maker) → Cost Structure → varian *LDT 4x2
+   MWB Aluminium Box 132 kWh* → **v1**. Scope **COGS**:
 
-**Yang harus terlihat:** pada CBS Cost Line, kolom nilai kelompok COGS
-bertuliskan **`¥ / unit`** (CNY) — bukan `Rp / unit`. Kelompok Sales
-tetap dalam IDR (STNK, insurance, dsb. berdenominasi lokal) — dua mata
-uang hidup berdampingan pada satu quotation sesuai `denomination` per
-`cost_item` (Technical Logic §2.1).
-
----
-
-## 3. Langkah 2 — VP Operations mengisi kelompok COGS & Add-Ons (CNY)
-
-Masih mengikuti urutan aktor terkoreksi: **VP Operations mengisi lebih
-dulu**, bukan Sales.
-
-1. Logout, login sebagai **vpops@vktr.demo**, buka quotation yang sama.
-2. Isi kelompok **COGS** — **nilai dalam CNY (¥) per unit**:
-
-   | Item | Nilai (¥/unit) |
-   |---|---|
-   | FOB Price in CNY | 283.000 |
-   | FOB Price in IDR *(dikonversi sistem, tidak diinput manual)* | *auto* |
-   | Freight and Insurance | 13.600 |
-   | Custom Duties | 20.800 |
-   | Port Handling, Clearance, and Pre-Delivery Inspection | 6.200 |
-   | Carrosserie Allocation | 76.700 |
-   | Assembly Cost | 16.900 |
-   | Local Parts | 9.700 |
-   | Accessories | 3.100 |
-   | Telematics | 2.100 |
-   | Warehousing and Storage | 1.550 |
-   | Warranty Cost | 12.000 |
-   | Initial Energy Injection | 1.050 |
-   | Administrative Cost | 1.950 |
-
-3. Isi kelompok **Add-Ons**:
-
-   | Item | Nilai (¥/unit) | Catatan |
+   | Item | Denominasi | Nilai |
    |---|---|---|
-   | Processing Service | 1.350 | |
-   | Delivery Service | *(kosongkan)* | `may_follow_later` |
-   | KEUR | 900 | |
-   | Additional | 0 | |
+   | FOB Price in CNY | **CNY** | **¥ 205.000** |
+   | FOB Price in IDR | *otomatis* | Rp 533.000.000 (¥205.000 × 2.600) |
+   | Freight and Insurance | IDR | 20.000.000 |
+   | Custom Duties | IDR | 27.000.000 |
+   | Port Handling, Clearance, and PDI | IDR | 8.000.000 |
+   | Carrosserie Allocation (Aluminium Box) | IDR | 78.000.000 |
+   | Assembly Cost | IDR | 23.000.000 |
+   | Local Parts | IDR | 13.000.000 |
+   | Accessories | IDR | 4.500.000 |
+   | Telematics | IDR | 3.500.000 |
+   | Warehousing and Storage | IDR | 2.000.000 |
+   | Warranty Cost | IDR | 18.000.000 |
+   | Initial Energy Injection | IDR | 1.500.000 |
+   | Administrative Cost | IDR | 3.000.000 |
+   | **Total COGS** | | **Rp 734.500.000** |
 
-4. **Simpan & Hitung Ulang Harga**, lalu **Approve**.
+   Scope **Add-Ons**: STNK 6.000.000 · KEUR 1.500.000 · Insurance
+   10.000.000 · Processing Service 2.500.000 · Delivery Service
+   **Exclusion — At cost** · Additional 0 → **Rp 20.000.000**.
+2. **headproc@vktr.demo** → Check → Release (COGS & Add-Ons).
+3. **headfinance@vktr.demo** → scope Margin sama dengan skenario 1 (Rp
+   20 jt; 6%; Rp 25 jt; 4%; 5%) → Make/Check/Release.
+4. **salesops@vktr.demo** → scope Sales (Rp 4 jt; 0; Rp 2 jt; 0) → Make;
+   **headsales@vktr.demo** → Check/Release.
 
-**Yang didemokan (FR-1.4.1):** angka yang diketik tersimpan **apa
-adanya dalam CNY**. Konversi ke Rupiah hanya terjadi saat menghitung —
-`last_calculated_rate_id` pada proposal dicatat sebagai kurs 2.600
-yang dipakai saat ini (Technical Logic §12.2, §12.5).
-
----
-
-## 4. Langkah 3 — VP Finance mengisi kelompok Profitability
-
-1. Logout, login sebagai **vpfinance@vktr.demo**.
-2. Isi margin **sengaja rendah** dulu untuk mendemokan guardrail:
-
-   | Item | Nilai |
-   |---|---|
-   | VKTS Profit Before Tax (¥/unit) | 5.800 |
-   | VKTS Margin (%) | 2 |
-   | VKTR Profit Before Financing Cost (¥/unit) | 3.200 |
-   | Financing Cost (%) | 1,5 |
-   | VKTR Margin After Financing Cost (%) | 1,5 |
-
-3. **Simpan & Hitung Ulang Harga** → banner merah muncul: GPM akhir
-   jatuh ke **Tier 3** (di bawah 12%).
-4. Perbaiki margin:
-
-   | Item | Nilai baru |
-   |---|---|
-   | VKTS Margin (%) | 8 |
-   | Financing Cost (%) | 6 |
-   | VKTR Margin After Financing Cost (%) | 5 |
-
-5. **Simpan & Hitung Ulang Harga** → banner hilang, GPM akhir naik ke
-   **Tier 1** (≥15%).
-6. Klik **Approve**.
-
-### Angka yang harus terlihat
+**Yang harus terlihat** (tampilan ganda CNY & IDR, PRD FR-1.4.4):
 
 | | Nilai |
 |---|---|
-| Total biaya per unit (kelompok COGS + Add-Ons) | ± ¥ 451.000 |
-| **Final Price** | **Rp x.xxx M** ≈ **¥ y.yyy** (dua mata uang tampil sekaligus, FR-1.4.4) |
-| **GPM akhir** | ≥ 15% (Tier 1) |
-| **Tier margin** | 1 — Auto |
-| **Kurs yang dipakai** | 2.600 (tercatat di `proposal_calculation_result.exchange_rate_used`) |
+| Kurs terkunci v1 | 2.600 |
+| Base cost | Rp 754.500.000 |
+| Harga dasar excl. / incl. VAT | Rp 918.675.000 / Rp 1.019.729.250 |
+| GM standar | 17,33% |
+
+Angka **¥ 205.000** tersimpan apa adanya; hanya FOB in IDR yang
+dihitung.
 
 ---
 
-## 5. Langkah 4 — Chief Sales merilis quotation
+## 3. Official Quotation 12 unit — ditahan di Head of Sales
 
-1. Logout, login sebagai **chiefsales@vktr.demo**.
-2. Klik **Approve** → **Release Gate** berjalan (komponen mandatory
-   lengkap kecuali Delivery Service yang `may_follow_later`, seluruh
-   COGS Owner setuju, Tier margin terpenuhi).
-3. Status menjadi **`Quotation Released`**, PDF dibuat via Format
-   Quotation Template.
-
----
-
-## 6. Langkah 5 — Kurs bergerak: Rate Sensitivity Threshold beraksi
-
-Inti skenario v3.0, menggantikan mekanisme HMA/HPM adjustment lama.
-Angka di bawah mengikuti pola diskusi BOD pada demo review: kurs
-bergerak dari sekitar 2.500 ke 2.700, dengan ambang 2% menentukan kapan
-harga perlu disesuaikan.
-
-### 6a. Pergerakan di bawah ambang (2%) — tidak ada notifikasi
-
-1. Login sebagai **admin@vktr.demo**, ubah kurs manual menjadi
-   **2.635** (naik ±1,3% dari 2.600).
-2. Buka kembali quotation dari §4 sebagai peran manapun.
-3. **Tidak ada banner** yang muncul — pergerakan 1,3% berada **di
-   bawah** ambang 2%. Harga quotation tetap memakai kurs 2.600 lama.
-
-**Yang didemokan:** FR-1.4.6 — sistem tidak "berkedip" mengubah harga
-pada pergerakan kurs kecil.
-
-### 6b. Pergerakan melebihi ambang — notifikasi & Hitung Ulang eksplisit
-
-1. Sebagai **admin@vktr.demo**, ubah kurs lagi menjadi **2.705** (naik
-   ±4% dari kurs terakhir yang dipakai quotation, 2.600).
-2. Buka kembali quotation yang sama sebagai **sales@vktr.demo**.
-3. **Banner muncul**: *"Kurs CNY/IDR (RMB) telah diperbarui menjadi
-   2.705 — melebihi ambang sensitivitas 2%"*. Terlihat oleh siapa pun
-   yang membuka quotation ini (Sales, VP Finance, Chief Sales).
-4. **Harga tetap tidak berubah** sampai seseorang menekan tombol
-   **"Hitung Ulang"** secara eksplisit.
-5. Klik **Hitung Ulang** — `proposal_calculation_result` baru dibuat
-   dengan `exchange_rate_used = 2.705`; harga IDR naik proporsional,
-   angka CNY tidak berubah, GPM tidak berubah (biaya & harga jual dalam
-   CNY tetap konsisten, hanya representasi IDR-nya bergeser).
-
-**Tiga hal yang layak ditekankan:**
-
-1. **Notifikasi bukan auto-recalculate** — perubahan harga selalu butuh
-   aksi eksplisit, mencegah harga bergerak diam-diam di belakang Sales.
-2. **Baris lama tetap utuh** (`proposal_calculation_result` sebelumnya
-   tidak ditimpa) — konsisten dengan Rate Locking (§12.3).
-3. **Job otomatis mingguan** (Senin 00:01) menjalankan pull yang sama
-   dari API bank tanpa intervensi Admin — override manual di atas hanya
-   untuk mensimulasikan pergerakan kurs saat demo. Ini juga
-   mempraktikkan langsung ilustrasi BOD: "kalau di-*in between*, kita
-   ambil yang bawah — sekarang RMB 2.635, berarti pakai 2.600; tapi
-   saat 2.705, baru naik ke 2.700".
+1. **sales.lead@vktr.demo** membuat Official Quotation: PT Nusantara
+   Kargo Elektrik, varian MWB Box × **12**, KYC lengkap (aplikasi box
+   logistik, rute gudang Cikarang → hub Jakarta, 2 siklus/hari,
+   Likelihood 4). Submit → validasi dilewati (pengaju Sales Lead).
+2. **salesops@vktr.demo** (manual, band ≥ 10) → diskon **2%**
+   (Rp 18.373.500/unit): harga bersih Rp 900.301.500/unit, GM
+   **15,63%**, tier **1**. Teruskan.
+3. **headsales@vktr.demo** — **jangan Accept dulu**. Quotation dibiarkan
+   di *Pending Head of Sales Review* untuk langkah berikut.
 
 ---
 
-## 7. Langkah 6 — Mineral Index sebagai referensi, bukan adjustment
+## 4. Kurs bergerak di bawah ambang — tidak ada banner
 
-Berbeda dari POC v2.1 (di mana perubahan HMA otomatis mengalikan faktor
-ke FOB Price, item yang mengandung nilai battery pack), pada v3.0
-**HMA/HPM murni informasi**.
+1. **admin@vktr.demo** set kurs **2.635** (naik 1,35% dari 2.600).
+2. Buka cost structure v1 (sebagai headproc) dan quotation §3 (sebagai
+   headsales): **tidak ada banner**. Harga tetap memakai 2.600.
 
-1. Login sebagai **admin@vktr.demo** → **Master Data → Mineral Index**.
-2. Ubah HMA `NI` menjadi **18.311** (naik 10%).
-3. HPM berjalan naik menjadi ±**60,83 US$/WMT** — **ditampilkan** di
-   panel referensi (HMA/HPM tetap dalam US$, standar internasional
-   Kepmen ESDM — tidak terkait dengan basis CNY di atas).
-4. Buka quotation dari §4 → panel **Mineral Index (Referensi)**
-   menampilkan HPM baru dan HMA yang dipakai, **namun**:
-   - `mineral_adjustment_factor` pada hasil kalkulasi tetap **1.0**.
-   - **Final Price TIDAK berubah** akibat perubahan HMA ini semata.
-   - Hanya perubahan **kurs CNY/IDR** (§6) yang benar-benar
-     menggerakkan harga.
-
-**Yang didemokan:** FR-8.3 status *dicabut/nonaktif* (Technical Logic
-§13) — mencegah dampak ganda (kurs + faktor mineral independen)
-terhadap komponen impor yang sama.
+**Yang didemokan:** PRD FR-1.4.6 — harga tidak "berkedip" pada
+pergerakan kecil.
 
 ---
 
-## 8. Langkah 7 — Negosiasi diskon pada quotation CNY (Margin-Tier)
+## 5. Kurs melewati ambang — banner & Release Gate menahan
 
-1. Sebagai **sales@vktr.demo**, ajukan diskon **1%** (mode Persentase)
-   → sistem menghitung GPM akhir, masih **Tier 1** → auto-release.
-2. Ajukan **5%** (mode Rupiah kali ini) → GPM akhir turun ke bawah 15%
-   → **Tier 2**, status `PENDING_TIER2_APPROVAL`. Login berturutan
-   sebagai **sales@vktr.demo**, **vpfinance@vktr.demo**,
-   **chiefsales@vktr.demo** untuk memberi ACK — ketiganya wajib approve
-   (AND-join).
-3. Pada **quotation revisi berikutnya** (via Project Identifier yang
-   sama), ajukan diskon besar (mis. **12%**) → GPM akhir jatuh ke
-   **Tier 3**. Login sebagai **bod1@vktr.demo**, pilih **Revise**
-   dengan counter **6%** → tier dievaluasi ulang, jatuh ke Tier 2 (3
-   pihak) — bukan otomatis disetujui.
+1. **admin@vktr.demo** set kurs **2.705** (naik 4,04% dari kurs terkunci
+   2.600).
+2. Banner muncul di dua tempat:
+   - **Cost structure v1** (untuk COGS Owner): *"Kurs CNY/IDR telah
+     diperbarui menjadi 2.705 — melebihi ambang sensitivitas 2%. Buat
+     versi baru."*
+   - **Quotation §3** (untuk Sales Operations & Head of Sales): *"…
+     Hitung Ulang diperlukan sebelum rilis."*
+3. **headsales@vktr.demo** mencoba **Accept** → Release Gate menolak:
+   *"Kurs bergerak melewati ambang — Hitung Ulang dulu"*.
 
-**Yang didemokan:** model tier yang sama berlaku lintas lini bisnis
-(B2G maupun B2B) — hanya ambang GPM per tier yang berpotensi berbeda
-bila dikonfigurasi per `business_line` (Technical Logic §2.1
-`margin_tier_authority.business_line`).
-
----
-
-## 9. Langkah 8 — Slider FX di DSS
-
-1. Buka **Decision Support (DSS)**, pilih quotation ini.
-2. Geser slider **FX Delta (%)** — Base Case vs Simulated Case berubah
-   seketika: GPM, EBITDA, BEP menyesuaikan konversi CNY→IDR.
-3. Slider **HMA Delta (%)** tersedia namun **tidak mengubah Final
-   Price** — hanya menggeser angka HPM referensi (§7), konsisten dengan
-   status nonaktifnya faktor adjustment mineral pada v3.0.
-
-**Yang didemokan:** simulasi memakai **engine yang sama** dengan
-kalkulasi resmi, dan **hanya FX (basis CNY) yang aktif memengaruhi
-harga** — tidak ada kejutan simulasi vs kenyataan.
+**Kenapa ini penting — tunjukkan di panel dampak margin:** bila harga
+tetap dari kurs 2.600 sementara biaya FOB riil sudah dari kurs 2.705,
+GM quotation ini sebenarnya **13,23%** — jatuh ke **Tier 2** (butuh
+COGS & Profitability Owner), padahal layar lama masih menampilkan
+15,63% Tier 1. Tanpa ambang, *margin leakage* ini lolos diam-diam.
 
 ---
 
-## 10. Ringkasan Perbandingan Dua Skenario
+## 6. COGS Owner membuat Cost Structure v2
 
-| | Skenario 1 (B2G, IDR) | Skenario 2 (CNY) |
+1. **procurement@vktr.demo** → pada banner klik **Buat Versi Baru** →
+   **v2** dengan kurs terkunci **2.705**. FOB Price in CNY tetap
+   **¥ 205.000**; FOB in IDR otomatis **Rp 554.525.000**.
+2. Hanya scope **COGS** yang berubah → Make; **headproc@vktr.demo** →
+   Check → Release. Scope Add-Ons, Margin, dan Sales disalin dari v1
+   berstatus `RELEASED` (tidak perlu M/C/R ulang).
+3. v2 **RELEASED**, v1 **RETIRED**.
+
+| | v1 (2.600) | v2 (2.705) |
 |---|---|---|
-| Lini bisnis | B2G Tender Bus | B2B Commercial Fleet |
-| Mata uang input kelompok COGS | IDR | **CNY (Renminbi/Yuan)** |
-| Urutan aktor | Sales → VP Ops → VP Finance → Chief Sales | Sama |
-| Jumlah unit | 30 | 12 |
-| Fitur khas | Fraud Guard, Project Identifier revisi | **Rate Sensitivity Threshold, Mineral Index sebagai referensi** |
-| Margin-Tier Negotiation | Tier 1→2→3 dengan Revise loop | Tier 1→2→3, ambang sama (dapat di-*scope* beda per lini bisnis) |
+| FOB in IDR | Rp 533.000.000 | Rp 554.525.000 |
+| Base cost | Rp 754.500.000 | Rp 776.025.000 |
+| Harga dasar excl. VAT | Rp 918.675.000 | Rp 943.428.750 |
+| GM standar | 17,33% | 17,22% |
+
+4. **agency@vktr.demo** → Price Estimate varian ini → kini excl. VAT
+   Rp 943.428.750 / incl. VAT Rp 1.047.205.913.
 
 ---
 
-## 11. Catatan Batasan & Open Items
+## 7. Hitung Ulang quotation terbuka → rilis
 
-- **Kurs ditarik otomatis mingguan dari API bank** (BCA disebut
-  eksplisit di demo review) — override manual tetap tersedia untuk
-  Admin. Kurs mana yang dipakai (tengah/jual/pajak), dan apakah BCA
-  menyediakan API kurs CNY (bukan hanya USD), masih perlu dikonfirmasi
-  (Technical Logic §14 no. 8).
-- **Ambang sensitivitas 2% bersifat ilustratif** — perlu dikonfirmasi
-  bersama Finance/BOD sebelum go-live.
-- **Mineral Index Global Adjustment (v2.1) dinonaktifkan** — dicatat
-  sebagai spesifikasi cadangan (Technical Logic §13.2) bila di masa
-  depan ditemukan komponen mineral yang bergerak independen dari kurs.
-- **Mengganti mata uang setelah cost line terisi tidak mengonversi
-  nilai lama** — Angka tetap apa adanya dan kini dibaca sebagai mata
-  uang baru (FR-1.4.5), tidak berubah dari v2.1.
-- **Kepemilikan cost group (COGS/Add-Ons → VP Operations) masih
-  asumsi**, sama seperti skenario 1 — lihat Technical Logic §14 no. 12.
-- **Toggle tampilan USD** (opsional, FR-1.4.1) belum didemokan pada
-  skenario ini — bila dibutuhkan untuk klien yang minta penawaran
-  dalam USD, perlu skenario tambahan yang menunjukkan kedua kurs (CNY
-  basis kalkulasi, USD tampilan) berjalan berdampingan.
+1. **salesops@vktr.demo** → quotation §3 → **Hitung Ulang**. Line item
+   kini mengunci v2; diskon 2% tetap (Rp 18.868.575/unit).
+
+   | | Nilai |
+   |---|---|
+   | Harga bersih excl. VAT / unit | Rp 924.560.175 |
+   | GM | **15,52%** — tetap Tier 1 |
+   | 12 unit excl. / incl. VAT | Rp 11.094.722.100 / **Rp 12.315.141.531** |
+
+2. Versi quotation naik; versi lama tetap tersimpan (Rate Locking).
+3. **headsales@vktr.demo** → **Accept** → Released → **Preview /
+   Print**: dokumen Cost Estimate dengan deskripsi varian MWB Aluminium
+   Box 132 kWh dan halaman spesifikasi kolom *Medium Wheelbase*.
+
+---
+
+## 8. Quotation yang sudah rilis tidak dihitung ulang
+
+1. Buka quotation 1 unit dari skenario 1 (varian SWB, kurs 2.600) yang
+   sudah **Released** → **tidak ada tombol Hitung Ulang**; harga tetap.
+2. Bila perlu harga baru (mis. setelah EXPIRED), lakukan **Permintaan
+   Revisi** → quotation baru pada Project Identifier yang sama, dihitung
+   dari versi cost structure terbaru.
+
+---
+
+## 9. Mineral Index — referensi saja
+
+1. **admin@vktr.demo** → Mineral Index → HMA `NI` **18.311** (+10%).
+2. HPM referensi naik ±60,83 US$/WMT dan tampil di panel referensi cost
+   structure & quotation, **tetapi** harga tidak berubah —
+   `mineral_adjustment_factor` tetap 1,0. Hanya kurs CNY/IDR yang
+   menggerakkan harga (tidak berubah dari v3.0).
+
+---
+
+## 10. Slider FX di DSS
+
+1. **DSS** → pilih quotation §7.
+2. Geser **FX Delta** +3% → GM simulasi turun dan panel menampilkan
+   **tier yang akan berlaku** — kapan simulasi melewati 15% (Tier 2) atau
+   10% (Tier 3).
+3. Slider HMA tidak mengubah harga (referensi saja).
+
+---
+
+## 11. Ringkasan Perbandingan Dua Skenario
+
+| | Skenario 1 | Skenario 2 (CNY) |
+|---|---|---|
+| Varian | LDT 4x2 SWB Dumper 90 kWh | LDT 4x2 MWB Aluminium Box 132 kWh |
+| FOB | ¥ 185.000 | ¥ 205.000 |
+| Kuantitas | 1 / 4 / 40 | 12 |
+| Fitur khas | Settings, M/C/R, Price Estimate, KYC, band, tier 1–3, dokumen & cetak, revisi, Fraud Guard | Kurs terkunci per versi, ambang 2%, Release Gate menahan kurs basi, versi v2 hanya scope COGS |
+| Tier | 17,79% → 16,10% → 8,95% → 14,34% → 13,44% | 15,63% → (tersembunyi 13,23%) → 15,52% |
+
+---
+
+## 12. Catatan Batasan & Open Items
+
+- **Seed sudah menyediakan cost structure v1 RELEASED** untuk varian MWB
+  dengan angka §2 — langkah §2 menjelaskan asalnya; mulai demo dari §3.
+- Pada aplikasi, tombol pembuatan versi ada di kartu varian halaman
+  **Cost Structure** (**Versi baru**), tepat di bawah banner kurs.
+- **Angka biaya ilustratif** — bukan cost structure riil.
+- **Sumber & jenis kurs** (tengah/jual/pajak; API kurs CNY BCA) masih
+  perlu dikonfirmasi (Technical Logic §14).
+- **Ambang 2%** ilustratif — konfirmasi Corporate Finance.
+- **Denominasi item selain FOB** diasumsikan IDR; bila Freight &
+  Insurance juga dikutip dalam CNY/USD, item tersebut ikut bergerak
+  bersama kurs.
+- **Mengganti denominasi item yang sudah bernilai** tidak mengonversi
+  nilai lama (PRD FR-1.4.5).

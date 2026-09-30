@@ -4,116 +4,151 @@
 
 | | |
 |---|---|
-| **Document Version** | 3.0 (Post-Demo Revision — Single Master Data, Workflow Templates, Margin-Based Discount Authority) |
+| **Document Version** | 4.0 (Konfirmasi VKTR — Aktor & Wewenang Maker/Checker/Releaser, Basic Workflow *Price Estimate* & *Official Quotation*, Format Dokumen Cost Estimate) |
 | **Target Entity** | PT VKTR Teknologi Mobilitas Tbk |
 | **Domain** | Commercial EV & Mobility Solutions (EV Bus, EV Truck, Battery Systems, Charging Infrastructure & Aftermarket) |
-| **Source Materials** | **Commercial Quotation Approval System Requirement for VKTR.pdf (authoritative)**, **transcribe.md (demo review session, hasil POC v2.1)**, Simulasi_HPM_Nikel_Kepmen_2026.xlsx, ConceptDSSpricingVKTR.pdf, VKTR-PriceCore Strategic Pricing Architecture.pdf, Timeline & Effort Detail.pdf |
+| **Source Materials** | **`BTEL - Cost and Roles and Flow.xlsx` (otoritatif v4.0 — sheet *Cost Structure*, *Actors*, *Basic Workflow*)**, **`Cost Estimate - PT Siborong Nusa Gemilang 20260906.pdf` (contoh dokumen keluaran riil)**, `transcribe.md` (demo review POC v2.1), Commercial Quotation Approval System Requirement for VKTR.pdf, Simulasi_HPM_Nikel_Kepmen_2026.xlsx, ConceptDSSpricingVKTR.pdf, VKTR-PriceCore Strategic Pricing Architecture.pdf, Timeline & Effort Detail.pdf |
 
-> **Catatan revisi v2.0.** Dokumen *Commercial Quotation Approval System
-> Requirement for VKTR* menetapkan SOP quotation dan hierarki approval
-> yang berlaku di VKTR. Struktur approval di v1.1 (Procurement →
-> Engineering → Finance → C-Level) merupakan asumsi awal dan **digantikan
-> seluruhnya** oleh alur COGS Owner yang sesungguhnya (Sales Officer →
-> Chief Sales → VP Finance ∥ VP Operations → BOD). Ditambahkan pula
-> **Commercial Negotiation Process** berbasis *delegated discount
-> authority* yang sebelumnya tidak tercakup.
+> **Catatan revisi v4.0.** Dua dokumen dari VKTR menjawab sebagian besar
+> *open item* v3.0 dan mengoreksi beberapa asumsi strukturalnya:
+>
+> 1. **Aktor & peran dikonfirmasi** (sheet *Actors*). Peran asumsi v3.0
+>    (VP Operations, VP Finance, Chief Sales, BOD) diganti peran riil:
+>    **Head of Procurement and Operations Control** & **Procurement
+>    Manager** (*COGS Owner*), **Head of Corporate Finance**
+>    (*Profitability Owner*), **Head of Sales** & **Sales Operations
+>    Manager** (*Sales Pricing Owner*), serta **Chief Commercial Officer**
+>    & **Chief Finance Officer** (*Pricing Committee*). Inisiator adalah
+>    **Salesperson** (Sales Executive / Sales Lead); *Price Estimate* juga
+>    dapat diakses **Authorized Agency**. Pemetaan lama → baru ada di §2.
+> 2. **Kepemilikan cost group dikonfirmasi** — menutup Technical Logic
+>    §14 no. 12 v3.0. Sekaligus **koreksi dokumentasi**: STNK dan
+>    Insurance adalah kelompok **Add-Ons**, bukan Sales. Baik
+>    `BTEL-CostStructure.xlsx` lama maupun file baru menempatkannya di
+>    Add-Ons; PRD/Technical Logic/Demo v3.0 salah memindahkannya ke Sales.
+> 3. **Wewenang Maker–Checker–Releaser per scope** (baru). Setiap scope
+>    (COGS, Add-Ons, Margin, Sales) punya pemilik dengan wewenang *Maker*,
+>    *Checker*, dan *Releaser*. Wewenang berbeda antara **skenario
+>    Regular (margin ≥ 10%)** dan **skenario Deviation (margin < 10%)** —
+>    pada Deviation, Pricing Committee ikut berwenang atas semua scope.
+> 4. **Validasi COGS berpindah dari "per quotation berurutan" ke "cost
+>    structure per varian yang dirilis".** Basic Workflow VKTR
+>    meng-*generate* Official Quotation secara otomatis untuk 1–9 unit
+>    dan menampilkan *estimate price* seketika — artinya cost structure
+>    per varian sudah terisi dan tervalidasi **sebelum** quotation dibuat.
+>    Urutan pengisian per quotation v3.0 (Sales → VP Operations → VP
+>    Finance → Chief Sales) **digantikan**: cost structure dipelihara &
+>    dirilis lewat Maker–Checker–Releaser (FR-1.1.2), lalu dipakai oleh
+>    seluruh quotation. Penyimpangan per deal tetap melewati
+>    Maker–Checker–Releaser pemilik scope-nya (FR-1.1.3).
+> 5. **Basic Workflow resmi VKTR** (sheet *Basic Workflow*) menggantikan
+>    dua template asumsi v3.0 (Margin-Tier & Segmen Customer):
+>    (a) **Sales To Obtain Price Estimate (per Unit)** — *self-service*,
+>    tanpa approval; (b) **Sales To Obtain Official Quotation** — KYC →
+>    validasi Sales Lead → *generate* oleh Sales Operations berdasar
+>    **kuantitas** → review Head of Sales → *routing* berbasis margin.
+> 6. **Tier margin dikoreksi menjadi 15% / 10%**, bukan 15% / 12%:
+>    GM ≥ 15% dirilis Head of Sales; 10%–15% perlu approval **COGS Owner
+>    + Profitability Owner**; < 10% perlu approval **CCO + CFO** dengan
+>    tembusan (cc) ke COGS & Profitability Owner. Penolakan dikembalikan
+>    ke **Sales Operations**. Approval 2 BOD dan opsi *BOD delegation*
+>    v3.0 dicabut.
+> 7. **Negosiasi dilebur ke jalur rilis.** Diskon ditetapkan Sales
+>    Operations (default per *quantity band*, dapat diubah manual), Head
+>    of Sales dapat merevisi, lalu tier dihitung dari GM **setelah
+>    diskon** pada langkah rilis. Negosiasi setelah quotation dirilis
+>    menghasilkan **quotation revisi** (FR-2.5) yang mengulang langkah
+>    *generate* → review → routing margin. State machine negosiasi
+>    terpisah v3.0 (Fase 3) tidak lagi dibutuhkan.
+> 8. **KYC (Module 7) masuk scope.** Sebelumnya *Out of Scope* POC; kini
+>    menjadi langkah 2 wajib Official Quotation dengan 8 field (6 wajib).
+> 9. **Quantity band** (baru): 1 unit → *auto-generate* harga dasar;
+>    2–5 dan 6–9 unit → *auto-generate* dengan opsi manual (tingkat
+>    diskon dapat diatur); 10+ unit → diproses manual.
+> 10. **Multi-line item** — satu quotation dapat berisi lebih dari satu
+>     varian kendaraan beserta kuantitasnya (KYC item b).
+> 11. **Format dokumen keluaran riil** (PDF *Cost Estimate*) — menutup
+>     sebagian Technical Logic §14 no. 13: nomor dokumen, tanggal rilis &
+>     kedaluwarsa (30 hari), blok *To* dari KYC, Sales/Account Person,
+>     *Prepared By*, tabel Quantity/Description/Unit/Total,
+>     *Inclusions*, *Exclusions (At cost)*, *Special Notes*, blok
+>     penerimaan (tanda tangan), serta halaman spesifikasi dari Product
+>     Master Data (FR-1.5.3).
+> 12. **PPN/VAT** (baru) — harga ditampilkan *excl.* dan *incl. VAT*; GM
+>     & tier dihitung dari harga *excl. VAT* (FR-1.6).
+> 13. **Skema komersial Purchase vs Rental** (baru) — dokumen contoh
+>     adalah *Rental Scheme, 5-year Contract* dengan harga per bulan
+>     (FR-1.7). Formula rental **belum diterima** dari VKTR.
+> 14. **Delivery Service boleh dirilis sebagai *Exclusion — At cost***.
+>     Dokumen contoh berbasis *loco Magelang* dan mencantumkan *Delivery
+>     To Site — At cost* sebagai pengecualian. Item `may_follow_later`
+>     kini harus **bernilai atau dinyatakan eksplisit sebagai
+>     pengecualian**, bukan otomatis memblokir rilis (FR-2.2).
+> 15. **Masa berlaku quotation** (baru) — `valid_until` & status
+>     `EXPIRED` (FR-2.9).
+> 16. **Atribut varian produk** diperjelas (make/model/type/variant,
+>     wheelbase, kapasitas baterai, aplikasi bodi, CKD/CBU, titik *loco*).
+>     Nuansa terhadap v3.0: FOB Price mencakup **kit CKD** yang dirakit di
+>     Magelang (karena itu ada Assembly Cost & Local Parts), bukan unit
+>     jadi siap pakai.
+> 17. **Role, wewenang, dan workflow dari attachment wajib dapat diatur
+>     di aplikasi** (permintaan eksplisit VKTR pasca-review). Seluruh isi
+>     sheet *Actors* dan *Basic Workflow* adalah **data konfigurasi**
+>     yang dikelola System Admin lewat menu Settings — bukan
+>     *hardcode* — termasuk menambah role, memetakan user ke role,
+>     matriks scope × Maker/Checker/Releaser × skenario, ambang dan
+>     approver tier, quantity band, serta langkah workflow (FR-5.6,
+>     FR-2.1).
+> 18. **Preview & cetak quotation** (FR-1.5.4) — hasil quotation dapat
+>     ditampilkan di layar dan dicetak/diunduh PDF dalam format *Cost
+>     Estimate* (FR-1.5.3), termasuk halaman spesifikasi, untuk setiap
+>     versi yang pernah dirilis.
 
-> **Catatan revisi v2.1.** Dua kebutuhan baru:
-> 1. **Multi-currency (FR-1.4)** — komponen biaya banyak yang berdenominasi
->    USD (BOM impor), sehingga input harus dapat dilakukan dalam **USD
->    maupun IDR** lewat *toggle*, dengan **master data nilai tukar** sebagai
->    dasar konversi. Sebelumnya seluruh input diasumsikan IDR.
-> 2. **Mineral Index Adjustment (Module 8)** — Harga Mineral Acuan (HMA)
->    yang ditetapkan Kementerian ESDM menjadi dasar perhitungan Harga
->    Patokan Mineral (HPM). Nilainya diperbarui berkala (mingguan/dua
->    mingguan) dan dipakai sebagai **penyesuaian global** terhadap komponen
->    biaya berbahan mineral saat quotation disusun.
+### Riwayat Revisi Sebelumnya (ringkas)
 
-> **Catatan revisi v3.0.** POC v2.1 telah didemokan ke Chief Sales, VP
-> Operations, dan VP Finance VKTR (lihat `transcribe.md`). Hasil review
-> tersebut mengoreksi sejumlah asumsi struktural v2.0–v2.1:
-> 1. **Master data COGS benar-benar tunggal (single source), bukan per
->    lini bisnis.** "Sampai keluar dari mesin produksi, semua sama" —
->    komponen dan nilai COGS tidak berbeda antara B2G/B2B/B2C. Yang
->    membedakan lini bisnis hanyalah **workflow approval** dan *add-on*
->    biaya di atas COGS dasar (FR-1.1 direvisi total, lihat §3 Module 1).
-> 2. **Workflow tidak lagi satu alur baku, melainkan katalog *workflow
->    template*** yang di-*assign* ke kombinasi karakteristik deal
->    (customer segment × business type). VKTR memperkirakan akan ada
->    puluhan varian workflow yang tumbuh organik pasca go-live — sistem
->    harus mendukung penambahan template tanpa mengubah kode (FR-2.0
->    direvisi, lihat Module 2).
-> 3. **Urutan pengisi cost line dikoreksi** dari asumsi awal. Urutan
->    sesungguhnya: **Sales Officer** (data customer & unit, tanpa akses
->    breakdown biaya) → **VP Operations** (biaya operasional, delivery
->    boleh menyusul) → **VP Finance** (OPEX, margin policy) → **Chief
->    Sales** (approve & rilis). Ditambahkan aktor keempat: **Product
->    Owner** (master data produk/spesifikasi/gambar untuk kebutuhan
->    dokumen quotation).
-> 4. **Discount Authority direvisi dari tangga persentase diskon menjadi
->    tangga berbasis GPM akhir** (Module 6) — tiga tingkat: margin di
->    atas target (auto-release), margin turun sampai batas menengah (3
->    pihak: Sales, Profitability Owner, Pricing Owner), margin di bawah
->    batas menengah (2 BOD). Diskon dapat diinput dalam **Rupiah atau
->    persentase**.
-> 5. **Quotation versioning berbasis Project/Customer Identifier** —
->    revisi quotation untuk deal yang sama (mis. karena qty berubah)
->    menghasilkan quotation baru yang ter-*link* ke identifier yang sama,
->    bukan quotation independen maupun edit in-place (Module 2, FR baru).
-> 6. **Exchange rate**: ditarik otomatis (mingguan, Senin 00:01) dari API
->    bank rekanan, dengan **ambang sensitivitas berbasis persentase**
->    (bukan pilihan re-kalkulasi manual semata) yang menentukan kapan
->    quotation perlu dihitung ulang (FR-1.4 direvisi).
-> 7. **Guard anomali/fraud**: satu Sales Officer dibatasi maksimal satu
->    quotation baru per hari untuk kombinasi customer + tipe unit yang
->    sama (Module 2, FR baru).
-> 8. **HMA/Mineral Index dikonfirmasi hanya berdampak melalui pergerakan
->    kurs** — bukan feed independen yang memengaruhi harga secara
->    terpisah dari FX. Module 8 disederhanakan mengikuti temuan ini.
-> 9. Module 7 (Customer KYC) **tetap Out of Scope pada POC** — lihat §8.
-> 10. **Basis kurs dikoreksi dari USD ke CNY/RMB (Renminbi).** Diskusi
->     rate sensitivity threshold BOD (`transcribe.md`) eksplisit
->     membahas **RMB** (kurs ilustratif Rp 2.500–2.700/RMB), bukan USD —
->     konsisten dengan komponen impor VKTR (FOB Price) yang dikutip
->     vendor **dalam CNY**, karena sumber BOM berasal dari Cina. FR-1.4
->     dan seluruh referensi "USD" pada v2.1 **diganti menjadi CNY/RMB**
->     sebagai mata uang asing utama untuk komponen impor dan basis
->     Exchange Rate Master Data. USD tetap tersedia sebagai *pilihan
->     tampilan/toggle* quotation ke customer (terpisah dari basis FOB),
->     bila dibutuhkan pada fase lanjutan.
+| Versi | Sumber | Inti perubahan | Status di v4.0 |
+|---|---|---|---|
+| 2.0 | Commercial Quotation Approval System Requirement | COGS Owner, release gate, negosiasi berbasis *delegated discount authority* | Prinsip release gate & *zero bypass* tetap; aktor & tangga diskon diganti |
+| 2.1 | Kebutuhan multi-currency & HMA | Input USD/IDR, Mineral Index Adjustment | Basis diganti CNY (v3.0); adjustment HMA nonaktif (v3.0) — tetap |
+| 3.0 | `transcribe.md` (demo review POC v2.1) | Master data tunggal, Workflow Template Catalog, tier berbasis GPM, Project Identifier, kurs CNY otomatis + *rate sensitivity*, Fraud Guard, Product Master Data | Sebagian besar tetap. **Dikoreksi v4.0**: aktor, urutan validasi COGS, tier 12%→10%, 2 BOD→CCO+CFO, Sales group (STNK/Insurance), KYC masuk scope |
+
+Teks lengkap catatan revisi v2.0–v3.0 tersedia di riwayat git dokumen
+ini.
 
 ---
 
 ## 1. Executive Summary & Problem Context
 
-Sebagai manufaktur dan penyedia solusi kendaraan listrik komersial, VKTR beroperasi dengan struktur biaya (*Cost Breakdown Structure*) yang kompleks — terdiri dari komponen *import/BOM*, bea masuk, karoseri, sistem baterai, instalasi infrastruktur pengisian daya, hingga garansi layanan jangka panjang.
+Sebagai manufaktur dan penyedia solusi kendaraan listrik komersial, VKTR beroperasi dengan struktur biaya (*Cost Breakdown Structure*) yang kompleks — terdiri dari harga beli kit kendaraan (FOB, dalam CNY), bea masuk, perakitan lokal di Magelang, karoseri, garansi, hingga biaya registrasi dan layanan pelengkap.
 
 Inisiatif ini dipicu oleh **transaksi komersial nyata yang mengungkap celah teknis pada proses penyusunan quotation**, yang berujung pada *final selling price* tidak sejalan dengan target profitabilitas perusahaan. Kejadian tersebut menegaskan kebutuhan akan sistem terpusat yang memvalidasi seluruh komponen harga dan persyaratan approval **sebelum** quotation dirilis ke pelanggan.
 
 Saat ini, pembentukan harga di VKTR menghadapi tantangan berikut:
 
-1. **Validasi Komponen Biaya Tidak Lengkap** — Quotation dapat dirilis sebelum seluruh komponen COGS divalidasi oleh pemiliknya (*COGS Owner*), sehingga sebagian biaya luput dari perhitungan.
-2. **Miskomunikasi Commercial ↔ COGS Owner** — Koordinasi manual antara tim komersial dan pemilik komponen biaya (VP Finance, VP Operations) rawan salah paham saat penyusunan harga.
+1. **Validasi Komponen Biaya Tidak Lengkap** — Quotation dapat dirilis sebelum seluruh komponen biaya divalidasi oleh pemiliknya (*COGS Owner*, *Profitability Owner*, *Sales Pricing Owner*), sehingga sebagian biaya luput dari perhitungan.
+2. **Miskomunikasi Commercial ↔ Pemilik Biaya** — Koordinasi manual antara tim komersial dan pemilik komponen biaya (Procurement & Operations Control, Corporate Finance) rawan salah paham saat penyusunan harga.
 3. **Proses Approval Manual** — Persetujuan berantai secara manual memperpanjang *quotation turnaround time*.
 4. **Visibilitas Profitabilitas Rendah saat Negosiasi** — Saat pelanggan meminta diskon, tidak ada alat yang menampilkan dampak diskon terhadap margin secara langsung.
 5. **Risiko *Margin Leakage*** — Gabungan dari poin di atas berpotensi menghasilkan quotation dengan margin jauh di bawah target.
-6. **Ketiadaan Decision Support System (DSS)** — Manajemen tidak memiliki alat simulasi harga (*What-If Analysis*) yang tangkas dan presisi saat bernegosiasi atau menghadapi fluktuasi variabel eksternal (kurs, harga komoditas baterai/lithium, diskon volume).
+6. **Ketiadaan Decision Support System (DSS)** — Manajemen tidak memiliki alat simulasi harga (*What-If Analysis*) yang tangkas saat bernegosiasi atau menghadapi fluktuasi variabel eksternal (kurs CNY/IDR, diskon volume).
 
-VKTR-PriceCore hadir sebagai sistem terpusat yang menggabungkan *dynamic pricing engine*, *COGS validation & approval workflow*, *commercial negotiation engine*, *observability dashboard*, dan *decision support system* dalam satu platform, terintegrasi dengan ERP dan CRM eksisting.
+VKTR-PriceCore hadir sebagai sistem terpusat yang menggabungkan *dynamic pricing engine*, *cost structure governance (Maker–Checker–Releaser)*, *quotation approval workflow*, *observability dashboard*, dan *decision support system* dalam satu platform, terintegrasi dengan ERP dan CRM eksisting.
 
-> **Prinsip kunci hasil demo review.** Komponen dan nilai COGS (biaya yang
-> terbentuk sampai unit "keluar dari mesin produksi") bersifat **sama
-> untuk semua segmen pelanggan** — satu master data tunggal, bukan
-> berbeda-beda per lini bisnis. Yang bervariasi antar segmen (B2G Tender,
-> B2B Fleet, B2C, dst.) hanyalah **alur approval** dan **komponen
-> tambahan di atas COGS dasar** (mis. karoseri custom, komisi makelar,
-> biaya akuisisi customer tertentu). Prinsip ini menyederhanakan Module 1
-> namun menuntut Module 2 (Workflow) jauh lebih fleksibel — VKTR
-> memperkirakan puluhan varian workflow akan muncul secara organik dalam
-> 6 bulan pertama pasca go-live, seiring ditemukannya kombinasi segmen ×
-> tipe deal baru.
+> **Prinsip kunci.**
+> 1. **Satu master data cost structure** untuk semua segmen pelanggan
+>    (demo review v3.0) — yang bervariasi hanyalah alur approval dan
+>    komponen di atas biaya dasar.
+> 2. **Cost structure dipelihara per varian produk dan dirilis lewat
+>    Maker–Checker–Releaser** sebelum boleh dipakai (v4.0). Karena itu
+>    Salesperson dapat melihat *estimate price* seketika dan quotation
+>    1–9 unit dapat di-*generate* otomatis — tanpa menunggu pengisian
+>    biaya per quotation.
+> 3. **Salesperson dan Authorized Agency tidak pernah melihat cost
+>    structure.** Detail cost structure hanya mengalir ke Sales
+>    Operations, Head of Sales ("*highly confidential*"), pemilik scope,
+>    dan Pricing Committee.
 
-**Tujuan akhir:** memastikan setiap quotation yang dirilis ke pelanggan telah melalui validasi biaya yang lengkap, memuat seluruh komponen harga yang dipersyaratkan, dan melindungi target margin perusahaan — sehingga risiko *margin leakage* akibat informasi harga yang tidak lengkap atau miskomunikasi dapat dihilangkan.
+**Tujuan akhir:** memastikan setiap quotation yang dirilis ke pelanggan dihitung dari cost structure yang lengkap dan sudah dirilis, memuat seluruh komponen harga yang dipersyaratkan, dan melindungi target margin perusahaan — sehingga risiko *margin leakage* akibat informasi harga yang tidak lengkap atau miskomunikasi dapat dihilangkan.
 
 ---
 
@@ -121,604 +156,789 @@ VKTR-PriceCore hadir sebagai sistem terpusat yang menggabungkan *dynamic pricing
 
 | Objective | Deskripsi |
 |---|---|
-| **Complete COGS Validation** | Tidak ada quotation yang dapat dirilis sebelum **seluruh komponen COGS mandatory** divalidasi oleh *COGS Owner* masing-masing (VP Finance & VP Operations). |
+| **Complete Cost Validation** | Tidak ada quotation yang dapat di-*generate* dari cost structure yang belum **dirilis** di keempat scope (COGS, Add-Ons, Margin, Sales), dan tidak ada quotation yang dapat dirilis sebelum seluruh penyimpangan per deal disetujui pemilik scope-nya. |
+| **Segregation of Duties** | Setiap perubahan cost structure melewati tahap *Maker*, *Checker*, dan *Releaser* sesuai matriks wewenang per scope & skenario (Regular/Deviation). |
 | **100% Process Compliance** | Mengunci alur pembentukan harga sehingga tidak ada tahap approval yang dapat dilewati (*zero bypass*). |
-| **Delegated Authority Enforcement** | Permintaan diskon otomatis dirutekan sesuai *approval authority* berjenjang berbasis **dampak margin akhir** (Sales Officer/Profitability Owner/Pricing Owner → 2 BOD), tanpa bergantung pada ingatan atau koordinasi manual. |
+| **Margin-Based Authority Enforcement** | Quotation otomatis dirutekan sesuai GM akhir setelah diskon (≥ 15% → Head of Sales; 10–15% → COGS & Profitability Owner; < 10% → CCO & CFO), tanpa bergantung pada ingatan atau koordinasi manual. |
 | **Margin Leakage Prevention** | Sistem menolak/menandai quotation yang melanggar target margin perusahaan sebelum dirilis ke pelanggan. |
-| **Single Master Data** | Satu Cost Breakdown Structure & satu set komponen biaya berlaku untuk **seluruh lini bisnis** — bukan CBS terpisah per segmen. Variasi antar segmen ditangani di lapisan *workflow* dan *add-on cost*, bukan di master data. |
-| **Agile & Configurable Workflow Catalog** | Kemampuan menambah, mengubah, dan meng-*assign* *workflow template* baru ke kombinasi segmen/tipe deal tanpa *hard-coding* atau rilis ulang aplikasi — mengantisipasi pertumbuhan organik jumlah varian workflow. |
-| **Executive DSS** | Menyediakan simulasi dampak perubahan parameter eksternal (kurs, harga material, diskon volume) terhadap *Gross Margin* secara *real-time*. |
-| **Auditability** | Setiap perubahan angka harga, diskon, dan approval harus dapat ditelusuri (*who, what, when, why*) untuk kebutuhan audit internal maupun kepatuhan sebagai perusahaan Tbk. |
+| **Complete Customer Context** | Tidak ada Official Quotation tanpa KYC lengkap (field wajib), sehingga harga selalu dapat dikaitkan dengan aplikasi, rute, dan peluang deal yang sebenarnya. |
+| **Single Master Data** | Satu struktur cost item berlaku untuk **seluruh lini bisnis**. Variasi antar segmen ditangani di lapisan *workflow* dan penyimpangan per deal, bukan di master data. |
+| **Agile & Configurable Workflow Catalog** | Kemampuan menambah dan meng-*assign* *workflow template* baru tanpa *hard-coding* atau rilis ulang aplikasi. |
+| **Executive DSS** | Simulasi dampak perubahan parameter eksternal (kurs, harga material, diskon volume) terhadap *Gross Margin* secara *real-time*. |
+| **Auditability** | Setiap perubahan angka harga, diskon, dan approval dapat ditelusuri (*who, what, when, why*) untuk audit internal maupun kepatuhan perusahaan Tbk. |
 
 ### Target Pengguna (Personas)
 
-Peran berikut mengikuti SOP quotation VKTR, dikoreksi berdasarkan hasil
-demo review (`transcribe.md`). **Urutan pengisian cost line yang benar
-adalah Sales Officer → VP Operations → VP Finance → Chief Sales** —
-bukan Chief Sales yang menyusun di awal seperti asumsi v2.0.
+Peran berikut mengikuti sheet *Actors* dan *Basic Workflow* pada
+`BTEL - Cost and Roles and Flow.xlsx`.
 
-| Persona | Fungsi | Kebutuhan Utama |
+| Persona | Peran (Role) | Scope | Fungsi dalam sistem |
+|---|---|---|---|
+| **Authorized Agency** | — (eksternal) | — | Hanya **Price Estimate** (FR-2.7): memilih varian, melihat estimasi harga per unit *excl./incl. VAT*. Tidak dapat mengajukan Official Quotation ("*only internal sales*"). |
+| **Sales Executive** | Salesperson | — | Inisiator Price Estimate & Official Quotation; mengisi KYC; tidak melihat cost structure. Permintaannya wajib divalidasi Sales Lead. |
+| **Sales Lead** | Salesperson | — | Inisiator; **memvalidasi** permintaan Sales Executive sebelum diteruskan ke Sales Operations. Permintaan yang diajukan Sales Lead sendiri langsung ke Sales Operations. |
+| **Sales Operations Manager** | Sales Pricing Owner | Sales | ***Generate*** Official Quotation sesuai *quantity band* (FR-2.8), menetapkan tingkat diskon, memproses manual 10+ unit; Maker/Checker/Releaser scope Sales. Tercantum sebagai *Prepared By* pada dokumen. |
+| **Head of Sales** | Sales Pricing Owner | Sales | Menerima quotation **beserta detail cost structure**, *accept* atau *revise*, lalu merilis (GM ≥ 15%) atau meneruskan ke approver tier; Maker/Checker/Releaser scope Sales. |
+| **Procurement Manager** | COGS Owner | COGS, Add-Ons | Maker/Checker/Releaser scope COGS & Add-Ons; approver GM 10–15%. |
+| **Head of Procurement and Operations Control** | COGS Owner | COGS, Add-Ons | Maker/Checker/Releaser scope COGS & Add-Ons; approver GM 10–15%; menerima tembusan GM < 10%. |
+| **Head of Corporate Finance** | Profitability Owner | Margin | Maker/Checker/Releaser scope Margin (kelompok Profitability); approver GM 10–15%; menerima tembusan GM < 10%. |
+| **Chief Commercial Officer (CCO)** | Pricing Committee | Semua scope (hanya Deviation) | Approver GM < 10% (bersama CFO); pada skenario Deviation berwenang Maker/Checker/Releaser di semua scope. |
+| **Chief Finance Officer (CFO)** | Pricing Committee | Semua scope (hanya Deviation) | Sama seperti CCO — keduanya wajib menyetujui. |
+| **Product Owner** | Commercial Support | Product Master Data | Mengelola varian produk, spesifikasi, gambar, brosur, dan *default* inclusions/exclusions yang tampil di dokumen. *Tidak tercantum di sheet Actors — dipertahankan dari demo review v3.0; pemegang peran perlu dikonfirmasi.* |
+| **System Admin** | IT/Operations | Konfigurasi | Katalog workflow template, matriks wewenang scope, tier margin, *quantity band*, PPN, template dokumen, hak akses. |
+
+**Pemetaan terhadap v3.0** (peran asumsi yang digantikan):
+
+| Peran v3.0 | Diganti oleh (v4.0) | Catatan |
 |---|---|---|
-| **Sales Officer** | Commercial | Input data customer, karakteristik deal (unit, qty, estimasi delivery, komisi makelar/perantara bila ada); **tidak memiliki akses** ke breakdown COGS/margin; mengajukan permintaan diskon dan meng-approve diskon dalam batas wewenangnya sendiri |
-| **VP Operations** | COGS Owner | Mengisi & memvalidasi komponen operasional (logistik, STNK, delivery — boleh disusulkan belakangan tanpa menghambat harga dasar, dan biaya operasional lain) |
-| **VP Finance** | COGS Owner / Profitability Owner | Mengisi & memvalidasi komponen finansial & margin policy (OPEX, cost of funds, sales commission, contingency buffer); pihak yang di-*remind* berkala untuk menjaga data biaya tetap segar |
-| **Chief Sales** | Commercial / Pricing Owner | Meninjau hasil rakitan seluruh COGS Owner, approve tahap akhir untuk merilis quotation, menyetujui diskon pada tingkat menengah (bersama Profitability Owner) |
-| **Product Owner** | Commercial Support | Mengelola master data produk: spesifikasi, gambar/foto, brosur, varian karoseri/bak — konten yang tampil di dokumen quotation/PDF, bukan komponen biaya |
-| **BOD / Direksi** | Executive | Meninjau *commercial case* saat margin akhir jatuh di bawah batas menengah; keputusan memerlukan **dua BOD**; Approve / Reject / Revise |
-| **System Admin** | IT/Operations | Konfigurasi katalog *workflow template* & *assignment*-nya, master data, ambang margin/wewenang diskon, dan hak akses |
+| Sales Officer | Sales Executive / Sales Lead (Salesperson) | Tidak lagi mengisi cost line apa pun — kelompok Sales kini dimiliki Sales Pricing Owner |
+| — | Sales Operations Manager | Peran baru: *generate* quotation |
+| VP Operations | Procurement Manager + Head of Procurement and Operations Control | COGS Owner |
+| VP Finance | Head of Corporate Finance | Profitability Owner |
+| Chief Sales | Head of Sales | Review & rilis; tidak lagi approver diskon tier menengah |
+| BOD (2 orang) | CCO + CFO (Pricing Committee) | Approver GM < 10% |
+| — | Authorized Agency | Peran eksternal baru, hanya Price Estimate |
 
-> **Catatan kepemilikan istilah.** Dokumen sumber menyebut tiga pihak
-> dalam governance harga: **pemilik COGS** (VP Operations & VP Finance),
-> **pemilik profitabilitas** (VP Finance, dalam konteks margin policy),
-> dan **pemilik harga jual final** (Chief Sales). Ketiganya dipakai
-> konsisten di seluruh dokumen ini sebagai *COGS Owner*, *Profitability
-> Owner*, dan *Pricing Owner*.
+> **Istilah kepemilikan.** Dokumen ini memakai empat istilah sesuai
+> sheet *Actors*: **COGS Owner** (scope COGS & Add-Ons), **Profitability
+> Owner** (scope Margin = kelompok Profitability), **Sales Pricing Owner**
+> (scope Sales), dan **Pricing Committee** (semua scope, hanya pada
+> skenario Deviation).
 
 ---
 
 ## 3. Detailed Functional Requirements (FR)
 
-### Module 1 — Dynamic Pricing Component & Master Data Engine (Data Engineering Layer)
+### Module 1 — Dynamic Pricing Component & Master Data Engine
 
-*Modul ini memetakan seluruh struktur komponen biaya dan margin secara hierarkis dan terpusat.*
+*Modul ini memetakan seluruh struktur komponen biaya dan margin secara hierarkis, terpusat, dan terkendali lewat Maker–Checker–Releaser.*
 
-> **Revisi v3.0 — master data tunggal.** Demo review mengoreksi asumsi
-> "CBS berbeda per lini bisnis" (v2.0/v2.1). Kenyataannya: **komponen dan
-> nilai COGS sampai unit selesai diproduksi adalah sama untuk semua
-> segmen pelanggan.** Yang bervariasi hanyalah workflow approval-nya
-> (Module 2) dan *add-on cost* yang ditambahkan **di atas** COGS dasar
-> untuk deal tertentu (mis. komisi makelar, biaya custom karoseri,
-> acquisition cost pelanggan spesifik). FR-1.1 dan FR-1.3 direvisi untuk
-> mencerminkan ini; kebutuhan *dynamic formula per lini bisnis* pada
-> FR-1.2 v2.1 **dicabut** karena rumus dasarnya sama untuk semua lini.
+- **FR-1.1 Mappable Cost Breakdown Structure — Satu Master Data, Kepemilikan Terkonfirmasi**
 
-- **FR-1.1 Mappable Cost Breakdown Structure (CBS) — Satu Master Data untuk Semua Lini Bisnis**
+  Setiap item biaya **wajib** memiliki *scope* dan pemilik scope —
+  kepemilikan inilah yang menggerakkan Maker–Checker–Releaser (FR-1.1.2)
+  dan *gatekeeping* (Module 2). Struktur item bersifat **tunggal** untuk
+  seluruh lini bisnis (B2G/B2B/B2C).
 
-  Setiap item biaya **wajib** memiliki *COGS Owner* — fungsi yang bertanggung jawab memvalidasinya. Kepemilikan inilah yang menggerakkan *gatekeeping* di Module 2. **CBS ini bersifat tunggal (single source)** — tidak ada CBS terpisah per B2G/B2B/B2C; struktur berikut berlaku sama untuk seluruh transaksi.
+  > **Sumber: sheet *Cost Structure* & *Actors*.** Kepemilikan kini
+  > **terkonfirmasi**, tidak lagi asumsi seperti v3.0.
 
-  > **Struktur riil (sumber: `BTEL-CostStructure.xlsx`).** Menggantikan
-  > daftar item ilustratif pada v2.0/v2.1 (Battery/Chassis/Powertrain
-  > generik). Struktur berikut adalah cost structure aktual VKTR/BTEL,
-  > dengan 4 kelompok besar. **Kepemilikan (COGS Owner) per kelompok
-  > mengikuti pola fungsi masing-masing dan masih perlu dikonfirmasi
-  > final ke VKTR sebelum implementasi** — ditandai `(asumsi)` di bawah.
-
-  | Kelompok | Item | COGS Owner *(asumsi)* |
+  | Kelompok (Scope) | Item | Pemilik scope |
   |---|---|---|
-  | **COGS** | FOB Price in CNY, FOB Price in IDR, Freight and Insurance, Custom Duties, Port Handling/Clearance/Pre-Delivery Inspection, Carrosserie Allocation, Assembly Cost, Local Parts, Accessories, Telematics, Warehousing and Storage, Warranty Cost, Initial Energy Injection, Administrative Cost | **VP Operations** |
-  | **Profitability** | VKTS Profit Before Tax, VKTS Margin, VKTR Profit Before Financing Cost, Financing Cost, VKTR Margin After Financing Cost | **VP Finance** (Profitability Owner) |
-  | **Sales** | STNK, Insurance, Incentive Internal, Incentive External, Sales Processing Cost, Agency Fee | **Sales Officer** — konsisten dengan FR-1.1.1, biaya yang melekat pada proses akuisisi/komersial per deal, bukan biaya produksi |
-  | **Add-Ons** | Processing Service, Delivery Service, KEUR, Additional | **VP Operations** — bersifat operasional pelengkap; **Delivery Service boleh disusulkan** (lihat FR-2.0), tidak menghambat harga dasar |
+  | **COGS** | FOB Price in CNY, FOB Price in IDR, Freight and Insurance, Custom Duties, Port Handling/Clearance/Pre-Delivery Inspection, Carrosserie Allocation, Assembly Cost, Local Parts, Accessories, Telematics, Warehousing and Storage, Warranty Cost, Initial Energy Injection, Administrative Cost | **COGS Owner** — Procurement Manager, Head of Procurement and Operations Control |
+  | **Add-Ons** | **STNK**, KEUR, **Insurance**, Processing Service, Delivery Service, Additional | **COGS Owner** — Procurement Manager, Head of Procurement and Operations Control |
+  | **Profitability** (scope *Margin*) | VKTS Profit Before Tax, VKTS Margin, VKTR Profit Before Financing Cost, Financing Cost, VKTR Margin After Financing Cost | **Profitability Owner** — Head of Corporate Finance |
+  | **Sales** | Incentive Internal, Incentive External, Sales Processing Cost, Agency Fee | **Sales Pricing Owner** — Head of Sales, Sales Operations Manager |
 
-  - Item bertanda `is_mandatory` tidak boleh kosong saat quotation hendak dirilis (FR-2.2). Item pada kelompok **Add-Ons** yang ditandai *boleh menyusul* (mis. Delivery Service) dikecualikan dari gate harga dasar namun tetap wajib terisi sebelum `Final Quotation Released` (FR-2.2).
-  - Penambahan item baru di tengah proses memicu *re-verification* ke COGS Owner terkait (FR-2.4).
-  - Field-field CBS diasumsikan **stabil dalam jangka panjang** (VKTR
-    menyebut "tidak berubah sampai 10 tahun ke depan") — struktur pohon
-    CBS sendiri jarang berubah; yang dinamis hanyalah *nilai* tiap item
-    per quotation.
-  - **Klasifikasi Direct/Indirect Cost** tetap dipertahankan sebagai
-    kategori pelaporan terpisah untuk kebutuhan Finance, independen dari
-    struktur kelompok/COGS Owner di atas — dipetakan silang (mis. item
-    kelompok **COGS** umumnya *Direct Cost*, item **Add-Ons**/**Sales**
-    umumnya *Indirect Cost*), pemetaan detailnya perlu dikonfirmasi
-    bersama Finance.
-  - **Role/aktor pengisi tiap kelompok belum secara eksplisit
-    dikonfirmasi** oleh VKTR pada `BTEL-CostStructure.xlsx` — kolom
-    "COGS Owner" di atas adalah pemetaan awal PriceCore mengikuti nama
-    kelompok, dan **wajib divalidasi** bersama VP Operations/VP
-    Finance/Chief Sales sebelum dipakai sebagai gatekeeping resmi (lihat
-    §14 Open Technical Decisions pada Technical Logic).
+  - **Koreksi v4.0:** STNK dan Insurance berada di **Add-Ons** (dimiliki
+    COGS Owner), bukan di Sales seperti tertulis di v3.0. Konsekuensinya
+    kedua item ini masuk **biaya dasar** dan ikut memengaruhi GM
+    (FR-1.2).
+  - **FOB Price in IDR** adalah hasil konversi FOB Price in CNY dengan
+    kurs yang dikunci (FR-1.4), bukan input terpisah.
+  - Item bertanda `is_mandatory` tidak boleh kosong saat cost structure
+    dirilis. **Delivery Service** bertanda *boleh menyusul/dikecualikan*
+    (`may_follow_later`): boleh kosong pada cost structure standar
+    karena harga berbasis *loco* (mis. *loco Magelang*), namun pada
+    quotation wajib **bernilai atau dinyatakan eksplisit sebagai
+    *Exclusion — At cost*** (FR-2.2).
+  - Struktur item dianggap stabil jangka panjang; yang dinamis adalah
+    *nilai* per varian produk dan penyimpangan per deal.
+  - **Klasifikasi Direct/Indirect Cost** dipertahankan sebagai kategori
+    pelaporan Finance, independen dari scope — pemetaan detail
+    dikonfirmasi bersama Corporate Finance.
 
-- **FR-1.1.1 Sales Add-On Cost (Non-COGS, Non-Profitability)**
+- **FR-1.1.1 Kelompok Sales (Non-COGS, Non-Profitability)**
 
-  Klarifikasi atas kelompok **Sales** pada `BTEL-CostStructure.xlsx` di
-  atas — biaya yang muncul dari proses akuisisi pelanggan tertentu,
-  bukan bagian dari COGS produksi maupun margin policy — diinput oleh
-  **Sales Officer**, contoh dari demo review: komisi makelar/perantara,
-  biaya entertainment/perjalanan terkait deal, insentif internal khusus
-  proyek (selaras dengan item Agency Fee, Incentive Internal/External,
-  Sales Processing Cost pada struktur riil). Item pada kelompok ini:
-  - Dimiliki (COGS Owner) oleh **Sales**, tidak memerlukan validasi VP
-    Operations/VP Finance.
-  - Ditambahkan sebagai *add-on* di atas harga dasar yang sudah
-    ditentukan dari CBS + margin, sebelum harga jual final terbentuk.
-  - Tetap tunduk pada FR-2.4 (Dynamic Form Adjustment) bila ditambahkan
-    setelah workflow berjalan.
+  Biaya yang muncul dari proses akuisisi pelanggan — Incentive Internal,
+  Incentive External, Sales Processing Cost, Agency Fee — **dimiliki
+  Sales Pricing Owner** (Head of Sales / Sales Operations Manager),
+  **bukan** Salesperson. Salesperson dan Authorized Agency tidak mengisi
+  maupun melihat nilai kelompok ini.
+  - Agency Fee dan Incentive External relevan untuk deal yang bersumber
+    dari **Authorized Agency** (FR-2.7).
+  - Nilai standar per varian dipelihara di cost structure (FR-1.1.2);
+    penyesuaian per deal (mis. agency fee proyek tertentu) mengikuti
+    FR-1.1.3.
 
-- **FR-1.2 Formula Engine (Satu Formula Dasar untuk Semua Lini Bisnis)**
-  - Rumus perhitungan harga dasar (COGS → margin → harga jual) **sama
-    untuk seluruh lini bisnis** — mengikuti prinsip master data tunggal
-    di FR-1.1. Variasi harga antar segmen dihasilkan oleh *add-on cost*
-    (FR-1.1.1) dan parameter workflow (Module 2), bukan oleh rumus yang
-    berbeda-beda.
-  - Integrasi data parameter eksternal (kurs CNY/IDR, faktor penyesuaian
-    mineral — lihat Module 8).
-  - Kemampuan *test/simulate* rumus secara *on-the-fly* sebelum disimpan
-    sebagai perubahan master config (bukan per lini bisnis).
-  - *Dynamic per-lini-bisnis formula builder* (versi No-Code penuh)
-    **ditunda** ke fase lanjutan — tidak dibutuhkan selama rumus dasar
-    tunggal berlaku; dicatat sebagai kemungkinan kebutuhan masa depan
-    bila VKTR menemukan lini bisnis dengan struktur harga yang benar-benar
-    berbeda (bukan sekadar workflow berbeda).
+- **FR-1.1.2 Cost Structure per Varian & Maker–Checker–Releaser (baru)**
+
+  Cost structure dipelihara **per varian produk** (FR-1.5.1) sebagai
+  *price book* berversi. Sebuah versi baru dapat dipakai oleh Price
+  Estimate dan Official Quotation hanya setelah **keempat scope-nya
+  berstatus `RELEASED`**.
+
+  - Setiap scope pada satu versi melewati tiga tahap berurutan:
+    **Maker** (mengisi/mengubah nilai) → **Checker** (memeriksa, dapat
+    mengembalikan ke Maker) → **Releaser** (merilis nilai scope
+    tersebut). Scope diproses **independen** satu sama lain — COGS dan
+    Margin dapat berjalan bersamaan.
+  - Matriks wewenang (sheet *Actors*) — skenario **Regular (margin ≥ 10%)**:
+
+    | Aktor | Scope | Wewenang |
+    |---|---|---|
+    | Head of Procurement and Operations Control | COGS, Add-Ons | Maker, Checker, Releaser |
+    | Procurement Manager | COGS, Add-Ons | Maker, Checker, Releaser |
+    | Head of Corporate Finance | Margin | Maker, Checker, Releaser |
+    | Head of Sales | Sales | Maker, Checker, Releaser |
+    | Sales Operations Manager | Sales | Maker, Checker, Releaser |
+    | Chief Commercial Officer | — | *(tidak berwenang pada skenario Regular)* |
+    | Chief Finance Officer | — | *(tidak berwenang pada skenario Regular)* |
+
+  - **Pemisahan tugas.** Sheet *Actors* memberi setiap aktor ketiga
+    wewenang sekaligus. Sistem **mencatat ketiga tahap sebagai aksi
+    terpisah** (siapa, kapan) pada setiap perubahan. Aturan default:
+    **Maker dan Checker harus orang berbeda** bila scope memiliki ≥ 2
+    aktor berwenang (COGS, Add-Ons, Sales). Scope **Margin hanya punya
+    satu aktor** (Head of Corporate Finance), sehingga pada skenario
+    Regular satu orang menjalankan ketiga tahap; sistem mengizinkan
+    namun menandai sebagai *single-actor release* di audit trail. Aturan
+    ini adalah *master config* dan **perlu dikonfirmasi** (Technical
+    Logic §14).
+  - Versi yang sudah dirilis bersifat **immutable**; perubahan nilai
+    selalu membuat versi baru. Quotation mengunci versi cost structure
+    yang dipakainya.
+  - Perubahan yang menurunkan GM standar varian ke bawah 10% hanya dapat
+    dirilis dengan wewenang skenario **Deviation** (FR-1.1.3).
+
+- **FR-1.1.3 Penyimpangan per Deal & Skenario Deviation (baru)**
+
+  Nilai cost structure standar dapat disesuaikan **per quotation**
+  (mis. karoseri khusus, agency fee proyek, *processing service*
+  tambahan) pada jalur manual/opsi manual (FR-2.8) atau saat Head of
+  Sales merevisi.
+  - Setiap penyesuaian cost line pada quotation mengikuti Maker–Checker–
+    Releaser **pemilik scope item tersebut**, sama seperti FR-1.1.2,
+    namun berlaku hanya untuk quotation itu (tidak mengubah *price
+    book*). *Interpretasi PriceCore atas sheet Actors — perlu
+    konfirmasi.*
+  - Bila GM quotation (setelah diskon) **< 10%**, quotation masuk
+    **skenario Deviation**: selain pemilik scope, **CCO dan CFO**
+    (Pricing Committee) berwenang Maker/Checker/Releaser di **semua**
+    scope untuk quotation tersebut, dan persetujuan akhirnya ada pada
+    mereka (FR-6.1).
+  - Diskon **bukan** penyimpangan cost line — diskon ditetapkan Sales
+    Operations/Head of Sales dan diatur Module 6.
+
+- **FR-1.2 Formula Engine (Satu Formula untuk Semua Lini Bisnis)**
+
+  Rumus dasar sama untuk seluruh lini bisnis:
+
+  ```
+  base_cost          = Σ COGS + Σ Add-Ons                 (dalam IDR, per unit)
+  margin_amount      = base_cost × Σ Profitability(%) + Σ Profitability(Rp)
+  sales_cost         = Σ Sales
+  list_price_ex_vat  = base_cost + margin_amount + sales_cost
+  net_price_ex_vat   = list_price_ex_vat − discount
+  GM                 = (net_price_ex_vat − sales_cost − base_cost)
+                       ÷ (net_price_ex_vat − sales_cost)
+  price_incl_vat     = net_price_ex_vat × (1 + tarif PPN)
+  ```
+
+  - **GM dihitung setelah diskon dan dari harga *excl. VAT*** — inilah
+    dasar tier (Module 6). Kelompok Sales diperlakukan sebagai
+    *pass-through* (tidak menambah maupun mengurangi GM), konsisten
+    dengan engine v3.0. Definisi ini, dan apakah profit VKTS diperlakukan
+    sebagai biaya antar-entitas bagi VKTR, **perlu dikonfirmasi**
+    Corporate Finance (Technical Logic §14).
+  - Integrasi parameter eksternal: kurs CNY/IDR (FR-1.4), tarif PPN
+    (FR-1.6).
+  - *Test/simulate* rumus *on-the-fly* sebelum disimpan sebagai master
+    config.
+  - *Dynamic formula builder* per lini bisnis **ditunda** (tetap sama
+    dengan v3.0).
+
 - **FR-1.3 Pricing Template Management**
-  - Satu template dasar (CBS items + margin factors) yang dipakai ulang
-    untuk seluruh transaksi, terlepas dari tipe deal.
-  - "Preset per tipe transaksi" pada v2.1 (Penjualan Unit vs *EV Fleet
-    Lease* vs *Charging Infra*) digantikan oleh *workflow template*
-    (Module 2) yang mengatur alur approval — bukan oleh template CBS
-    yang berbeda.
+  - Satu struktur cost item dipakai ulang untuk seluruh varian dan
+    transaksi; yang berbeda antar varian adalah **nilai** pada *price
+    book* (FR-1.1.2).
+  - Alur approval diatur Workflow Template (Module 2), bukan template
+    biaya yang berbeda.
 
 - **FR-1.4 Multi-Currency Input & Exchange Rate Master Data (basis CNY/RMB)**
 
-  > **Koreksi v3.0.** Demo review mengoreksi asumsi v2.1 bahwa komponen
-  > impor VKTR berdenominasi USD **dan** bahwa BOM dipecah jadi item
-  > terpisah (Battery/Chassis/Powertrain). Kenyataannya, unit VKTR
-  > dibeli dari BTEL sebagai **satu barang jadi (FOB)** — sudah dirakit
-  > sebelum masuk ke PriceCore, bukan dirakit dari sub-komponen di dalam
-  > sistem ini (lihat catatan "keluar dari mesin produksi" pada FR-1.1).
-  > Karena itu struktur CBS riil hanya punya **satu item "FOB Price in
-  > CNY/IDR"** yang mewakili harga beli unit jadi tersebut, bukan
-  > rincian Battery + Chassis + Powertrain sebagai item terpisah.
-  > FOB Price ini dikutip vendor **dalam CNY (Yuan/Renminbi)**, karena
-  > BTEL/sumber unit berasal dari Cina. Diskusi *rate sensitivity
-  > threshold* pada demo review eksplisit membahas **RMB** dengan kurs
-  > ilustratif Rp 2.500–2.700/RMB — bukan USD/IDR (yang berkisar
-  > Rp 16.000-an). **Basis Exchange Rate Master Data diganti dari
-  > USD→IDR menjadi CNY→IDR.** USD tetap dapat dipertahankan sebagai
-  > *pilihan tampilan* quotation ke customer (mis. untuk klien yang
-  > minta penawaran dalam USD), namun ini terpisah dari basis konversi
-  > FOB Price yang riil.
+  Tetap seperti v3.0: FOB Price dikutip vendor dalam **CNY**; komponen
+  lokal dalam **IDR**. Penyesuaian v4.0 hanya pada titik penguncian kurs,
+  karena biaya kini dipelihara di *price book*:
 
-  Komponen biaya terbesar VKTR berdenominasi **CNY** — yaitu **FOB Price** (harga beli unit jadi dari BTEL, satu angka gabungan, bukan rincian per sub-komponen mesin), sementara komponen lokal (karoseri, STNK, delivery) berdenominasi **IDR**. Memaksa seluruh input ke satu mata uang membuat pengisi harus mengonversi manual — sumber kesalahan dan hilangnya jejak angka asli dari vendor.
+  - **FR-1.4.1 Denominasi per Item** — setiap cost item punya
+    denominasi (CNY/IDR). FOB Price in CNY diinput dalam CNY oleh COGS
+    Owner; FOB Price in IDR dihitung sistem. *(Opsional, fase
+    lanjutan)*: tampilan USD untuk ringkasan ke customer.
+  - **FR-1.4.2 Exchange Rate Master Data — Otomatis Mingguan** — kurs
+    **CNY→IDR** ditarik otomatis dari API bank rekanan setiap **Senin
+    00:01**; Admin dapat *override* manual (`source = manual`).
+    Frekuensi adalah master config.
+  - **FR-1.4.3 Rate Locking** — kurs dikunci **saat versi cost structure
+    dirilis** (FR-1.1.2) dan disalin ke setiap quotation yang
+    di-*generate* dari versi tersebut. Harga yang sudah dirilis tidak
+    berubah hanya karena kurs bergerak.
+  - **FR-1.4.4 Dual Display** — tampilan internal (COGS Owner, Head of
+    Sales, approver) menampilkan CNY dan IDR beserta kurs yang dipakai.
+  - **FR-1.4.5 Currency Change Guard** — mengubah denominasi item yang
+    sudah bernilai memerlukan konfirmasi eksplisit; nilai lama tidak
+    dikonversi diam-diam.
+  - **FR-1.4.6 Rate Sensitivity Threshold** — bila kurs terbaru bergerak
+    melebihi ambang (%) terhadap kurs terkunci:
+    - banner tampil pada **versi cost structure aktif** (untuk COGS
+      Owner) dan pada **quotation yang belum dirilis**;
+    - harga **tidak** dihitung ulang otomatis — COGS Owner membuat versi
+      cost structure baru lewat Maker–Checker–Releaser, dan quotation
+      terbuka memerlukan aksi **"Hitung Ulang"** eksplisit oleh Sales
+      Operations;
+    - ambang, jenis kurs (tengah/jual/pajak), dan frekuensi tarik adalah
+      master config.
 
-  - **FR-1.4.1 Currency Toggle per Quotation** — Saat quotation dibuat, penyusun memilih mata uang input untuk komponen impor: **CNY** atau **IDR**. Seluruh cost line pada quotation tersebut diinput dalam mata uang terpilih. *(Opsional, fase lanjutan)*: toggle tampilan **USD** untuk ringkasan harga ke customer, independen dari basis CNY di atas.
-  - **FR-1.4.2 Exchange Rate Master Data — Sumber Otomatis Mingguan**
+- **FR-1.5 Product Master Data & Dokumen Quotation**
 
-    Direvisi dari "input manual saja" (v2.1) — hasil demo mengonfirmasi
-    kurs ditarik **otomatis dari API bank rekanan** (mis. BCA, yang
-    memiliki API kurs), bukan semata input manual Admin.
-    - Kurs **CNY→IDR** ditarik otomatis pada **awal minggu (Senin pukul
-      00:01)** dan disimpan sebagai baris master data baru dengan
-      *effective date*. Nilai lama tetap tersimpan untuk audit.
-    - Admin tetap dapat melakukan **override manual** kapan saja bila
-      diperlukan (mis. API tidak tersedia); baris manual dicatat dengan
-      `source = manual` untuk membedakan dari `source = bank-api`.
-    - Frekuensi tarik (mingguan) adalah **master config**, dapat diubah
-      ke harian/dua-mingguan tanpa rilis ulang.
-    - Kurs USD→IDR (bila toggle tampilan USD diaktifkan) dikelola
-      sebagai baris master data **terpisah**, tidak memengaruhi basis
-      kalkulasi COGS.
-  - **FR-1.4.3 Rate Locking & Reproducibility** — Kurs yang berlaku **saat kalkulasi dijalankan** disimpan bersama hasil perhitungan. Harga yang sudah disetujui tidak boleh berubah hanya karena kurs bergerak esok hari; setiap angka final harus dapat dijelaskan memakai kurs yang mana.
-  - **FR-1.4.4 Dual Display** — Ringkasan harga menampilkan **kedua mata uang** (CNY dan IDR) beserta kurs yang dipakai, sehingga approver dari fungsi berbeda tidak perlu menghitung sendiri.
-  - **FR-1.4.5 Currency Change Guard** — Mengubah mata uang quotation setelah cost line terisi wajib memicu konfirmasi eksplisit; nilai lama **tidak** dikonversi otomatis agar tidak ada angka yang berubah diam-diam.
-  - **FR-1.4.6 Rate Sensitivity Threshold (baru)**
+  - **FR-1.5.1 Product Master Data (varian)** — dikelola Product Owner,
+    terpisah dari biaya. Hierarki mengikuti istilah Basic Workflow:
+    **make → model → type → variant**. Atribut varian minimal (sesuai
+    dokumen contoh):
 
-    Pergerakan kurs tidak serta-merta mengubah harga quotation yang
-    sedang berjalan — hanya bila pergerakannya melebihi ambang yang
-    dikonfigurasi.
-    - Admin menetapkan **ambang sensitivitas dalam persentase** (mis.
-      2%) terhadap kurs CNY→IDR yang dipakai terakhir kali quotation
-      dihitung.
-    - Selama pergerakan kurs terbaru **berada dalam ambang**, harga
-      quotation yang sudah ada **tidak berubah** — sistem tetap memakai
-      kurs lama sampai quotation dihitung ulang secara eksplisit.
-    - Begitu pergerakan **melebihi ambang**, sistem menampilkan
-      **notifikasi visual** di halaman quotation (mis. banner: *"Kurs
-      CNY/IDR (RMB) telah diperbarui menjadi X per [tanggal, jam] —
-      melebihi ambang sensitivitas"*) kepada Sales Officer maupun
-      approver yang sedang membuka quotation tersebut.
-    - Quotation **tidak dihitung ulang secara otomatis** saat ambang
-      terlampaui — penyusun/approver wajib menekan tombol **"Hitung
-      Ulang"** secara eksplisit agar harga final ikut bergerak. Ini
-      mencegah harga berubah diam-diam tanpa disadari pengisi.
-    - Ambang, sumber kurs yang dipakai (tengah/jual/pajak), dan frekuensi
-      tarik adalah **master config**, bukan hardcode.
+    | Atribut | Contoh |
+    |---|---|
+    | Make / Model | VKTR Light Duty Truck |
+    | Konfigurasi | 4x2 |
+    | Wheelbase | Short Wheelbase / Medium Wheelbase |
+    | Baterai | 90 kWh (SWB); 90 / 132 / 169 kWh (MWB) |
+    | Aplikasi bodi | Dump(er), Aluminium & Steel Box, Load Bak, Compactor, Manhaul, Flat Bed, Refrigerated Box, Tanker, Arm Roll |
+    | Build type | CKD / CBU |
+    | Titik penyerahan (*loco*) | Magelang |
+    | Deskripsi produk (tampil di dokumen) | "VKTR Light Duty Truck 4x2, Short Wheelbase, with Dumper, Battery 90 kWh, CKD, loco Magelang, incl. VAT" |
+    | Halaman spesifikasi | brosur fitur, *multi body application*, gambar sasis, tabel spesifikasi (dimensi, baterai, performa, berat, rangka, charging, motor, PTO, axle, suspensi, rem, kabin) |
+    | *Default* Inclusions / Exclusions | mis. *Onsite training 2 minggu*, *Online training refreshment 1x*, *On-call technical support* / *Delivery To Site*, *Maintenance*, *Other Requests* (At cost) |
 
-- **FR-1.5 Product Master Data & Quotation Document Template (baru)**
+    Status `ACTIVE`/`DISCONTINUED` (soft-disable) agar quotation lama
+    tetap merujuk data yang berlaku saat itu.
+  - **FR-1.5.2 Quotation Item Linking** — Salesperson memilih varian
+    dari Product Master Data (satu atau lebih, FR-2.0 KYC b);
+    spesifikasi, deskripsi, dan *default* inclusions/exclusions terbawa
+    otomatis ke dokumen.
+  - **FR-1.5.3 Format Dokumen Official Quotation (dari contoh riil)**
 
-  Menjawab kebutuhan aktor keempat, **Product Owner**, yang muncul di
-  demo review: quotation VKTR bukan hanya angka, melainkan juga dokumen
-  komersial (dengan brosur/spesifikasi/gambar produk) yang dikirim ke
-  pelanggan — dan produk yang ditawarkan (varian sasis, karoseri, opsi)
-  terus berubah seiring linimasa produk VKTR.
+    Sistem menghasilkan PDF mengikuti **template baku** yang strukturnya
+    diambil dari dokumen contoh *Cost Estimate — PT Siborong Nusa
+    Gemilang*:
 
-  - **FR-1.5.1 Product Master Data** — Katalog produk (model kendaraan,
-    varian sasis/karoseri, spesifikasi teknis, foto/gambar, brosur)
-    dikelola terpisah dari CBS biaya, oleh **Product Owner**. Setiap
-    produk berstatus `active`/`discontinued` (soft-disable, bukan
-    delete) agar quotation lama tetap dapat merujuk data produk yang
-    berlaku saat itu.
-  - **FR-1.5.2 Quotation Item Linking** — Saat menyusun quotation, Sales
-    memilih produk dari Product Master Data; spesifikasi & gambar
-    otomatis terbawa ke dokumen quotation tanpa perlu dicari ulang.
-  - **FR-1.5.3 Format Quotation (Template PDF)** — Sistem menghasilkan
-    dokumen quotation final (PDF) mengikuti **template baku** yang
-    memuat: identitas customer & Project Identifier (FR-2.5), rincian
-    unit & harga per unit, spesifikasi/gambar produk dari Product Master
-    Data, syarat pembayaran, serta metadata approval (siapa approve,
-    kapan, nomor quotation). Template dapat memiliki **variasi tampilan
-    per lini bisnis** (mis. B2G vs B2B) namun **data sumbernya sama**
-    (konsisten dengan prinsip master data tunggal, FR-1.1).
-  - Struktur field template PDF final **perlu dikonfirmasi** bersama
-    tim Sales/Product (dokumen contoh disebutkan akan dibagikan pasca
-    demo) — dicatat sebagai *Open Technical Decision* (lihat Technical
-    Logic §14).
+    | Bagian | Isi | Sumber data |
+    |---|---|---|
+    | Judul | "COST ESTIMATE" pada contoh — judul adalah konfigurasi template | Template |
+    | Identitas penerbit | Nama & alamat lengkap PT VKTR Teknologi Mobilitas Tbk., logo | Master config |
+    | Nomor | mis. `0001/L/VKTR/RNT-EFS/09-2026` — pola: nomor urut / kode / VKTR / kode skema-kode unit / bulan-tahun | Generator nomor (FR-2.9) |
+    | Release Date / Expiry Date | 6 September 2026 / 6 October 2026 (masa berlaku 30 hari) | Tanggal rilis + masa berlaku (FR-2.9) |
+    | To | Nama perusahaan & alamat resmi lengkap customer | **KYC a** (FR-7.1) |
+    | Disclaimer | Kerahasiaan dokumen, larangan diedarkan tanpa persetujuan tertulis VKTR | Template |
+    | Sales/Account Person | Satu atau lebih nama Salesperson | Pengaju + anggota tim akun |
+    | Product | Deskripsi varian | Product Master Data |
+    | Prepared By | Nama penyusun | Sales Operations Manager yang *generate* |
+    | Tabel item | Quantity · Description (skema + deskripsi produk) · harga per unit · total | Line item quotation, skema komersial (FR-1.7) |
+    | Inclusions | Daftar layanan yang termasuk | *Default* varian, dapat disesuaikan Sales Operations |
+    | Exclusions — At cost | mis. Delivery To Site, Maintenance, Other Requests | *Default* varian + item `may_follow_later` yang tidak dinilai (FR-2.2) |
+    | Kontak | Nama, email, telepon Salesperson | Profil pengguna |
+    | Total | Total seluruh line item (*incl. VAT* pada contoh) | Kalkulasi |
+    | Special Notes or Arrangements | mis. "Delivery time and maintenance service contract details will be discussed", "Cost Estimate is not binding, the actual pricing to be confirmed post assessment" | *Default* template + catatan Head of Sales/Sales Operations |
+    | Penerimaan | "To accept this quotation, sign here and return" — Name, Title, Date | Template (FR-2.10) |
+    | Halaman Specification | Brosur & tabel spesifikasi varian | Product Master Data |
 
-### Module 2 — Quotation Approval Workflow Engine (COGS Validation)
+    - **Detail cost structure tidak pernah tercetak** di dokumen
+      pelanggan.
+    - Template dapat memiliki variasi tampilan per lini bisnis atau per
+      skema (Purchase/Rental), namun **sumber datanya sama**.
+    - Belum dikonfirmasi: arti setiap segmen nomor dokumen (`L`, `RNT`,
+      `EFS`), dan apakah judul Official Quotation memang "Cost Estimate"
+      (lihat Technical Logic §14).
 
-*Engine otomatisasi proses untuk memastikan governance, validasi COGS lengkap, dan pelacakan status quotation.*
+  - **FR-1.5.4 Preview & Cetak Quotation (baru)**
 
-> **Revisi v3.0 — dari satu alur baku menjadi katalog *workflow
-> template*.** Demo review mengoreksi asumsi bahwa satu alur (VP Finance
-> ∥ VP Operations → Chief Sales) berlaku universal. Kenyataannya: alur
-> approval **bervariasi menurut kombinasi karakteristik deal** (segmen
-> customer B2G/B2B/B2C, hubungan khusus/relasi, bidang usaha, dll.), dan
-> VKTR memperkirakan akan menemukan **puluhan varian** dalam 6 bulan
-> pertama pasca go-live. FR-2.0 dan FR-2.1 direvisi agar sistem
-> mendukung **banyak workflow template** yang di-*assign* ke deal
-> berdasarkan *qualifier* yang bersifat statis, sementara katalog
-> template itu sendiri terus bertambah tanpa perlu rilis ulang aplikasi.
+    Hasil quotation harus dapat **ditampilkan dan dicetak** dari
+    aplikasi dalam format FR-1.5.3:
+    - **Preview di layar** — tampilan halaman dokumen persis seperti
+      hasil cetak (halaman 1 penawaran + halaman *Specification*),
+      tersedia sejak quotation di-*generate* Sales Operations.
+    - **Cetak & unduh PDF** — tombol *Print* dan *Download PDF*. Hasil
+      cetak berukuran A4 dengan header/logo, nomor halaman, dan
+      disclaimer kerahasiaan di setiap halaman.
+    - **Watermark status** — quotation yang belum `QUOTATION_RELEASED`
+      tercetak dengan watermark **"DRAFT — NOT FOR CUSTOMER"** dan tanpa
+      nomor dokumen resmi; hanya versi rilis yang bernomor dan bersih.
+    - **Hak akses** — Salesperson dapat mencetak versi rilis untuk
+      dikirim ke pelanggan; Sales Operations, Head of Sales, dan approver
+      tier dapat melihat preview draft. Authorized Agency tidak dapat
+      mencetak Official Quotation (hanya melihat Price Estimate).
+    - **Cetak ulang identik** — dokumen versi rilis dibangun dari
+      *snapshot* quotation (harga, kurs, PPN, data produk, template versi
+      saat rilis), sehingga cetak ulang kapan pun menghasilkan isi yang
+      sama; quotation `SUPERSEDED`/`EXPIRED` tetap dapat dicetak dengan
+      penanda status.
+    - **Lampiran internal terpisah** — Head of Sales dan approver dapat
+      mencetak *Cost Structure Sheet* (detail cost structure, bertanda
+      *Highly Confidential*) sebagai dokumen terpisah; tidak pernah
+      digabung dengan dokumen pelanggan.
+    - Setiap aksi cetak/unduh dicatat di audit trail (`PRINT`,
+      `DOWNLOAD_PDF`).
 
-- **FR-2.0 Alur Quotation Baku (Urutan Pengisi Cost Line — Dikoreksi)**
+    > **Status aplikasi saat ini.** POC sudah memiliki tombol *Preview
+    > Quotation* dengan cetak lewat browser (Ctrl+P), namun tata letaknya
+    > masih format lama (bukan *Cost Estimate*), tanpa halaman
+    > spesifikasi, watermark draft, maupun nomor dokumen resmi. Gap ini
+    > menjadi pekerjaan Phase 1.
 
-  Urutan pengisian cost line yang sesungguhnya berjalan **sekuensial
-  penuh** antar fungsi — termasuk di dalam tahap COGS Validation itu
-  sendiri (VP Operations lalu VP Finance, bukan keduanya bersamaan) —
-  bukan Chief Sales menyusun di awal seperti asumsi v2.0, dan bukan
-  pula VP Operations ∥ VP Finance paralel seperti asumsi v2.0/v2.1:
+- **FR-1.6 PPN / VAT (baru)**
+  - Tarif PPN adalah **master config** berlaku per tanggal (tidak
+    *hardcode*), dengan catatan dasar pengenaan pajak bila tarif efektif
+    berbeda dari tarif nominal — tarif yang dipakai VKTR **dikonfirmasi
+    Corporate Finance**.
+  - Price Estimate menampilkan harga per unit **excl. VAT dan incl.
+    VAT** (Basic Workflow langkah 3b).
+  - Official Quotation menyimpan kedua nilai; dokumen menampilkan sesuai
+    template (contoh: *incl. VAT*).
+  - **GM, tier, dan guardrail selalu dihitung dari harga excl. VAT.**
+
+- **FR-1.7 Skema Komersial — Purchase vs Rental (baru)**
+  - Setiap line item memiliki skema: **Purchase** (harga per unit) atau
+    **Rental** (harga sewa per unit per bulan, dengan tenor kontrak dalam
+    bulan — contoh: *Rental Scheme, 5-year Contract*,
+    Rp 35.309.397/unit/bulan, 40 unit, total Rp 1.412.375.872/bulan).
+  - **Formula konversi harga unit → sewa bulanan belum diterima dari
+    VKTR** (mis. peran Financing Cost, nilai sisa, tenor, layanan yang
+    termasuk). Sampai dikonfirmasi: skema Rental hanya tersedia pada
+    jalur **manual** (FR-2.8), nilai sewa bulanan diinput Sales
+    Operations dengan label "formula belum dikonfirmasi", dan tier
+    margin dievaluasi dari **harga Purchase setara** varian tersebut.
+  - Pembulatan: dokumen contoh menunjukkan total dihitung dari nilai
+    per unit **sebelum dibulatkan** (35.309.397 × 40 = 1.412.375.880,
+    sedangkan total tercetak 1.412.375.872). Aturan pembulatan adalah
+    master config.
+
+### Module 2 — Quotation Workflow Engine
+
+*Engine otomatisasi proses untuk memastikan governance, kelengkapan data, dan pelacakan status quotation.*
+
+- **FR-2.0 Basic Workflow VKTR (sheet *Basic Workflow*)**
+
+  VKTR menetapkan **dua workflow dasar**. Keduanya menjadi isi awal
+  Workflow Template Catalog (FR-2.0.1).
+
+  **A. Sales To Obtain Price Estimate (per Unit)** — inisiator:
+  Salesperson di semua level, **termasuk Authorized Agency**.
+
+  | # | Langkah | Catatan |
+  |---|---|---|
+  | 1 | Salesperson mengakses aplikasi | Semua level, termasuk agensi resmi |
+  | 2 | Memilih *make, model, type, variant* kendaraan | Hanya varian dengan cost structure `RELEASED` |
+  | 3 | Menerima informasi di layar: (a) varian kendaraan; (b) estimasi harga per unit *excl.* dan *incl. VAT*; (c) informasi tambahan | Tanpa approval; lihat FR-2.7 |
+
+  **B. Sales To Obtain Official Quotation** — inisiator: Salesperson
+  (Sales Executive atau Sales Lead), **hanya sales internal**.
+
+  | # | Langkah | Aktor | Catatan |
+  |---|---|---|---|
+  | 1 | Mengakses aplikasi | Salesperson | Hanya internal |
+  | 2 | Mengisi **formulir KYC** (FR-7.1) | Salesperson | 8 field, 6 wajib |
+  | 3 | Meninjau & memverifikasi seluruh data di layar; dapat merevisi sebelum submit | Salesperson | |
+  | 4 | Validasi permintaan: (a) diajukan Sales Executive → **Sales Lead** memvalidasi, lalu ke Sales Operations; (b) diajukan Sales Lead → langsung ke Sales Operations | Sales Lead | Langkah 4a otomatis dilewati untuk pengaju Sales Lead |
+  | 5 | **Sales Operations *generate* Official Quotation** sesuai *quantity band* (FR-2.8): 1 unit → otomatis, harga dasar; 2–5 unit → otomatis + opsi manual, tingkat diskon dapat diatur; 6–9 unit → otomatis + opsi manual, tingkat diskon dapat diatur; 10+ unit → manual | Sales Operations Manager | |
+  | 6 | Official Quotation diteruskan ke **Head of Sales** berisi (a) quotation dan (b) **detail cost structure** (*highly confidential*) | Sistem | |
+  | 7 | Head of Sales *accept* atau *revise*, lalu: (a) GM ≥ 15% → **dirilis** ke Salesperson; (b) GM 10–15% → approval **COGS Owner & Profitability Owner** — setuju: dirilis; tolak: kembali ke Sales Operations; (c) GM < 10% → approval **CCO & CFO**, tembusan ke COGS & Profitability Owner — setuju: dirilis; tolak: kembali ke Sales Operations | Head of Sales → approver tier | Module 6 |
 
   ```
-  Sales Officer          VP Operations         VP Finance            Chief Sales
-  ─────────────          ─────────────         ──────────            ───────────
-  Input data customer,   Isi & validasi        Isi & validasi        Tinjau hasil rakitan,
-  unit, qty, estimasi    komponen              komponen              approve →
-  delivery, komisi       operasional           finansial &           memicu Release Gate
-  makelar (bila ada)     (delivery cost        margin policy
-  — TANPA akses          boleh menyusul,       (OPEX, cost of
-  breakdown COGS         tidak jadi stopper    funds, sales
-        │                harga dasar)          commission,
-        │                      │               contingency buffer)
-        │                      │                     │
-        └──────────────────────┴──────────┬──────────┘
-                                          ▼
-                          Harga dasar (COGS + margin) terbentuk,
-                          add-on sales cost (FR-1.1.1) ditambahkan
-                                          ▼
-                              Chief Sales approve → Release Gate
-                                          ▼
-                                Final Quotation Released
+  Salesperson ──► KYC ──► review & submit
+                              │
+               (Sales Executive)│(Sales Lead: lewati)
+                              ▼
+                     Sales Lead validates ──tolak──► kembali ke Salesperson
+                              │
+                              ▼
+          Sales Operations generate (quantity band, diskon)
+                              │
+                              ▼
+          Head of Sales (quotation + detail cost structure)
+                   accept / revise
+                              │
+            ┌─────────────────┼──────────────────┐
+         GM ≥ 15%        10% ≤ GM < 15%        GM < 10%
+            │                 │                   │
+            │      COGS Owner + Profitability   CCO + CFO
+            │      Owner (keduanya)             (keduanya; cc COGS &
+            │                 │                  Profitability Owner)
+            │           setuju│tolak          setuju│tolak
+            │                 │  └──► Sales Operations ◄──┘
+            ▼                 ▼                   ▼
+                    QUOTATION RELEASED → Salesperson
+                    (PDF format Cost Estimate, FR-1.5.3)
   ```
 
-  - **Alur bersifat sekuensial, bukan paralel**: **VP Operations wajib
-    menyelesaikan approval-nya lebih dulu**, baru tahap **VP Finance**
-    terbuka untuk diisi — ini adalah koreksi tegas terhadap asumsi v2.0
-    yang menempatkan keduanya sebagai satu tahap paralel (AND-join
-    dalam satu `step_order`). Basic Workflow v3.0 memodelkan keduanya
-    sebagai dua `step_order` terpisah (1 = VP Operations, 2 = VP
-    Finance), bukan satu `parallel_group_id`. Harga dasar sudah dapat
-    dihitung begitu komponen utama (FOB Price, karoseri, bea masuk)
-    terisi oleh VP Operations, sementara komponen pelengkap seperti
-    **biaya pengiriman/Delivery Service boleh disusulkan**
-    (`may_follow_later`) tanpa menghentikan penyusunan harga dasar.
-  - Quotation hanya dapat dirilis setelah **seluruh** COGS Owner
-    menyetujui secara berurutan — prinsip *AND-join lintas tahap*
-    (setiap tahap harus selesai sebelum tahap berikutnya dibuka) tetap
-    berlaku, tanpa ada tahap yang dapat dilewati (FR-2.2).
-  - **Sales Officer tidak memiliki akses melihat breakdown COGS/margin**
-    di tahap manapun (ditegakkan lewat RBAC/ABAC, lihat Module 5) — ia
-    hanya melihat karakteristik input yang mempengaruhi harga (mis. tier
-    diskon volume) dan harga jual final.
+  - **Salesperson tidak memiliki akses ke cost structure** di tahap
+    mana pun (Module 5); ia hanya melihat data KYC, status, dan harga
+    jual final yang dirilis kepadanya.
+  - **Validasi biaya tidak lagi terjadi per quotation secara berurutan**
+    (v3.0: VP Operations → VP Finance). Biaya divalidasi saat cost
+    structure varian dirilis (FR-1.1.2); pada quotation, pemilik scope
+    hanya terlibat bila ada penyimpangan cost line (FR-1.1.3) atau bila
+    GM jatuh ke tier yang memerlukan persetujuan mereka.
 
-- **FR-2.0.1 Workflow Template Catalog & Assignment (baru)**
+- **FR-2.0.1 Workflow Template Catalog & Assignment**
 
-  Menggantikan gagasan "satu workflow baku" dengan **katalog workflow
-  template** yang tumbuh dari waktu ke waktu:
-  - Setiap **Workflow Template** mendefinisikan: urutan/tahapan approval,
-    *parallel group*, SLA per tahap, dan aturan eskalasi — persis
-    seperti `workflow_definition` pada versi sebelumnya, namun kini
-    eksplisit sebagai **satu dari banyak** template yang bisa dipilih.
-  - **Qualifier** (kriteria pemilihan template) bersifat **statis** dan
-    dikonfigurasi sebagai master config, contoh: segmen customer
-    (B2G/B2B/B2C), status *blacklist*, ambang nilai transaksi, indikasi
-    relasi khusus. Qualifier inilah yang tidak sering berubah — yang
-    bertambah adalah **jumlah template** dan pemetaannya ke qualifier.
-  - Saat quotation dibuat, sistem **otomatis memilih Workflow Template**
-    yang cocok berdasarkan qualifier deal tersebut — pengaju tidak
-    memilih workflow secara manual (konsisten dengan prinsip *no
-    authority bypass* di Module 6).
-  - Admin dapat **menambah Workflow Template baru** dan mengubah
-    pemetaan qualifier → template kapan saja, tanpa memengaruhi
-    quotation yang sedang berjalan di template lama (setiap
-    `workflow_instance` mengunci template versi saat quotation dibuat).
-  - Ditujukan untuk mengakomodasi pertumbuhan organik: dimulai dari
-    beberapa template dasar (mis. B2G Tender, B2B Fleet Standard), lalu
-    bertambah seiring ditemukannya kasus khusus di lapangan.
+  Tetap seperti v3.0 — alur disimpan sebagai **katalog template** yang
+  dipilih otomatis berdasarkan *qualifier* (segmen customer, nilai
+  transaksi, dll.), dapat ditambah Admin tanpa rilis ulang, dan setiap
+  quotation mengunci versi template saat dibuat. Penyesuaian v4.0:
+  - Step dapat memiliki **kondisi lewati** berbasis peran pengaju (mis.
+    validasi Sales Lead dilewati bila pengaju adalah Sales Lead).
+  - Step *generate* Sales Operations membaca **quantity band** (FR-2.8)
+    untuk menentukan mode otomatis/manual.
+  - **Routing tier margin (langkah 7) tidak diatur template** — ditentukan
+    matriks tier (Module 6) dari GM akhir, sehingga template tidak dapat
+    melemahkan wewenang margin.
 
-- **FR-2.0.2 Basic Workflow — Minimal Dua Varian untuk POC/Go-Live Awal**
+- **FR-2.0.2 Basic Workflow Saat Go-Live**
 
-  Agar katalog (FR-2.0.1) tidak kosong saat go-live, PriceCore
-  menyediakan **minimal dua workflow template dasar**, mewakili dua
-  sumbu variasi yang disebut eksplisit pada demo review:
+  Katalog berisi minimal dua workflow dasar dari VKTR: **Price
+  Estimate** (FR-2.0 A) dan **Official Quotation** (FR-2.0 B). Template
+  asumsi v3.0 ("Margin-Tier" dan "Segmen Customer") **dicabut** sebagai
+  template dasar — tier margin kini melekat pada langkah 7 semua
+  Official Quotation, sedangkan varian per segmen (mis. B2G dengan
+  dokumentasi tambahan) dapat ditambah kemudian lewat FR-2.0.1.
 
-  1. **Berdasarkan Profitability/Margin Tier** — alur approval mengikuti
-     tiga tingkat pada Discount Authority Engine (Module 6): rilis
-     otomatis di atas target margin, 3-pihak (Sales, Profitability
-     Owner, Pricing Owner) pada tingkat menengah, 2 BOD pada tingkat
-     terendah. Workflow ini **dipicu oleh hasil kalkulasi margin**, bukan
-     oleh identitas customer.
-  2. **Berdasarkan Industri/Segmen Customer (B2B/B2G/B2C)** — alur
-     approval mengikuti kompleksitas administratif segmen, contoh: B2G
-     mensyaratkan tahap approval tambahan/dokumentasi lebih ketat
-     dibanding B2B/B2C standar, terlepas dari besaran margin.
+- **FR-2.1 No-Code/Low-Code Workflow Configurator (Settings → Workflow)**
+  - Admin membentuk dan mengubah alur (sekuensial maupun **paralel**)
+    untuk setiap Workflow Template dalam katalog **lewat UI aplikasi**.
+  - Kedua Basic Workflow (FR-2.0) tampil sebagai template yang dapat
+    diubah, bukan alur *hardcode*. Setiap langkah dikonfigurasi dengan:
+    nama langkah, **role pelaksana** (dari Role Settings, FR-5.6), jenis
+    aksi (isi KYC / validasi / *generate* / review / approval),
+    **kondisi lewati** (mis. "lewati bila pengaju = Sales Lead"), tujuan
+    bila ditolak (mis. "kembali ke Salesperson" / "kembali ke Sales
+    Operations"), SLA (jam), dan penerima tembusan (cc).
+  - Mendukung *parallel group* (AND-join).
+  - Pengaturan terkait yang juga dapat diubah dari UI: **quantity band**
+    (batas & mode otomatis/manual/diskon *default*, FR-2.8) dan **tier
+    margin** (ambang, role approver, role tembusan, tujuan bila ditolak —
+    Module 6). Keduanya tetap terpisah dari template agar template tidak
+    dapat melemahkan wewenang margin.
+  - Setiap perubahan konfigurasi membuat **versi baru**, tercatat di
+    audit trail; quotation berjalan tetap memakai versi yang dikuncinya.
+  - Validasi saat simpan: setiap langkah punya role yang memiliki
+    minimal satu user aktif; tidak ada langkah tanpa tujuan tolak; urutan
+    tidak membentuk siklus.
+  - Eskalasi berbasis nilai transaksi dapat dikonfigurasi; eskalasi
+    berbasis margin tetap milik matriks tier (Module 6).
 
-  Kedua varian ini adalah **starting point**, bukan daftar akhir — Admin
-  dapat menambah workflow template lain (kombinasi keduanya, atau sumbu
-  baru sama sekali) kapan saja lewat FR-2.0.1/FR-2.1 tanpa rilis ulang.
+  > **Status aplikasi saat ini.** Halaman Admin POC sudah dapat
+  > membuat Workflow Template baru (langkah per departemen), namun belum
+  > mendukung kondisi lewati, tujuan tolak per langkah, tembusan, edit
+  > quantity band, maupun edit tier margin (tier masih tampil
+  > *read-only*).
 
-- **FR-2.1 No-Code/Low-Code Workflow Configurator**
-  - Admin dapat membentuk dan mengubah alur persetujuan (sekuensial maupun **paralel**) sesuai matriks otorisasi perusahaan, untuk **setiap Workflow Template** dalam katalog (FR-2.0.1).
-  - Mendukung *parallel group*: beberapa approver dalam satu tahap yang harus selesai semua sebelum lanjut.
-  - Eskalasi otomatis berdasarkan nilai transaksi maupun **dampak margin akhir** (lihat Module 6 — direvisi dari "besaran diskon" murni).
-- **FR-2.2 Strict Gatekeeping & State Locking**
-  - Quotation tidak dapat maju ke tahap berikutnya sebelum seluruh *mandatory COGS component* milik tahap tersebut divalidasi oleh pemiliknya.
-  - **Release gate**: `Final Quotation Released` mustahil tercapai selama masih ada komponen mandatory yang belum tervalidasi — ini adalah penjaga utama terhadap *margin leakage*.
-  - Komponen yang ditandai **boleh menyusul** (mis. delivery cost — FR-2.0) dikecualikan dari gate harga dasar, namun tetap wajib terisi sebelum *Final Quotation Released* tercapai.
+- **FR-2.2 Strict Gatekeeping & Release Gate**
+  - Quotation hanya dapat di-*generate* dari varian dengan cost
+    structure versi `RELEASED` di keempat scope.
+  - Quotation tidak dapat disubmit sebelum **seluruh field KYC wajib**
+    terisi (FR-7.3).
+  - **Release gate**: `QUOTATION_RELEASED` mustahil tercapai bila:
+    1. ada item mandatory tanpa nilai;
+    2. ada item `may_follow_later` (Delivery Service) yang **tidak
+       bernilai dan tidak dinyatakan sebagai *Exclusion — At cost***;
+    3. ada penyimpangan cost line (FR-1.1.3) yang belum dirilis pemilik
+       scope-nya;
+    4. persetujuan tier margin (Module 6) belum lengkap (AND-join);
+    5. quotation sudah melewati masa berlaku data harga (kurs melewati
+       ambang tanpa "Hitung Ulang", FR-1.4.6).
+  - Item yang dinyatakan *Exclusion — At cost* otomatis tercetak di
+    bagian **Exclusions** dokumen, sehingga tidak ada biaya yang hilang
+    tanpa disadari pelanggan maupun VKTR.
+
 - **FR-2.3 Rejection & Routing Logic**
-  - **Approve with Conditions**: Persetujuan dengan catatan khusus yang tercatat di log hingga fase eksekusi.
-  - **Targeted Rejection**: Penolakan dapat dikembalikan langsung ke pihak spesifik (misal: Reject dari VP Finance dikembalikan ke Chief Sales) tanpa membatalkan *draft* dari awal.
+  - **Sales Lead menolak** → quotation kembali ke Salesperson (status
+    Draft) dengan catatan; data KYC tidak dihapus.
+  - **Head of Sales *revise*** → Head of Sales dapat mengubah diskon dan
+    scope Sales, atau mengembalikan ke Sales Operations dengan catatan.
+  - **Approver tier (COGS & Profitability Owner, atau CCO & CFO)
+    menolak** → quotation **kembali ke Sales Operations** (langkah 5),
+    bukan dibatalkan; Sales Operations menyusun ulang lalu alur berjalan
+    lagi dari langkah 6.
+  - **Approve with Conditions** tetap tersedia; catatan terbawa ke
+    dokumen (*Special Notes*) bila ditandai untuk pelanggan.
+
 - **FR-2.4 Dynamic Form Adjustment**
-  - Jika terdapat komponen biaya baru yang ditambahkan di tengah proses, alur kerja secara otomatis mengarahkan formulir ke **COGS Owner** pemilik komponen tersebut untuk diverifikasi ulang.
-  - Berlaku juga untuk **Sales Add-On Cost** (FR-1.1.1) yang ditambahkan setelah quotation disubmit — diarahkan kembali ke Sales Officer, tanpa memicu re-verifikasi COGS Owner lain.
+  - Penyesuaian cost line pada quotation diarahkan ke Maker–Checker–
+    Releaser **pemilik scope item tersebut** (FR-1.1.3).
+  - Penambahan cost item baru ke master memicu versi cost structure baru
+    yang harus dirilis ulang di scope terkait sebelum dipakai quotation
+    baru; quotation yang sudah berjalan tetap memakai versi lamanya.
 
-- **FR-2.5 Project/Customer Identifier & Quotation Versioning (baru)**
+- **FR-2.5 Project/Customer Identifier & Quotation Versioning**
 
-  Menjawab kebutuhan melacak riwayat quotation untuk deal yang sama saat
-  terjadi revisi (mis. qty berubah dari negosiasi), tanpa kehilangan
-  jejak harga yang pernah diberikan ke pelanggan.
-  - Setiap quotation request **wajib** dikaitkan dengan satu **Project
-    Identifier** — kode alfanumerik unik yang merepresentasikan
-    kombinasi customer + proyek/lokasi (mis. dua proyek berbeda untuk
-    customer yang sama tetap mendapat identifier berbeda).
-  - Sales Officer cukup memasukkan **nama customer** dan **nama
-    proyek/lokasi**; sistem yang men-generate Project Identifier secara
-    konsisten (bukan diketik manual oleh Sales), sehingga penamaan tetap
-    terstandardisasi.
-  - Revisi terhadap deal yang sama (unit berubah, harga dinegosiasi
-    ulang setelah rilis, dst.) **menghasilkan quotation baru** yang
-    ter-*link* ke Project Identifier yang sama — **bukan** edit in-place
-    dan **bukan** adendum, agar histori harga yang pernah dikirim ke
-    pelanggan tetap utuh untuk audit.
-  - Quotation lama pada Project Identifier yang sama otomatis ditandai
-    `SUPERSEDED` ketika quotation baru untuk project tersebut dirilis.
-  - Dashboard (Module 3) dapat mengelompokkan seluruh quotation dalam
-    satu Project Identifier sebagai satu linimasa (`Quotation #1 dasar →
-    #2 revisi qty → #3 revisi harga`, dst.).
+  Tetap seperti v3.0, dengan kaitan langsung ke KYC:
+  - Setiap Official Quotation **wajib** terkait satu **Project
+    Identifier** yang di-*generate* sistem dari nama customer + nama
+    proyek/lokasi.
+  - **KYC item c** menentukan kaitannya: **Proyek baru** → identifier
+    baru; **Tambahan untuk proyek berjalan** atau **Penggantian
+    (*replacement*)** → Salesperson memilih identifier yang sudah ada.
+  - Revisi (qty berubah, harga dinegosiasi ulang, kedaluwarsa)
+    **menghasilkan quotation baru** yang ter-*link* ke identifier yang
+    sama — bukan edit in-place. Quotation lama otomatis `SUPERSEDED`
+    ketika penggantinya dirilis.
+  - Revisi yang **mengubah data KYC** (termasuk varian/qty) melewati
+    validasi Sales Lead lagi; revisi **harga/diskon saja** mulai dari
+    langkah Sales Operations.
+  - Dashboard menampilkan seluruh quotation satu identifier sebagai satu
+    linimasa.
 
-- **FR-2.6 Duplicate/Fraud Guard — Batas Quotation Harian (baru)**
+- **FR-2.6 Duplicate/Fraud Guard — Batas Quotation Harian**
 
-  Mencegah penyalahgunaan sistem untuk menerbitkan quotation secara
-  serampangan (anomali dibandingkan pola penjualan riil, di mana satu
-  sales jarang menerbitkan lebih dari satu quotation per hari untuk
-  customer yang sama).
-  - Sistem membatasi **satu Sales Officer** membuat maksimal **satu
-    quotation baru per hari** untuk kombinasi **customer yang sama +
-    tipe unit yang sama**.
-  - Batas ini adalah **master config** (jumlah maksimum & jendela waktu
-    dapat diubah oleh Admin), bukan hardcode.
-  - Percobaan yang melampaui batas ditolak di *service layer* dengan
-    pesan eksplisit, dan tercatat di audit trail sebagai kandidat
-    anomali untuk ditinjau System Admin/Chief Sales.
+  Tetap seperti v3.0: satu Salesperson maksimal **satu Official
+  Quotation baru per hari** untuk kombinasi **customer + varian** yang
+  sama (master config). Percobaan berlebih ditolak di *service layer*
+  dan tercatat sebagai `BLOCKED_DUPLICATE_ATTEMPT`. Revisi via FR-2.5
+  dikecualikan. **Price Estimate tidak dibatasi** namun setiap
+  permintaan tercatat (FR-2.7).
+
+- **FR-2.7 Price Estimate Self-Service (baru)**
+  - Tersedia untuk Sales Executive, Sales Lead, dan **Authorized
+    Agency**.
+  - Pengguna memilih varian; sistem menampilkan **harga dasar per unit
+    (1 unit, tanpa diskon) excl. dan incl. VAT**, deskripsi varian, dan
+    informasi tambahan (spesifikasi ringkas, *default* inclusions/
+    exclusions, catatan "estimasi tidak mengikat").
+  - Hanya varian dengan cost structure `RELEASED` yang tampil; tidak ada
+    approval; **tidak ada elemen cost structure yang ditampilkan**.
+  - Setiap estimasi dicatat (pengguna, varian, harga, versi cost
+    structure, waktu) untuk analitik permintaan dan audit.
+  - Price Estimate **bukan** dokumen penawaran; tidak bernomor dan tidak
+    dapat dikirim sebagai quotation resmi.
+
+- **FR-2.8 Quantity Band Processing (baru)**
+
+  | Band | Kuantitas | Mode *generate* | Diskon |
+  |---|---|---|---|
+  | 1 | 1 unit | **Otomatis**, harga dasar | Tidak ada |
+  | 2 | 2–5 unit | **Otomatis + opsi manual** | Tingkat diskon *default* band, dapat diatur & diperbarui Sales Operations |
+  | 3 | 6–9 unit | **Otomatis + opsi manual** | Tingkat diskon *default* band, dapat diatur & diperbarui Sales Operations |
+  | 4 | ≥ 10 unit | **Manual** oleh Sales Operations | Ditetapkan per deal |
+
+  - Batas band dan tingkat diskon *default* adalah **master config**,
+    dikelola Sales Pricing Owner lewat Maker–Checker–Releaser.
+  - Band 1: quotation di-*generate* dan diteruskan otomatis ke Head of
+    Sales. Band 2–3: quotation di-*generate* otomatis lalu menunggu
+    konfirmasi/penyesuaian Sales Operations. Band 4: Sales Operations
+    menyusun quotation (diskon, skema, inclusions/exclusions,
+    penyimpangan cost line) sebelum meneruskan.
+  - Untuk quotation multi-varian: band ditentukan **per line item**
+    (kuantitas varian tersebut); bila ada satu line item di band 4,
+    seluruh quotation diproses manual. *Aturan ini perlu konfirmasi
+    VKTR.*
+
+- **FR-2.9 Masa Berlaku, Penomoran & Kedaluwarsa (baru)**
+  - Nomor dokumen di-*generate* saat rilis mengikuti pola master config
+    (contoh: `0001/L/VKTR/RNT-EFS/09-2026`).
+  - `valid_until` = tanggal rilis + masa berlaku (*default* 30 hari,
+    sesuai contoh 6 Sep → 6 Okt 2026), master config.
+  - Quotation yang melewati `valid_until` tanpa diterima berubah status
+    menjadi **`EXPIRED`**; perpanjangan dilakukan dengan revisi (FR-2.5)
+    agar harga dihitung ulang dari cost structure & kurs terbaru.
+
+- **FR-2.10 Penerimaan Pelanggan (baru)**
+  - Dokumen memuat blok tanda tangan penerimaan (Name, Title, Date).
+  - Salesperson mengunggah salinan yang ditandatangani pelanggan →
+    quotation berstatus diterima (`outcome = WON`), menjadi data Win/Loss
+    Analytics (FR-4.3). Penolakan pelanggan dicatat sebagai `LOST`
+    beserta alasan.
+  - E-signature *Out of Scope* (§8).
 
 ### Module 3 — State Tracking & Observability Dashboard
 
 *Sistem pelacakan transparan untuk visibilitas posisi penawaran harga.*
 
 - **FR-3.1 Quotation Lifecycle Tracker (Kanban & Table View)**
-  - Pelacakan status quotation secara visual (*Drafting*, *Pending COGS Validation*, *Pending Chief Sales Review*, *Pending BOD Approval*, *Quotation Released*).
-  - Menampilkan status per COGS Owner secara terpisah sesuai tahapnya masing-masing (mis. VP Operations ✔ selesai → VP Finance ⏳ sedang berjalan) — bukan dua status paralel bersamaan.
-  - Filter kompleks: berdasarkan pemilik COGS, status, tanggal, dan nilai transaksi.
+  - Status Official Quotation: *Draft (KYC)*, *Pending Sales Lead
+    Validation*, *Pending Sales Operations*, *Pending Head of Sales
+    Review*, *Pending Owner Approval (GM 10–15%)*, *Pending Pricing
+    Committee Approval (GM < 10%)*, *Quotation Released*, *Expired*,
+    *Superseded*.
+  - Status cost structure per varian: per scope *Draft → Checked →
+    Released*, sehingga COGS Owner, Profitability Owner, dan Sales
+    Pricing Owner melihat antrean masing-masing.
+  - Pengelompokan per **Project Identifier**; filter berdasarkan status,
+    varian, quantity band, tier margin, tanggal, dan nilai transaksi.
 - **FR-3.2 SLA Timer & Automated Escalation**
-  - Indikator durasi di setiap tahapan. Integrasi notifikasi (Email, MS Teams, atau WhatsApp API) jika *review* tertahan melebihi batas SLA (misal: > 24 jam).
+  - Indikator durasi di setiap tahapan (termasuk Maker–Checker–Releaser
+    cost structure). Notifikasi (Email, MS Teams, atau WhatsApp API) bila
+    tertahan melebihi SLA (mis. > 24 jam). Tembusan (cc) tier GM < 10%
+    ke COGS & Profitability Owner dikirim lewat kanal yang sama.
 - **FR-3.3 Immutable Audit Trail**
-  - Pencatatan riwayat perubahan (*who, what, when, why*): siapa yang mengubah angka margin, kapan variabel biaya berubah, beserta dokumen pendukungnya. Log bersifat *append-only*, tidak dapat diedit atau dihapus.
+  - Pencatatan riwayat perubahan (*who, what, when, why*): Maker,
+    Checker, Releaser tiap perubahan cost structure; siapa mengubah
+    diskon; siapa menyetujui tier. Log *append-only*.
 
 ### Module 4 — Decision Support System (DSS) & Simulation Engine
 
-*Modul analitis berbasis data untuk membantu manajemen menetapkan harga secara presisi.*
-
 - **FR-4.1 "What-If" Sensitivity Simulator**
-  - Simulasi langsung pada antarmuka manajemen dengan *slider control*:
-    - Dampak fluktuasi kurs (misal: CNY/IDR naik 3%).
-    - Dampak perubahan harga material baterai/komponen impor.
-    - Dampak pemberian *volume discount* terhadap margin profitabilitas.
-  - Output instan: visualisasi *Gross Profit Margin (GPM)*, *EBITDA Contribution*, dan *Break-Even Point (BEP)*.
+  - *Slider control*: fluktuasi kurs CNY/IDR, perubahan harga FOB/material
+    impor, dan diskon volume terhadap margin.
+  - Output instan: *Gross Margin*, *EBITDA Contribution*, *Break-Even
+    Point*, serta **tier margin** yang akan berlaku.
 - **FR-4.2 Intelligent Margin Guardrails & Anomaly Detection**
-  - Peringatan otomatis (*alert*) jika kombinasi biaya menyebabkan margin proyek berada di bawah batas ambang (*threshold*) yang ditetapkan manajemen.
-  - Deteksi lonjakan biaya tak wajar dibanding historis proyek sejenis (*Cost Outlier Alert*).
+  - Peringatan bila kombinasi biaya/diskon menurunkan GM di bawah 15%
+    (butuh approval Owner) atau 10% (butuh Pricing Committee).
+  - Deteksi lonjakan biaya tak wajar dibanding versi cost structure
+    sebelumnya dan historis deal sejenis (*Cost Outlier Alert*).
 - **FR-4.3 Win/Loss Pricing Analytics**
-  - Analisis tren harga penawaran historis yang berhasil dimenangkan vs kalah dalam tender untuk memberikan rekomendasi *Optimal Price Band*.
+  - Analisis harga historis yang diterima vs ditolak (FR-2.10) untuk
+    rekomendasi *Optimal Price Band*; *Likelihood* KYC (FR-7.1)
+    dibandingkan dengan hasil aktual.
 
 ### Module 5 — Auth, User Management & Enterprise Integration
 
-- **FR-5.1 Authentication & User Management** — Login, validasi akun, manajemen pengguna (CRUD), *activity log* login/aksi user.
-- **FR-5.2 RBAC/ABAC Permission Engine** — Hak akses granular berbasis peran & departemen.
-- **FR-5.3 API-First ERP Integration** (SAP/Odoo) — Sinkronisasi *master BOM* dan data *costing* dua arah; *fallback* dump data per tabel bila API tidak tersedia.
-- **FR-5.4 CRM Integration** (Salesforce/HubSpot) — Penarikan data pra-penjualan (*pre-sales pull*) dan push *approved pricing* kembali ke CRM.
+- **FR-5.1 Authentication & User Management** — Login, validasi akun, manajemen pengguna (CRUD), *activity log*. Termasuk **akun eksternal Authorized Agency** dengan masa berlaku dan pemutusan akses terkendali.
+- **FR-5.2 RBAC/ABAC Permission Engine** — Hak akses granular berbasis peran, **scope cost structure**, dan wewenang Maker/Checker/Releaser per skenario (Regular/Deviation). Salesperson & Authorized Agency tidak dapat membaca cost structure apa pun.
+- **FR-5.3 API-First ERP Integration** (SAP/Odoo) — Sinkronisasi data *costing* dua arah; *fallback* dump data per tabel bila API tidak tersedia.
+- **FR-5.4 CRM Integration** (Salesforce/HubSpot) — Penarikan data pra-penjualan dan push quotation yang dirilis kembali ke CRM.
 - **FR-5.5 Notification Integration** — Email, MS Teams webhook, WhatsApp API.
+- **FR-5.6 Role & Authority Settings (baru)**
 
-### Module 6 — Commercial Negotiation & Margin-Based Discount Authority
+  Isi sheet *Actors* dikelola sebagai data lewat menu **Settings →
+  Roles & Authorities**, bukan daftar role *hardcode*:
+  - **Role** — Admin dapat menambah, mengubah nama, dan menonaktifkan
+    role (mis. Sales Executive, Sales Lead, Sales Operations Manager,
+    Head of Sales, Procurement Manager, Head of Procurement and
+    Operations Control, Head of Corporate Finance, CCO, CFO, Authorized
+    Agency, Product Owner). Role dikelompokkan ke **peran fungsional**
+    (Salesperson, COGS Owner, Profitability Owner, Sales Pricing Owner,
+    Pricing Committee) yang dirujuk workflow dan tier.
+  - **Pemetaan user → role** — satu user dapat memegang lebih dari satu
+    role; akun Authorized Agency ditandai eksternal.
+  - **Matriks Scope Authority** — grid role × scope (COGS, Add-Ons,
+    Margin, Sales) × skenario (Regular / Deviation) dengan centang
+    **Maker / Checker / Releaser**, persis bentuk sheet *Actors*.
+    Ambang pemisah skenario (default 10%) juga dapat diubah.
+  - **Aturan pemisahan tugas** — pilihan "Maker ≠ Checker", "Checker ≠
+    Releaser" per scope (FR-1.1.2).
+  - **Hak akses layar** — siapa dapat melihat cost structure, Price
+    Estimate, preview/cetak quotation, dan Settings.
+  - **Import/Export** matriks dalam format Excel yang sama dengan sheet
+    *Actors*, agar VKTR dapat meninjau di spreadsheet lalu mengunggah
+    kembali (dengan preview perubahan sebelum diterapkan).
+  - Perubahan berlaku untuk aksi berikutnya, tercatat di audit trail,
+    dan tidak mengubah jejak persetujuan yang sudah terjadi.
 
-*Modul yang mendigitalkan proses negosiasi harga dengan pelanggan sesuai hierarki wewenang diskon.*
+  > **Status aplikasi saat ini.** Role POC masih berupa daftar tetap
+  > di kode (7 role v3.0: Sales Officer, Chief Sales, VP Finance, VP
+  > Operations, Product Owner, BOD, System Admin) tanpa UI pengaturan.
+  > Migrasi ke role sheet *Actors* sekaligus membuatnya dapat diatur
+  > adalah pekerjaan Phase 1.
 
-> **Revisi v3.0 — dari tangga persentase diskon menjadi tangga berbasis
-> margin akhir.** Demo review mengoreksi model v2.0/v2.1 (Sales Officer
-> ≤3% → Chief Sales ≤8% → BOD): wewenang persetujuan **sesungguhnya
-> ditentukan oleh GPM akhir hasil kalkulasi**, bukan oleh besaran diskon
-> mentah. VKTR menjelaskan tiga tingkat baku: (1) margin ≥ target →
-> harga *default* per unit sudah tertentu, tanpa approval tambahan; (2)
-> margin turun sampai batas menengah (ilustrasi rapat: sampai ~10–12%)
-> → cukup disetujui **3 pihak** (Sales/Customer Owner, Profitability
-> Owner, Pricing Owner) — bahkan berpotensi *bypass* BOD di titik ini
-> bila ada pelimpahan wewenang eksplisit dari BOD, namun keputusan rapat
-> tetap **mengunci batas aman di 12%** sebagai pagar; (3) margin di
-> bawah itu (ilustrasi: ~8,5–9%) → wajib **dua orang BOD**. FR-6.1–FR-6.4
-> direvisi total mengikuti model ini; **input diskon kini mendukung
-> Rupiah maupun persentase** (FR-6.1.1, baru).
+### Module 6 — Discount & Margin-Tier Approval
 
-- **FR-6.0 Alur Negosiasi Baku (Margin-Tier)**
+*Mendigitalkan penetapan diskon dan hierarki wewenang berbasis margin sesuai langkah 5–7 Basic Workflow Official Quotation.*
 
-  ```
-  Customer Requests Price Negotiation
-  (Sales input dalam Rupiah ATAU persentase — FR-6.1.1)
-                 │
-                 ▼
-  Hitung ulang GPM hasil akhir bila diskon diterapkan
-                 │
-                 ▼
-  GPM akhir ≥ Tier 1 threshold (target margin)?  ──YES──► Auto-release,
-                 │ NO                                       tanpa approval tambahan
-                 ▼
-  GPM akhir ≥ Tier 2 threshold (batas menengah,
-  ilustrasi 12%)?                                ──YES──► 3 pihak approve:
-                 │ NO                                       Sales/Customer Owner ∥
-                 │                                          Profitability Owner ∥
-                 │                                          Pricing Owner (semua ACK)
-                 ▼
-        Wajib 2 (dua) orang BOD
-                 │
-                 ▼
-        Approve / Reject / Revise
-                 │
-                 ▼
-        Final Quotation Released
-  ```
+> **Revisi v4.0.** Tier dikoreksi menjadi **15% / 10%** dan approver
+> diganti sesuai sheet *Basic Workflow* langkah 7. Persetujuan tier kini
+> **bagian dari jalur rilis quotation**, bukan state machine negosiasi
+> terpisah pasca-rilis seperti v3.0. Opsi *BOD delegation* dicabut.
 
-  - **Tier ditentukan oleh hasil GPM setelah diskon diterapkan**, bukan
-    oleh persentase diskon itu sendiri — dua quotation dengan diskon %
-    yang sama bisa jatuh ke tier berbeda bila margin dasarnya berbeda.
-  - Ambang tiap tier (target margin, batas menengah, batas terendah)
-    adalah **master config per lini bisnis/segmen**, bukan angka
-    hardcode — dikonfirmasi bersama Finance/BOD sebelum go-live
-    (angka ilustratif rapat: ≥15% Tier 1, ~10–12% Tier 2, <~8,5–9% Tier
-    3; **12% disepakati sebagai batas aman yang tidak boleh dilewati**
-    meski secara historis ada pelimpahan *bypass* BOD di titik ini).
+- **FR-6.0 Penetapan Diskon**
+  - Diskon ditetapkan **Sales Operations** pada langkah 5: *default*
+    per quantity band (FR-2.8), dapat diubah pada band 2–4.
+  - **Head of Sales** dapat merevisi diskon pada langkah 7 sebelum
+    merilis/meneruskan.
+  - Salesperson **tidak** menetapkan diskon; permintaan diskon pelanggan
+    disampaikan Salesperson sebagai catatan/permintaan revisi (FR-6.3).
 
 - **FR-6.1 Margin Tier Authority Matrix (Configurable)**
-  - Admin menetapkan **3 tingkat berbasis GPM akhir** per lini
-    bisnis/segmen:
-    | Tier | Kondisi GPM akhir | Approver wajib |
-    |---|---|---|
-    | **1 — Auto** | ≥ target margin lini bisnis | Tidak ada — harga *default* sudah ditentukan di price list |
-    | **2 — Menengah** | Di bawah target, tetapi ≥ batas aman (ilustrasi 12%) | **3 pihak**: Sales/Customer Owner, Profitability Owner (VP Finance), Pricing Owner (Chief Sales) — seluruhnya harus menyetujui |
-    | **3 — Kritis** | < batas aman | **2 (dua) orang BOD** |
-  - Ambang tiap tier adalah *master config* — dapat diubah tanpa rilis
-    ulang aplikasi, dan dapat di-*scope* per lini bisnis (mis. ambang
-    B2G berbeda dengan B2B, konsisten dengan ambang GPM guardrail pada
-    Module 4).
-  - Tier 2 mendukung opsi konfigurasi **"BOD delegation"** — bila
-    diaktifkan, keputusan tier 2 dapat mem-*bypass* eskalasi ke BOD atas
-    dasar pelimpahan wewenang yang tercatat; dinonaktifkan secara
-    default karena berisiko mengaburkan batas aman 12% bila disalahgunakan.
 
-- **FR-6.1.1 Dual-Mode Discount Input (Rupiah / Persentase) (baru)**
-  - Sales Officer dapat memasukkan permintaan diskon dalam **nilai
-    Rupiah absolut** atau **persentase** — keduanya saling
-    terkonversi otomatis berdasarkan harga jual sebelum diskon, dan
-    nilai yang tersimpan mencatat **mode asli yang diinput** (audit
-    trail memuat baik Rupiah maupun % yang setara).
-  - Tampilan approval menampilkan kedua representasi (Rupiah dan %)
-    agar seluruh pihak yang meninjau (Sales, Profitability Owner,
-    Pricing Owner, BOD) melihat dasar yang sama.
+  | Tier | GM akhir (setelah diskon, excl. VAT) | Keputusan | Bila ditolak |
+  |---|---|---|---|
+  | **1** | ≥ 15% | **Head of Sales** merilis | — |
+  | **2** | 10% – < 15% | **COGS Owner dan Profitability Owner** — keduanya wajib menyetujui | Kembali ke Sales Operations |
+  | **3** | < 10% (skenario Deviation) | **CCO dan CFO** — keduanya wajib menyetujui; **tembusan** ke COGS Owner & Profitability Owner | Kembali ke Sales Operations |
 
-- **FR-6.2 Automatic Escalation Routing**
-  - Saat permintaan diskon diajukan, sistem **otomatis menghitung GPM
-    akhir** dan **menentukan tier** — pengaju tidak dapat memilih
-    approver sendiri (mencegah *authority bypass*).
-  - Tier 2 memerlukan **AND-join tiga pihak** (mirip pola COGS
-    Validation di Module 2) — seluruh pihak harus menyetujui, bukan
-    salah satu saja.
-  - Tier 3 memerlukan **AND-join dua BOD** — satu persetujuan BOD saja
-    tidak cukup.
-- **FR-6.3 Negotiation Decision & Revision Loop**
-  - Approver pada tier manapun dapat memilih **Approve**, **Reject**,
-    atau **Revise** (mengajukan diskon tandingan/*counter-offer*).
-  - Keputusan `Revise` mengembalikan kasus ke pengaju dengan nilai
-    diskon usulan baru, memulai **evaluasi tier ulang** dari GPM akhir
-    yang baru — bisa turun tier (mis. dari Tier 3/2-BOD ke Tier 2/3-pihak
-    bila counter-offer menaikkan margin).
-  - **Loop dibatasi pada quotation yang sama**: begitu quotation pertama
-    ter-*publish* (dirilis ke pelanggan), permintaan diskon berikutnya
-    yang disetujui **menghasilkan quotation baru** yang ter-*link* ke
-    Project Identifier yang sama (FR-2.5) — bukan negosiasi berlapis
-    tanpa batas pada satu quotation. Ini konsisten dengan prinsip
-    versioning per project.
+  - Ambang tier adalah **master config** dan dapat di-*scope* per lini
+    bisnis; nilai 15%/10% berasal dari sheet *Basic Workflow* dan
+    sejalan dengan batas skenario Regular/Deviation di sheet *Actors*.
+  - Pada Tier 2, "COGS Owner" terpenuhi oleh persetujuan **salah satu**
+    pemegang peran COGS Owner (Procurement Manager atau Head of
+    Procurement and Operations Control). Aturan ini perlu konfirmasi.
+  - Tembusan Tier 3 bersifat **informasi**, bukan persetujuan.
+  - Head of Sales tetap harus *accept* terlebih dahulu pada Tier 2/3
+    sebelum quotation diteruskan ke approver tier.
+
+- **FR-6.1.1 Dual-Mode Discount Input (Rupiah / Persentase)**
+  - Sales Operations dan Head of Sales dapat memasukkan diskon dalam
+    **Rupiah** atau **persentase**; keduanya terkonversi otomatis
+    terhadap harga excl. VAT sebelum diskon, dan mode asli tercatat.
+  - Tampilan approval menampilkan kedua representasi.
+
+- **FR-6.2 Automatic Tier Routing**
+  - Sistem menghitung GM akhir dan menentukan tier secara otomatis —
+    tidak ada pihak yang memilih approver sendiri.
+  - Tier 2 & 3 adalah **AND-join**: satu persetujuan tidak cukup.
+  - Perubahan diskon atau cost line setelah routing **membatalkan
+    persetujuan yang sudah ada** dan memicu evaluasi tier ulang.
+
+- **FR-6.3 Negosiasi Setelah Rilis**
+  - Permintaan pelanggan setelah quotation dirilis (diskon tambahan,
+    qty berubah, skema berubah) dicatat Salesperson sebagai **permintaan
+    revisi** pada Project Identifier.
+  - Sistem membuat **quotation revisi** (FR-2.5) yang mengulang langkah
+    5–7 (atau 4–7 bila data KYC berubah). Tier dihitung ulang dari GM
+    baru — dapat naik maupun turun tier.
+  - Quotation asal tetap berlaku sampai revisinya dirilis, lalu menjadi
+    `SUPERSEDED`.
+
 - **FR-6.4 Real-Time Margin Impact Visibility**
-  - Saat besaran diskon diinput (Rupiah maupun %), sistem langsung
-    menampilkan dampaknya terhadap *final price*, **GPM akhir**, **tier
-    yang berlaku**, dan status *margin guardrail* — menjawab tantangan
-    *"limited visibility of actual profitability during commercial
-    negotiations"*.
-  - Diskon yang mendorong quotation ke Tier 2/3 ditandai secara
-    eksplisit kepada approver sebelum keputusan diambil.
-- **FR-6.5 Negotiation Audit Trail**
-  - Seluruh riwayat permintaan diskon (Rupiah & % setara), tier yang
-    dihitung, eskalasi, dan keputusan tercatat *append-only* dan
-    tertaut ke quotation serta Project Identifier terkait.
+  - Saat diskon diinput (Rupiah maupun %), Sales Operations dan Head of
+    Sales langsung melihat harga akhir, **GM akhir**, dan **tier yang
+    akan berlaku** sebelum meneruskan.
+  - Approver Tier 2/3 melihat peringatan eksplisit (tier & GM) sebelum
+    tombol Approve dapat ditekan.
 
-### Module 7 — Customer Qualification (KYC & Opportunity Assessment)
+- **FR-6.5 Discount & Approval Audit Trail**
+  - Seluruh perubahan diskon (Rupiah & % setara), tier yang dihitung,
+    persetujuan/penolakan, dan tembusan tercatat *append-only* dan
+    tertaut ke quotation serta Project Identifier.
 
-*Tahap kualifikasi awal sebelum quotation request dibuat.*
+### Module 7 — Customer Qualification (KYC)
 
-- **FR-7.1 Customer KYC Record** — Pencatatan identitas & legalitas pelanggan (nama entitas, NPWP, tipe pelanggan B2G/B2B, PIC).
-- **FR-7.2 Opportunity Assessment** — Estimasi nilai peluang, lini bisnis, kebutuhan unit, indikasi kompetitor.
-- **FR-7.3 Qualification Gate** — Quotation request hanya dapat dibuat untuk pelanggan berstatus *Qualified*; status ditetapkan oleh Sales Officer.
+*Langkah 2 Basic Workflow Official Quotation.*
 
-> **Catatan implementasi POC.** Module 7 didokumentasikan sebagai requirement
-> resmi namun **tidak dibangun** pada POC saat ini (lihat §8 Out of Scope) —
-> fokus POC ada pada pricing governance, COGS validation, dan negotiation
-> authority. Data pelanggan pada POC cukup berupa field bebas di quotation.
->
-> **Klarifikasi proses bisnis (demo review, tidak mengubah status
-> scope).** Sesi demo menjelaskan detail SOP KYC yang berlaku di luar
-> sistem saat ini: dua field wajib diisi Sales sebelum quotation dapat
-> diajukan — **estimasi jumlah unit yang akan dibeli** (memengaruhi tier
-> volume/harga) dan **metode pembayaran** (tunai vs *financing* —
-> memengaruhi kebutuhan *upsizing* harga untuk menutup DP pada skema
-> *financing*). Proses ini **tidak memerlukan validasi pihak ketiga**;
-> cukup wajib diisi. Bila Module 7 dibangun pada fase lanjutan, kedua
-> field ini menjadi kandidat *qualification gate* pertama.
+> **Revisi v4.0 — masuk scope.** Sheet *Basic Workflow* menempatkan KYC
+> sebagai langkah wajib sebelum permintaan Official Quotation dapat
+> disubmit. Module 7 tidak lagi *Out of Scope*.
+
+- **FR-7.1 Formulir KYC**
+
+  | # | Field | Wajib | Keterangan |
+  |---|---|---|---|
+  | a | Nama perusahaan & alamat resmi lengkap | **Ya** | Tercetak di blok *To* dokumen |
+  | b | *Make, model, type, variant* dan kuantitas kendaraan | **Ya** | **Boleh lebih dari satu** — menjadi line item quotation |
+  | c | Jenis proyek: proyek baru / tambahan untuk proyek berjalan / penggantian | Tidak | Menentukan kaitan Project Identifier (FR-2.5) |
+  | d | Aplikasi (bodi) dan utilisasi (muatan) | **Ya** | mis. Dumper — muatan tanah/pasir |
+  | e | Rute, asal–tujuan, dan produksi (per trip / siklus / hari / bulan / lainnya) | **Ya** | Nilai produksi + satuan + periode |
+  | f | *Likelihood* | **Ya** | Skala 5: High (5), Medium to High (4), Medium (3), Medium to Low (2), Low (1) |
+  | g | *Gap identified* | **Ya** | Kesenjangan kebutuhan pelanggan yang teridentifikasi |
+  | h | Informasi lain | Tidak | Termasuk skema yang diminta (Purchase/Rental) & metode pembayaran bila diketahui |
+
+- **FR-7.2 Review & Verifikasi** — Salesperson meninjau seluruh data di
+  layar dan dapat merevisi sebelum submit (langkah 3).
+- **FR-7.3 Qualification Gate** — Submit ditolak bila field wajib belum
+  lengkap. **Tidak ada validasi pihak ketiga** (sesuai demo review);
+  validasi bisnis dilakukan Sales Lead (langkah 4).
+- **FR-7.4 Penggunaan Ulang** — data KYC tersimpan per customer dan
+  dapat dipakai ulang untuk quotation berikutnya; perubahan tercatat di
+  audit trail.
 
 ### Module 8 — Mineral Index Adjustment (HMA → IDR via Kurs)
 
-*Penyesuaian harga mineral resmi pemerintah, yang di VKTR berdampak melalui pergerakan kurs — bukan sebagai feed independen terhadap harga.*
+*Referensi harga mineral resmi pemerintah; dampaknya ke harga VKTR berjalan melalui kurs CNY/IDR.*
 
-> **Revisi v3.0 — HMA berdampak hanya lewat kurs.** Demo review
-> mengonfirmasi bahwa acuan harga battery pack VKTR merujuk pasar mineral
-> internasional (bukan publikasi domestik langsung), dan **satu-satunya
-> jalur dampaknya ke harga quotation adalah melalui pergerakan kurs
-> CNY/IDR (RMB)** (Module 1, FR-1.4.6) — komponen mineral-linked itu
-> sendiri relatif stabil dalam CNY (dikutip vendor Cina). Ini
-> **menyederhanakan** kebutuhan v2.1:
-> Module 8 tidak lagi memerlukan faktor penyesuaian global terpisah dari
-> FX; HMA/HPM tetap dicatat sebagai referensi & transparansi (FR-8.1,
-> FR-8.4), namun **mekanisme adjustment otomatisnya (FR-8.3 versi lama)
-> dicabut** karena jalur dampak riilnya sudah tercakup oleh
-> FR-1.4.6 (Rate Sensitivity Threshold). Bagian di bawah dipertahankan
-> sebagai referensi formula dan katalog historis, dengan status
-> *adjustment* diperbarui.
+Tidak berubah dari v3.0. Ringkasnya:
 
-Komponen terbesar biaya kendaraan listrik adalah **battery pack**, yang harganya bergerak mengikuti harga bahan baku mineral (nikel, kobalt, lithium). Pemerintah menetapkan **Harga Mineral Acuan (HMA)** melalui Kementerian ESDM sebagai dasar perhitungan **Harga Patokan Mineral (HPM)**. Nilai ini diperbarui berkala dan menjadi rujukan resmi transaksi mineral di Indonesia.
-
-Tanpa mekanisme ini, quotation disusun memakai asumsi harga baterai yang bisa jadi sudah usang beberapa minggu — persis jenis *blind spot* yang menghasilkan margin di bawah target. Namun berdasarkan konfirmasi demo review, **jalur transmisinya ke harga VKTR adalah kurs**, bukan faktor HPM yang berdiri sendiri (lihat catatan revisi di atas).
-
-- **FR-8.1 HMA Master Data (Periodic Input)**
-  - Pencatatan HMA per jenis mineral (Nikel, Kobalt, Lithium, dst.) dalam **USD per dry metric ton (dmt)**.
-  - Diperbarui **mingguan atau dua mingguan** mengikuti terbitan Kepmen ESDM; setiap nilai memiliki *periode berlaku* dan referensi regulasi.
-  - Riwayat lengkap tersimpan — nilai lama tidak ditimpa, sehingga quotation lama tetap dapat direkonstruksi.
-
-- **FR-8.2 HPM Calculator (Formula Kepmen)**
-
-  Sistem menghitung HPM dari HMA memakai formula resmi. Mengacu pada *Kepmen ESDM No. 144.K/2026* untuk nikel dengan komponen mineral ikutan kobalt:
+- **FR-8.1 HMA Master Data** — HMA per mineral (US$/dmt), periode
+  berlaku, referensi Kepmen; riwayat tidak ditimpa.
+- **FR-8.2 HPM Calculator (Kepmen ESDM No. 144.K/2026)**
 
   ```
   CF(Ni)        = 0,30 + ((kadar_Ni − 0,016) × 10)
@@ -728,93 +948,63 @@ Tanpa mekanisme ini, quotation disusun memakai asumsi harga baterai yang bisa ja
   HPM (basah)   = Total kering × (1 − Moisture Content)   [US$/WMT]
   ```
 
-  - Kadar nikel **1,6%** adalah *anchor* dengan CF **30%**; setiap perubahan 0,1% kadar menyesuaikan CF sebesar 1,0%.
-  - Hasil akhir dikalikan `(1 − MC)` untuk memperoleh nilai basah (WMT) yang ditransaksikan di lapangan.
-  - Parameter (kadar Co, CF Co, Moisture Content) adalah **master config**, bukan angka *hardcode*.
-
-- **FR-8.3 Global Adjustment saat Penyusunan Quotation — *Status: Dicabut, digantikan FR-1.4.6***
-
-  > **Diperbarui v3.0.** Mekanisme faktor penyesuaian HPM independen di
-  > bawah ini **tidak lagi dipakai sebagai jalur adjustment harga**.
-  > Demo review mengonfirmasi dampak HMA ke harga VKTR berjalan melalui
-  > kurs (FR-1.4.6), sehingga menduplikasi jalur adjustment lewat HPM
-  > berisiko menghitung dampak yang sama dua kali. Spesifikasi berikut
-  > dipertahankan sebagai referensi bila di kemudian hari ditemukan
-  > komponen mineral yang **benar-benar** bergerak independen dari kurs.
-  - Saat quotation disusun, sistem membandingkan HPM periode berjalan terhadap **HPM baseline** yang tersimpan pada quotation.
-  - Selisihnya menghasilkan **faktor penyesuaian** yang *dapat* diterapkan ke komponen biaya bertanda *mineral-linked* — dalam struktur riil VKTR/BTEL, ini berarti item **FOB Price** (satu-satunya item yang mengandung nilai battery pack, karena unit dibeli sebagai barang jadi, bukan sub-komponen terpisah) — **dinonaktifkan secara default** pada v3.0.
-  - Bila diaktifkan, penyesuaian bersifat **global dan otomatis** — dianggap sudah disetujui secara sistem, tidak memerlukan approval terpisah, namun **tetap tercatat di audit trail** beserta nilai HMA/HPM yang dipakai.
-
-- **FR-8.4 Transparansi Dasar Perhitungan (Referensi, bukan Adjustment)**
-  - Halaman quotation tetap menampilkan HMA & HPM yang sedang berlaku, periodenya, dan referensi Kepmen — sebagai **konteks informasi pasar mineral**, bukan sebagai dasar faktor pengali otomatis (lihat FR-8.3).
-  - Berguna bagi Profitability Owner/BOD untuk menilai kewajaran pergerakan kurs terhadap tren mineral internasional saat meninjau quotation.
-
-- **FR-8.5 Stale Index Warning**
-  - Bila HMA terakhir sudah melewati batas kesegaran (mis. > 14 hari), sistem menandai quotation dengan peringatan bahwa dasar harga mineral perlu diperbarui.
+  Parameter adalah master config.
+- **FR-8.3 Global Adjustment** — *dicabut*, digantikan FR-1.4.6; spesifikasi
+  cadangan tetap di Technical Logic §13.2.
+- **FR-8.4 Transparansi** — HMA/HPM tampil sebagai konteks pada halaman
+  cost structure (COGS Owner) dan quotation (approver).
+- **FR-8.5 Stale Index Warning** — tandai bila HMA > 14 hari.
 
 ---
 
 ## 4. High-Level Data & Process Flow
 
-### 4.1 Tiga Fase, Tiga Batas Kewenangan
+### 4.1 Empat Lapisan Proses
 
-Setiap quotation melewati tiga fase yang tegas terpisah. Batas ini
-menentukan **apa yang bisa diatur ulang lewat konfigurasi (Workflow
-Template / Margin-Tier Authority) dan apa yang bersifat tetap**:
-
-| Fase | Deskripsi | Aktor | Dapat dikonfigurasi Admin? |
+| Lapisan | Deskripsi | Aktor | Diatur oleh |
 |---|---|---|---|
-| **1. Pembuatan** | Sales Officer membuat quotation baru: data customer, unit, kuantitas, estimasi delivery. Tidak melihat/mengisi breakdown biaya COGS. | Sales Officer | **Tidak.** Selalu langkah pertama, tetap (FR-2.0) |
-| **2. Approval** | Validasi COGS berjenjang sesuai Workflow Template yang otomatis terpilih untuk deal tsb, diakhiri persetujuan Chief Sales dan rilis quotation. | VP Operations → VP Finance → Chief Sales (urutan default; dapat berbeda per Workflow Template) | **Ya**, lewat Workflow Template Catalog (FR-2.0.1) |
-| **3. Negosiasi + Approval** | Bila customer meminta diskon, jenjang persetujuan ditentukan oleh tier margin (GPM akhir) yang tersisa — bukan oleh Workflow Template Fase 2. | Tier 1: otomatis. Tier 2: Sales Officer + VP Finance + Chief Sales. Tier 3: 2 anggota BOD | Sebagian, lewat Margin-Tier Discount Authority (FR-6.0) |
+| **0. Cost Structure (per varian)** | Nilai COGS, Add-Ons, Margin, Sales per varian dipelihara & dirilis lewat Maker–Checker–Releaser; kurs dikunci saat rilis | COGS Owner, Profitability Owner, Sales Pricing Owner (+ Pricing Committee pada Deviation) | Matriks wewenang scope (FR-1.1.2) |
+| **A. Price Estimate** | Harga dasar per unit excl./incl. VAT, seketika | Salesperson, Authorized Agency | Workflow Template "Price Estimate" |
+| **B. Official Quotation — permintaan & penyusunan** | KYC → validasi Sales Lead → *generate* Sales Operations (quantity band, diskon, penyimpangan) → review Head of Sales | Salesperson, Sales Lead, Sales Operations, Head of Sales | Workflow Template "Official Quotation" (FR-2.0.1) |
+| **C. Official Quotation — routing margin & rilis** | Tier dari GM akhir → rilis / approval Owner / approval Pricing Committee → Release Gate → dokumen | Head of Sales, COGS & Profitability Owner, CCO & CFO | Matriks tier margin (Module 6) — **tidak** dapat diubah template |
 
-Fase 2 dan Fase 3 berjalan sebagai **dua mekanisme approval yang
-independen** — bukan satu rangkaian workflow yang sama diperpanjang.
-Menyetujui/menolak di Fase 2 tidak menyentuh state Fase 3 dan
-sebaliknya; keduanya hanya sama-sama merujuk pada quotation yang sama.
-Pemisahan ini yang membuat jumlah "workflow" yang dirasakan tim bisnis
-tampak banyak (varian Fase 2 dikalikan varian Fase 3), padahal
-strukturnya tetap dua mesin persetujuan yang jelas batasnya.
+Negosiasi setelah rilis tidak membuka mesin persetujuan baru; ia
+menghasilkan **quotation revisi** yang kembali melewati lapisan B–C.
 
 ```
-[ Master Data CBS Tunggal + COGS Owner ] ─┐
-[ Exchange Rate (CNY↔IDR), auto mingguan]─┤
-[ Product Master Data ]                  ─┼──> [ Pricing Engine (satu formula) ] ──> [ DSS ]
-[ Project/Customer Identifier ]          ─┤              │
-[ Workflow Template Catalog ]            ─┘              │
-   (dipilih otomatis dari qualifier deal)                │
-                                                          ▼
-                          [ Quotation Workflow State Machine ]
-                          (instance dari Workflow Template terpilih)
-                                                          │
-              Sales Officer input data customer/unit ─────┤ (tanpa akses COGS)
-                                                          ▼
-                          ┌─────────────────────┴─────────────────────┐
-                          ▼                                           ▼
-                  VP Operations validates                    VP Finance validates
-                  (COGS, Add-Ons operasional,                (Profitability, margin
-                   delivery boleh menyusul)                   policy, OPEX)
-                          └─────────────────────┬─────────────────────┘
-                                                ▼  (AND-join: semua COGS approved)
-                                    [ Chief Sales review & approve ]
-                                                │
-                                                ▼
-                                    [ Quotation Ready to Release ]
-                                                │
-                          ┌─────────────────────┴─────────────────────┐
-                          ▼                                           ▼
-              [ Tanpa negosiasi ]                        [ Customer minta diskon ]
-                          │                                           │
-                          │                    [ Margin-Tier Discount Authority Engine ]
-                          │                     Tier 1 Auto / Tier 2 3-Pihak / Tier 3 2-BOD
-                          │                                           │
-                          └─────────────────────┬─────────────────────┘
-                                                ▼
-                          [ Final Quotation Released — PDF via Format Template (FR-1.5.3) ]
-                                                │
-                             (link ke Project Identifier untuk versi berikutnya)
-                                                │
-                                     (Export to ERP/CRM)
+[ Product Master Data (varian) ]──┐
+[ Exchange Rate CNY→IDR (mingguan) ]─┤
+                                  ▼
+        [ Cost Structure per varian — Maker → Checker → Releaser ]
+          COGS & Add-Ons: COGS Owner · Margin: Profitability Owner
+          Sales: Sales Pricing Owner · (Deviation: + CCO/CFO)
+                                  │  RELEASED (kurs & PPN terkunci)
+               ┌──────────────────┴──────────────────┐
+               ▼                                     ▼
+   [ A. Price Estimate ]                 [ B. Official Quotation ]
+   Salesperson / Agency                  KYC (Module 7)
+   harga/unit excl. & incl. VAT          → Sales Lead validates (SE saja)
+   (tanpa approval)                      → Sales Operations generate
+                                           (quantity band, diskon,
+                                            penyimpangan per deal)
+                                         → Head of Sales accept/revise
+                                                     │
+                                         [ C. Margin-tier routing ]
+                                   ≥15% rilis · 10–15% COGS+Profit Owner
+                                   · <10% CCO+CFO (cc Owners)
+                                                     │  tolak → Sales Ops
+                                                     ▼
+                                   [ Release Gate ] → QUOTATION RELEASED
+                                   PDF "Cost Estimate" (FR-1.5.3)
+                                                     │
+                          ┌──────────────────────────┼────────────────────┐
+                          ▼                          ▼                    ▼
+               Pelanggan tanda tangan      Permintaan revisi      Lewat valid_until
+               → WON (Win/Loss)            → quotation baru,      → EXPIRED
+                                             Project Identifier
+                                             sama (FR-2.5)
+                                                     │
+                                            (Export ke ERP/CRM)
 ```
 
 ---
@@ -823,15 +1013,18 @@ strukturnya tetap dua mesin persetujuan yang jelas batasnya.
 
 | Kategori | Requirement |
 |---|---|
-| **Integrasi** | *API-First Architecture*. Terhubung ke ERP (SAP/Odoo) untuk sinkronisasi *master BOM* dan *costing*, serta CRM (Salesforce/HubSpot) untuk data pra-penjualan. |
-| **Security & Access** | RBAC/ABAC — Sales Officer tidak dapat melihat *raw margin* milik VP Finance, namun dapat melihat *final price target*. Batas wewenang diskon ditegakkan di *service layer*, tidak dapat dilewati dari klien. |
-| **Versioning** | *Row-Level Versioning* — setiap revisi proposal memiliki snapshot (v1.0, v1.1) yang dapat dibandingkan *side-by-side*. |
-| **Multi-Currency** | Nilai asli input disimpan apa adanya beserta mata uang dan kurs yang berlaku saat kalkulasi. Konversi terjadi di lapisan perhitungan, bukan dengan menimpa angka yang diketik pengguna. |
-| **Reproducibility Harga** | Setiap hasil kalkulasi menyimpan kurs CNY/IDR (RMB) **dan** HMA/HPM yang dipakai, sehingga harga final selalu dapat direkonstruksi dan dijelaskan saat audit. |
-| **UI/UX** | Konsep *modern spreadsheet* agar departemen operasional tetap familiar dalam menginput angka, namun didukung kontrol database yang ketat. |
-| **Auditability** | Log perubahan bersifat *immutable* (append-only), mendukung kebutuhan audit sebagai perusahaan Tbk. |
-| **Performance** | Kalkulasi *what-if simulation* dan *price calculation* harus real-time (< 2 detik response untuk perubahan slider). |
-| **Availability** | Target uptime 99.5% untuk *production environment*, mengingat sistem menjadi gerbang wajib (*mandatory gate*) proses pricing. |
+| **Integrasi** | *API-First Architecture*. ERP (SAP/Odoo) untuk sinkronisasi *costing*; CRM (Salesforce/HubSpot) untuk data pra-penjualan. |
+| **Security & Access** | RBAC/ABAC berbasis peran, scope, dan skenario. Salesperson & Authorized Agency tidak dapat membaca cost structure; detail cost structure hanya untuk Sales Operations, Head of Sales, pemilik scope, dan Pricing Committee. Wewenang ditegakkan di *service layer*. |
+| **Segregation of Duties** | Maker, Checker, Releaser dicatat terpisah; aturan orang berbeda ditegakkan server sesuai master config. |
+| **Kerahasiaan Dokumen** | Dokumen pelanggan tidak pernah memuat cost structure; watermark/disclaimer kerahasiaan sesuai template. |
+| **Versioning** | Cost structure per varian berversi & immutable setelah rilis; quotation revisi sebagai entitas baru pada Project Identifier. |
+| **Multi-Currency** | Nilai asli input disimpan apa adanya beserta mata uang dan kurs yang dikunci. |
+| **Pajak** | Tarif PPN berlaku per tanggal; GM selalu dari harga excl. VAT. |
+| **Reproducibility Harga** | Setiap quotation menyimpan versi cost structure, kurs, tarif PPN, dan diskon yang dipakai sehingga harga final selalu dapat direkonstruksi. |
+| **UI/UX** | Konsep *modern spreadsheet* untuk pengisi cost structure; formulir KYC ringkas untuk Salesperson; Price Estimate responsif untuk agensi di lapangan. |
+| **Auditability** | Log *immutable* (append-only). |
+| **Performance** | Price Estimate dan kalkulasi *what-if* < 2 detik. |
+| **Availability** | Target uptime 99.5% untuk *production*. |
 
 ---
 
@@ -839,41 +1032,49 @@ strukturnya tetap dua mesin persetujuan yang jelas batasnya.
 
 | Fase | Fokus Utama | Target Deliverables |
 |---|---|---|
-| **Phase 1: Core Governance** | Master Data CBS Tunggal + COGS Ownership, Product Master Data, Quotation Workflow (Workflow Template Catalog — minimal 2 varian dasar, alur sekuensial VP Operations → VP Finance), Release Gate, Project Identifier & Versioning, SLA Tracking, ERP Integration. | Eliminasi *process bypass* & jaminan validasi COGS lengkap sebelum rilis. |
-| **Phase 2: Negotiation & Tracking** | Margin-Tier Commercial Negotiation Engine (3-pihak/2-BOD), Dynamic Workflow Builder (tambah template baru), Format Quotation PDF, Targeted Rejection, Audit Trail, Dashboard Observabilitas, Duplicate/Fraud Guard. | Kepatuhan hierarki wewenang berbasis margin & transparansi status *real-time*. |
-| **Phase 3: DSS & Analytics** | What-If Simulation Engine, Margin Guardrails, AI Outlier Detection, Win/Loss Analytics. | Kecepatan dan ketepatan pengambilan keputusan harga oleh manajemen. |
+| **Phase 1: Core Governance** | **Settings: Roles & Authorities (FR-5.6) dan Workflow/Quantity Band/Tier (FR-2.1)** yang diisi awal sesuai attachment, Master cost item (4 scope, kepemilikan terkonfirmasi), **Cost Structure per varian + Maker–Checker–Releaser**, Product Master Data (varian), PPN, **Price Estimate**, **KYC**, **Official Quotation workflow langkah 1–7** (validasi Sales Lead, quantity band, review Head of Sales, tier 15%/10%), Release Gate, **Format dokumen Cost Estimate + Preview & Cetak/PDF (FR-1.5.4)**, Project Identifier, SLA Tracking. | Role & workflow VKTR berjalan dari konfigurasi; quotation dapat dicetak dalam format resmi; tidak ada rilis tanpa approval tier. |
+| **Phase 2: Revision & Tracking** | Quotation revisi & negosiasi pasca-rilis, Masa berlaku & `EXPIRED`, Penerimaan pelanggan (upload tanda tangan), Workflow Template builder (varian segmen), Duplicate/Fraud Guard, Dashboard observabilitas, Audit Trail, **skema Rental** (setelah formula dikonfirmasi), ERP/CRM integration. | Siklus penuh quotation → penerimaan → revisi terlacak. |
+| **Phase 3: DSS & Analytics** | What-If Simulation Engine, Margin Guardrails, AI Outlier Detection, Win/Loss Analytics (dengan *Likelihood* KYC). | Keputusan harga yang lebih cepat dan tepat. |
 
 ---
 
 ## 7. Module → Feature → Task Breakdown (Reference)
 
-Ringkasan hasil pemetaan detail effort (lihat *Timeline & Effort Detail*); pembaruan v3.0 ditandai **baru/direvisi**:
+Pembaruan v4.0 ditandai **baru/direvisi**:
 
 | Module | Fitur Utama |
 |---|---|
-| Auth & User Management | Login, User Management (CRUD), RBAC/ABAC Permission, Access Audit Log |
-| Master Data | Master Cost Item **tunggal** (struktur riil: COGS/Profitability/Sales/Add-Ons) + COGS Owner (+ Import Excel bulk), **Product Master Data & Quotation PDF Template (baru)**, Margin & Financial Factor, **Margin Tier Authority Matrix (direvisi dari Discount Authority Matrix %)**, **Exchange Rate otomatis mingguan + Rate Sensitivity Threshold (direvisi)**, HMA Mineral Index (referensi, bukan adjustment) |
-| Dynamic Pricing | CBS Builder (tree, tunggal), Formula Engine (satu formula dasar), **Multi-Currency Input (toggle CNY/IDR, basis FOB — direvisi dari USD)**, Price Calculation (GPM/EBITDA/BEP), Row-Level Versioning, **Project/Customer Identifier & Quotation Linking (baru)**, Export PDF |
-| Quotation Approval Workflow | **Workflow Template Catalog & Assignment (baru, menggantikan alur tunggal)**, **Basic Workflow minimal 2 varian: margin-tier & segmen customer (baru)**, **Sequential COGS Validation — VP Operations lebih dulu, baru VP Finance (bukan paralel — lihat FR-2.0)**, Strict Gatekeeping & Release Gate, Rejection & Routing, Dynamic Form Adjustment, **Duplicate/Fraud Guard harian (baru)** |
-| **Commercial Negotiation** | **Margin-Tier Discount Request (Rupiah/%), Tier Evaluation (Auto/3-Pihak/2-BOD), Auto-Escalation Routing, BOD Approve/Reject/Revise, Real-Time Margin Impact (semua direvisi ke basis margin)** |
-| State Tracking & Observability | Quotation Lifecycle Dashboard (Kanban+Table, **dikelompokkan per Project Identifier**), SLA Timer & Escalation Notif, Immutable Audit Trail |
-| DSS & Simulation | What-If Sensitivity Simulator, Margin Guardrails & Anomaly Detection, Win/Loss Pricing Analytics |
-| **Mineral Index** | HMA Master Data (periodik, referensi), HPM Calculator (formula Kepmen), **Global Adjustment Factor (dicabut — digantikan Rate Sensitivity Threshold)**, Stale Index Warning |
-| Customer Qualification | Customer KYC Record, Opportunity Assessment, Qualification Gate — **tetap Out of Scope POC** |
-| Integrasi Eksternal | ERP Integration (SAP/Odoo), CRM Integration (Salesforce/HubSpot), Notifikasi MS Teams |
-
-Detail task-level effort sizing tersedia di dokumen sumber `[Timeline & Effort] VKTR - Price Core`.
+| Auth & User Management | Login, User Management (CRUD) **+ akun eksternal Authorized Agency (baru)**, RBAC/ABAC **per scope & skenario (direvisi)**, **Settings Roles & Authorities: CRUD role, user→role, matriks Scope × M/C/R × skenario, aturan pemisahan tugas, import/export Excel (baru)**, Access Audit Log |
+| Settings Workflow | **Editor langkah Basic Workflow (role, aksi, kondisi lewati, tujuan tolak, SLA, cc), editor Quantity Band, editor Tier Margin, versioning konfigurasi (baru)** |
+| Master Data | Master Cost Item 4 scope (**kepemilikan terkonfirmasi, STNK/Insurance di Add-Ons — direvisi**), **Cost Structure per Varian + Maker–Checker–Releaser (baru)**, **Scope Authority Matrix Regular/Deviation (baru)**, Product Master Data (**atribut varian, inclusions/exclusions — direvisi**), **Quantity Band Config (baru)**, **PPN Config (baru)**, Margin Tier Authority (**15%/10% — direvisi**), Exchange Rate CNY otomatis + Rate Sensitivity, HMA (referensi) |
+| Dynamic Pricing | Formula Engine (**GM setelah diskon, excl. VAT — direvisi**), Multi-Currency (kurs dikunci per versi cost structure), **Multi-line item (baru)**, **Skema Purchase/Rental (baru)**, Project Identifier, Export PDF |
+| Price Estimate | **Pilih varian, harga excl./incl. VAT, log estimasi (baru)** |
+| Customer Qualification (KYC) | **Formulir KYC 8 field, review, qualification gate, penggunaan ulang (baru — sebelumnya Out of Scope)** |
+| Official Quotation Workflow | Workflow Template Catalog (**step dengan kondisi lewati — direvisi**), **Validasi Sales Lead (baru)**, **Generate Sales Operations per quantity band (baru)**, **Review Head of Sales + detail cost structure (baru)**, Release Gate (**termasuk Exclusion — At cost — direvisi**), Rejection → Sales Operations (**direvisi**), Duplicate/Fraud Guard, **Masa berlaku & penomoran (baru)**, **Penerimaan pelanggan (baru)** |
+| Discount & Margin-Tier Approval | Penetapan diskon Sales Operations/Head of Sales (Rp/%), **Tier routing 15%/10% (direvisi)**, **Approval COGS+Profitability Owner / CCO+CFO + tembusan (direvisi)**, Margin impact, **Negosiasi pasca-rilis via revisi (direvisi)** |
+| Document Output | **Template "Cost Estimate": nomor, rilis/kedaluwarsa, To, Sales/Account Person, Prepared By, tabel item, Inclusions/Exclusions, Special Notes, blok penerimaan, halaman spesifikasi (direvisi dari placeholder)**, **Preview di layar, Print, Download PDF, watermark DRAFT, cetak ulang identik dari snapshot, Cost Structure Sheet internal terpisah (baru)** |
+| State Tracking & Observability | Kanban+Table per Project Identifier (**status baru**), **antrean Maker–Checker–Releaser (baru)**, SLA Timer & notifikasi, Immutable Audit Trail |
+| DSS & Simulation | What-If Simulator (**+ tier yang berlaku**), Margin Guardrails 15%/10%, Win/Loss Analytics |
+| Mineral Index | HMA (referensi), HPM Calculator, Stale Index Warning |
+| Integrasi Eksternal | ERP, CRM, Notifikasi MS Teams |
 
 ---
 
 ## 8. Out of Scope (Asumsi Fase Awal)
 
-- Payment processing / invoicing langsung (tetap di ERP eksisting; PriceCore hanya mengekspor harga final).
-- Manajemen inventori fisik BOM (data ditarik read-only dari ERP, bukan dikelola di PriceCore).
-- Aplikasi mobile native (fase awal berbasis web responsive).
-- **Module 7 (Customer KYC & Opportunity Assessment)** — didokumentasikan sebagai requirement, namun tidak dibangun pada POC. Kualifikasi pelanggan diasumsikan sudah dilakukan di luar sistem; quotation cukup mencatat nama pelanggan sebagai referensi. Dikonfirmasi kembali tetap Out of Scope pada revisi v3.0 meskipun demo review menjelaskan detail proses bisnisnya (lihat catatan di Module 7).
-- **Global Adjustment Factor berbasis HPM independen (FR-8.3 versi lama)** — dicabut dari jalur adjustment aktif; HMA/HPM tetap tercatat sebagai referensi (lihat Module 8).
-- **Dynamic Formula Builder per lini bisnis (No-Code penuh)** — ditunda; rumus dasar tunggal berlaku untuk semua lini bisnis pada v3.0 (lihat FR-1.2).
+- Payment processing / invoicing (tetap di ERP).
+- Manajemen inventori fisik (read-only dari ERP).
+- Aplikasi mobile native (fase awal web responsive — termasuk untuk
+  Authorized Agency).
+- **Verifikasi KYC oleh pihak ketiga** (mis. cek legalitas/NPWP
+  otomatis) — KYC cukup wajib diisi dan divalidasi Sales Lead.
+- **E-signature** penerimaan pelanggan — penerimaan lewat unggah
+  dokumen bertanda tangan (FR-2.10).
+- **Global Adjustment Factor berbasis HPM independen** — tetap dicabut
+  (Module 8).
+- **Dynamic Formula Builder per lini bisnis** — ditunda.
+- **Formula skema Rental otomatis** — menunggu definisi dari VKTR
+  (FR-1.7); sampai saat itu Rental hanya pada jalur manual.
 
 ---
 
@@ -881,27 +1082,55 @@ Detail task-level effort sizing tersedia di dokumen sumber `[Timeline & Effort] 
 
 | Metrik | Target |
 |---|---|
-| Quotation dirilis dengan komponen COGS tidak lengkap | **0 insiden** — dijamin oleh *release gate* (FR-2.2) |
-| *Bypass* COGS Owner (VP Operations / VP Finance) | 0 insiden setelah Phase 1 |
-| Diskon/margin disetujui di luar tier wewenang | **0 insiden** — dijamin oleh Margin Tier Authority Engine (FR-6.2) |
-| *Quotation turnaround time* (end-to-end) | Turun ≥ 40% dibanding proses manual |
-| Insiden *margin leakage* (margin final < Tier 3 tanpa persetujuan 2 BOD) | 0 insiden |
-| Adopsi *What-If Simulator* / margin impact saat negosiasi | ≥ 80% kasus negosiasi menampilkan dampak margin sebelum keputusan |
-| Kesalahan konversi mata uang pada quotation | **0 insiden** — konversi dilakukan sistem, bukan manual |
-| Quotation memakai HMA kedaluwarsa (> 14 hari) tanpa peringatan | 0 insiden |
-| Quotation ganda (duplicate) untuk customer + tipe unit yang sama dalam sehari | **0 insiden** — dijamin oleh Duplicate/Fraud Guard (FR-2.6) |
-| Quotation revisi yang tidak ter-*link* ke Project Identifier asalnya | 0 insiden — dijamin oleh FR-2.5 |
-| Akurasi data biaya vs ERP (setelah sinkronisasi) | Selisih < 1% |
+| Quotation di-*generate* dari cost structure yang belum `RELEASED` penuh | **0 insiden** — dijamin FR-2.2 |
+| Perubahan cost structure dirilis tanpa tahap Maker–Checker–Releaser lengkap | **0 insiden** — dijamin FR-1.1.2 |
+| Official Quotation disubmit dengan KYC wajib tidak lengkap | **0 insiden** — dijamin FR-7.3 |
+| Quotation dirilis dengan GM < 15% tanpa approval tier yang sesuai | **0 insiden** — dijamin FR-6.2 |
+| Biaya pengiriman hilang tanpa dinilai atau dinyatakan *At cost* | **0 insiden** — dijamin FR-2.2 |
+| *Quotation turnaround time* 1–9 unit (submit → rilis) | Turun ≥ 60% dibanding proses manual |
+| *Quotation turnaround time* ≥ 10 unit | Turun ≥ 40% dibanding proses manual |
+| Quotation kedaluwarsa yang diterima tanpa revisi | **0 insiden** — dijamin FR-2.9 |
+| Kesalahan konversi mata uang / PPN pada quotation | **0 insiden** |
+| Quotation ganda untuk customer + varian yang sama dalam sehari | **0 insiden** — FR-2.6 |
+| Quotation revisi tidak ter-*link* ke Project Identifier asal | 0 insiden — FR-2.5 |
+| Akurasi data biaya vs ERP | Selisih < 1% |
+| Perubahan role/wewenang/workflow yang membutuhkan rilis ulang aplikasi | **0** — seluruhnya lewat Settings (FR-5.6, FR-2.1) |
+| Dokumen pelanggan tercetak memuat cost structure, atau versi draft tercetak tanpa watermark | **0 insiden** — FR-1.5.4 |
 
 ---
 
-## 10. References
+## 10. Keputusan yang Masih Dibutuhkan dari VKTR
 
-- `transcribe.md` — **Sumber otoritatif v3.0**: transkrip sesi demo review POC v2.1 bersama Chief Sales, VP Operations, dan VP Finance VKTR; dasar seluruh revisi pada dokumen ini
-- `BTEL-CostStructure.xlsx` — **Sumber struktur CBS riil v3.0**: daftar item cost structure aktual VKTR/BTEL (kelompok COGS/Profitability/Sales/Add-Ons), menggantikan daftar item ilustratif pada FR-1.1 versi sebelumnya
-- `Commercial Quotation Approval System Requirement for VKTR.pdf` — **Sumber otoritatif v2.0**: SOP quotation, hierarki COGS Owner, dan proses negosiasi berbasis delegated discount authority
-- `Simulasi_HPM_Nikel_Kepmen_2026.xlsx` — **Sumber formula HPM v2.1**: struktur perhitungan HMA → HPM nikel dengan komponen kobalt sesuai Kepmen ESDM No. 144.K/2026
-- `ConceptDSSpricingVKTR (1).pdf` — Draft PRD v1.0 asli
-- `VKTR-PriceCore_Strategic_Pricing_Architecture.pdf` — Ringkasan Aplikasi/Analitik/Impact per modul
-- `[Timeline & Effort] VKTR - Price Core - Copy of Detail - VKTR.pdf` — Breakdown modul/fitur/task untuk estimasi effort
-- `image (2).png` — Diagram ringkas Applications → Analytics/Visualization → Impact
+Daftar lengkap dengan konteks teknis ada di Technical Logic §14.
+Ringkasan yang memengaruhi PRD:
+
+1. **Formula skema Rental** (FR-1.7) — cara menurunkan sewa bulanan dari
+   harga unit, peran Financing Cost, nilai sisa, dan layanan yang
+   termasuk; serta cara menghitung GM deal rental.
+2. **Definisi GM untuk tier** (FR-1.2) — perlakuan kelompok Sales
+   (*pass-through* atau pengurang) dan profit VKTS (biaya antar-entitas
+   atau bagian margin).
+3. **Pemisahan Maker/Checker/Releaser** (FR-1.1.2) — apakah wajib orang
+   berbeda, dan siapa aktor kedua untuk scope Margin.
+4. **Tingkat diskon *default*** band 2–5 dan 6–9 (FR-2.8), serta aturan
+   band untuk quotation multi-varian.
+5. **Tarif PPN** yang dipakai dan dasar pengenaannya (FR-1.6).
+6. **Arti segmen nomor dokumen** dan judul dokumen resmi ("Cost
+   Estimate" vs "Official Quotation") (FR-1.5.3).
+7. **Pemegang peran Product Owner** — tidak ada di sheet *Actors*.
+8. **Siapa di antara COGS Owner** yang menyetujui Tier 2 (salah satu
+   atau keduanya).
+
+---
+
+## 11. References
+
+- `BTEL - Cost and Roles and Flow.xlsx` — **Sumber otoritatif v4.0**: sheet *Cost Structure* (4 scope), *Actors* (aktor, peran, scope, wewenang Maker/Checker/Releaser skenario Regular & Deviation), *Basic Workflow* (Price Estimate & Official Quotation). Menggantikan `BTEL-CostStructure.xlsx`.
+- `Cost Estimate - PT Siborong Nusa Gemilang 20260906 (1).pdf` — **Contoh dokumen keluaran riil v4.0**: format Cost Estimate, skema Rental 5 tahun, *loco Magelang*, inclusions/exclusions, halaman spesifikasi VKTR Light Duty Truck.
+- `transcribe.md` — Sumber otoritatif v3.0: transkrip demo review POC v2.1.
+- `Commercial Quotation Approval System Requirement for VKTR.pdf` — Sumber otoritatif v2.0.
+- `Simulasi_HPM_Nikel_Kepmen_2026.xlsx` — Sumber formula HPM.
+- `ConceptDSSpricingVKTR (1).pdf` — Draft PRD v1.0 asli.
+- `VKTR-PriceCore_Strategic_Pricing_Architecture.pdf` — Ringkasan Aplikasi/Analitik/Impact per modul.
+- `[Timeline & Effort] VKTR - Price Core - Copy of Detail - VKTR.pdf` — Breakdown modul/fitur/task untuk estimasi effort (**perlu diperbarui** untuk modul baru v4.0: Cost Structure M/C/R, Price Estimate, KYC, Document Output).
+- `image (2).png` — Diagram ringkas Applications → Analytics/Visualization → Impact.
