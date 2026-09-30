@@ -1,26 +1,33 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 import { formatIDR, formatPercent } from "@/lib/utils";
-import type { PricingProposal } from "@/types/database";
 import { useEffect, useState, useTransition } from "react";
 import { TrendingDown, TrendingUp } from "lucide-react";
 
+interface Case {
+  totalExVat: number;
+  gm: number;
+  margin: number;
+  tier: number | null;
+}
 interface SimResponse {
-  baseCase: { finalPrice: number; gpm: number; ebitdaContribution: number; bepUnits: number | null };
-  simulatedCase: { finalPrice: number; gpm: number; ebitdaContribution: number; bepUnits: number | null };
-  delta: { finalPrice: number; gpmPctPoints: number; ebitdaContribution: number };
-  isBelowThreshold: boolean;
-  minGpmThreshold: number;
+  baseCase: Case;
+  simulatedCase: Case;
+  delta: { gmPctPoints: number; margin: number; totalExVat: number };
 }
 
-export function WhatIfSimulator({ proposals }: { proposals: PricingProposal[] }) {
-  const eligible = proposals.filter((p) => p.transaction_value > 0);
-  const [proposalId, setProposalId] = useState(eligible[0]?.id ?? "");
-  const [fxDeltaPct, setFxDeltaPct] = useState(0);
-  const [materialCostDeltaPct, setMaterialCostDeltaPct] = useState(0);
-  const [hmaDeltaPct, setHmaDeltaPct] = useState(0);
-  const [volumeDiscountPct, setVolumeDiscountPct] = useState(0);
+/**
+ * FR-4.1 — what if the CNY rate or FOB price moves, or the customer
+ * asks for more discount, on a quotation whose price is already quoted?
+ * Shows the GM and the margin tier the deal would land in.
+ */
+export function WhatIfSimulator({ proposals }: { proposals: { id: string; label: string }[] }) {
+  const [proposalId, setProposalId] = useState(proposals[0]?.id ?? "");
+  const [fxDeltaPct, setFx] = useState(0);
+  const [fobDeltaPct, setFob] = useState(0);
+  const [extraDiscountPct, setDisc] = useState(0);
   const [result, setResult] = useState<SimResponse | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -30,17 +37,13 @@ export function WhatIfSimulator({ proposals }: { proposals: PricingProposal[] })
       const res = await fetch("/api/simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          proposalId,
-          fxDeltaPct,
-          materialCostDeltaPct,
-          volumeDiscountPct,
-          hmaDeltaPct,
-        }),
+        body: JSON.stringify({ proposalId, fxDeltaPct, fobDeltaPct, extraDiscountPct }),
       });
       if (res.ok) setResult(await res.json());
     });
-  }, [proposalId, fxDeltaPct, materialCostDeltaPct, volumeDiscountPct, hmaDeltaPct]);
+  }, [proposalId, fxDeltaPct, fobDeltaPct, extraDiscountPct]);
+
+  const tierTone = (t: number | null) => (t === 1 ? "success" : t === 2 ? "warning" : "danger");
 
   return (
     <Card>
@@ -48,189 +51,65 @@ export function WhatIfSimulator({ proposals }: { proposals: PricingProposal[] })
         <div>
           <CardTitle>&quot;What-If&quot; Sensitivity Simulator</CardTitle>
           <CardDescription>
-            FR-4.1 — simulasi real-time dampak kurs, harga material, dan
-            diskon volume terhadap GPM/EBITDA/BEP tanpa mengubah data resmi proposal.
+            Harga quotation tetap; slider menggeser biaya (kurs CNY/IDR, FOB) dan diskon tambahan — lihat GM dan tier yang
+            akan berlaku. Tidak mengubah data resmi.
           </CardDescription>
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
-        <label className="block text-xs font-medium text-muted space-y-1.5">
-          <span>Pilih Proposal (harus sudah punya kalkulasi harga)</span>
-          <select
-            value={proposalId}
-            onChange={(e) => setProposalId(e.target.value)}
-            className="w-full rounded-lg border border-card-border px-3 py-2 text-sm"
-          >
-            {eligible.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.proposal_number} — {p.title}
-              </option>
-            ))}
-          </select>
-        </label>
+        <select value={proposalId} onChange={(e) => setProposalId(e.target.value)} className="pc-input">
+          {proposals.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+        </select>
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <SliderField
-            label="Fluktuasi Kurs CNY/IDR (RMB)"
-            value={fxDeltaPct}
-            onChange={setFxDeltaPct}
-            min={-10}
-            max={10}
-            step={0.5}
-            suffix="%"
-          />
-          <SliderField
-            label="Perubahan Harga Material (FOB/Impor)"
-            value={materialCostDeltaPct}
-            onChange={setMaterialCostDeltaPct}
-            min={-20}
-            max={20}
-            step={1}
-            suffix="%"
-          />
-          <SliderField
-            label="Volume Discount"
-            value={volumeDiscountPct}
-            onChange={setVolumeDiscountPct}
-            min={0}
-            max={15}
-            step={0.5}
-            suffix="%"
-          />
-          <SliderField
-            label="Harga Mineral Acuan (HMA) — referensi"
-            value={hmaDeltaPct}
-            onChange={setHmaDeltaPct}
-            min={-25}
-            max={25}
-            step={1}
-            suffix="%"
-          />
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+          <Slider label="Kurs CNY/IDR (RMB)" value={fxDeltaPct} onChange={setFx} min={-10} max={10} step={0.5} />
+          <Slider label="Harga FOB (CNY)" value={fobDeltaPct} onChange={setFob} min={-20} max={20} step={1} />
+          <Slider label="Diskon tambahan" value={extraDiscountPct} onChange={setDisc} min={0} max={15} step={0.5} />
         </div>
 
-        <p className="text-[11px] text-muted">
-          Slider HMA menggeser angka HPM referensi saja — dampak pergerakan
-          mineral internasional terhadap harga VKTR berjalan lewat kurs
-          CNY/IDR (slider pertama), bukan faktor pengali terpisah (PRD FR-8.3,
-          nonaktif v3.0).
-        </p>
-
         {result && (
-          <div className={isPending ? "opacity-50 transition-opacity" : "transition-opacity"}>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <ComparisonMetric
-                label="Final Price"
-                base={formatIDR(result.baseCase.finalPrice)}
-                simulated={formatIDR(result.simulatedCase.finalPrice)}
-                delta={result.delta.finalPrice}
-                formatDelta={(d) => formatIDR(d)}
-              />
-              <ComparisonMetric
-                label="Gross Profit Margin"
-                base={formatPercent(result.baseCase.gpm)}
-                simulated={formatPercent(result.simulatedCase.gpm)}
-                delta={result.delta.gpmPctPoints}
-                formatDelta={(d) => `${d.toFixed(2)} pts`}
-                warn={result.isBelowThreshold}
-              />
-              <ComparisonMetric
-                label="EBITDA Contribution"
-                base={formatIDR(result.baseCase.ebitdaContribution)}
-                simulated={formatIDR(result.simulatedCase.ebitdaContribution)}
-                delta={result.delta.ebitdaContribution}
-                formatDelta={(d) => formatIDR(d)}
-              />
+          <div className={`grid grid-cols-1 gap-3 md:grid-cols-3 ${isPending ? "opacity-50" : ""}`}>
+            <Metric label="Gross Margin" base={formatPercent(result.baseCase.gm, 2)} sim={formatPercent(result.simulatedCase.gm, 2)} delta={result.delta.gmPctPoints} fmt={(d) => `${d.toFixed(2)} pts`} />
+            <Metric label="Margin (Rp)" base={formatIDR(result.baseCase.margin)} sim={formatIDR(result.simulatedCase.margin)} delta={result.delta.margin} fmt={formatIDR} />
+            <div className="rounded-lg border border-card-border p-3">
+              <div className="text-[11px] text-muted">Tier margin</div>
+              <div className="mt-1 flex items-center gap-2">
+                <Badge tone={tierTone(result.baseCase.tier)}>Saat ini Tier {result.baseCase.tier ?? "-"}</Badge>
+                <span className="text-muted">→</span>
+                <Badge tone={tierTone(result.simulatedCase.tier)}>Simulasi Tier {result.simulatedCase.tier ?? "-"}</Badge>
+              </div>
+              <div className="mt-1 text-[11px] text-muted">Tier 2 = COGS + Profitability Owner · Tier 3 = CCO + CFO</div>
             </div>
-
-            {result.isBelowThreshold && (
-              <p className="mt-3 text-xs text-danger bg-danger-bg rounded-lg px-3 py-2">
-                Pada skenario ini, GPM ({formatPercent(result.simulatedCase.gpm)}) turun di
-                bawah threshold minimum ({formatPercent(result.minGpmThreshold)}) — margin
-                guardrail akan memicu alert saat kalkulasi resmi (FR-4.2).
-              </p>
-            )}
           </div>
         )}
-
-        {eligible.length === 0 && (
-          <p className="text-sm text-muted text-center py-6">
-            Belum ada proposal dengan kalkulasi harga. Isi CBS cost lines pada
-            sebuah proposal terlebih dahulu.
-          </p>
-        )}
+        {proposals.length === 0 && <p className="py-6 text-center text-sm text-muted">Belum ada quotation yang sudah di-generate.</p>}
       </CardContent>
     </Card>
   );
 }
 
-function SliderField({
-  label,
-  value,
-  onChange,
-  min,
-  max,
-  step,
-  suffix,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  min: number;
-  max: number;
-  step: number;
-  suffix: string;
-}) {
+function Slider({ label, value, onChange, min, max, step }: { label: string; value: number; onChange: (v: number) => void; min: number; max: number; step: number }) {
   return (
     <label className="block space-y-2">
       <div className="flex items-center justify-between text-xs">
         <span className="text-muted">{label}</span>
-        <span className="font-semibold text-foreground">
-          {value > 0 ? "+" : ""}
-          {value}
-          {suffix}
-        </span>
+        <span className="font-semibold">{value > 0 ? "+" : ""}{value}%</span>
       </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-blue-600"
-      />
+      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-blue-600" />
     </label>
   );
 }
 
-function ComparisonMetric({
-  label,
-  base,
-  simulated,
-  delta,
-  formatDelta,
-  warn,
-}: {
-  label: string;
-  base: string;
-  simulated: string;
-  delta: number;
-  formatDelta: (d: number) => string;
-  warn?: boolean;
-}) {
-  const isNegative = delta < 0;
+function Metric({ label, base, sim, delta, fmt }: { label: string; base: string; sim: string; delta: number; fmt: (d: number) => string }) {
+  const neg = delta < 0;
   return (
-    <div className={`rounded-lg border p-3 ${warn ? "border-danger/30 bg-danger-bg" : "border-card-border"}`}>
+    <div className="rounded-lg border border-card-border p-3">
       <div className="text-[11px] text-muted">{label}</div>
-      <div className="text-base font-semibold mt-1">{simulated}</div>
-      <div className="text-[11px] text-muted mt-0.5">Base case: {base}</div>
-      <div
-        className={`flex items-center gap-1 text-[11px] font-medium mt-1 ${
-          isNegative ? "text-danger" : "text-success"
-        }`}
-      >
-        {isNegative ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
-        {formatDelta(delta)}
+      <div className="mt-1 text-base font-semibold">{sim}</div>
+      <div className="mt-0.5 text-[11px] text-muted">Saat ini: {base}</div>
+      <div className={`mt-1 flex items-center gap-1 text-[11px] font-medium ${neg ? "text-danger" : "text-success"}`}>
+        {neg ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
+        {fmt(delta)}
       </div>
     </div>
   );

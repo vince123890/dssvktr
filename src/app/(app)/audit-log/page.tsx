@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { requireInternal } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { formatDate } from "@/lib/utils";
@@ -16,6 +17,22 @@ const ACTION_TONE: Record<string, "default" | "success" | "warning" | "danger" |
   ESCALATE: "warning",
   RECALCULATE: "default",
   ADD_COST_ITEM: "info",
+  RELEASE: "success",
+  MAKE: "info",
+  CHECK: "info",
+  RETURN: "warning",
+  VALIDATE: "success",
+  GENERATE: "info",
+  REVISE: "warning",
+  STEP_SKIPPED: "default",
+  TIER_ROUTE: "warning",
+  TIER_CC: "default",
+  EXPIRE: "default",
+  PRINT: "default",
+  SETTINGS_CHANGE: "warning",
+  PRICE_ESTIMATE: "default",
+  SUPERSEDE: "default",
+  BLOCKED_DUPLICATE_ATTEMPT: "danger",
 };
 
 export default async function AuditLogPage({
@@ -24,6 +41,7 @@ export default async function AuditLogPage({
   searchParams: Promise<{ actor?: string; entity?: string }>;
 }) {
   const { actor, entity } = await searchParams;
+  await requireInternal();
   const supabase = await createClient();
 
   let query = supabase

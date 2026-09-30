@@ -15,11 +15,23 @@ import {
 const ProductSchema = z.object({
   code: z.string().min(2),
   name: z.string().min(2),
-  chassis_variant: z.string().optional(),
-  body_variant: z.string().optional(),
-  image_url: z.string().optional(),
-  brochure_url: z.string().optional(),
+  make: z.string().optional(),
+  model: z.string().optional(),
+  variant_type: z.string().optional(),
+  variant: z.string().optional(),
+  wheelbase: z.string().optional(),
+  battery_kwh: z.coerce.number().optional(),
+  body_application: z.string().optional(),
+  build_type: z.string().optional(),
+  loco: z.string().optional(),
+  document_description: z.string().optional(),
 });
+
+const lines = (v: FormDataEntryValue | null) =>
+  String(v ?? "")
+    .split(/\r?\n/)
+    .map((x) => x.trim())
+    .filter(Boolean);
 
 /**
  * FR-1.5.1 — Product Master Data, managed by Product Owner. Separate
@@ -29,29 +41,38 @@ const ProductSchema = z.object({
 export async function createProductAction(formData: FormData): Promise<ActionResult> {
   try {
     const profile = await requireProfile();
-    if (!canManageProductMasterData(profile.role)) {
+    if (!canManageProductMasterData(profile)) {
       throw new Error("Hanya Product Owner / System Admin yang dapat mengelola produk.");
     }
 
+    const opt = (k: string) => (formData.get(k) ? String(formData.get(k)) : undefined);
     const parsed = ProductSchema.parse({
       code: formData.get("code"),
       name: formData.get("name"),
-      chassis_variant: formData.get("chassis_variant") || undefined,
-      body_variant: formData.get("body_variant") || undefined,
-      image_url: formData.get("image_url") || undefined,
-      brochure_url: formData.get("brochure_url") || undefined,
+      make: opt("make"),
+      model: opt("model"),
+      variant_type: opt("variant_type"),
+      variant: opt("variant"),
+      wheelbase: opt("wheelbase"),
+      battery_kwh: opt("battery_kwh"),
+      body_application: opt("body_application"),
+      build_type: opt("build_type"),
+      loco: opt("loco"),
+      document_description: opt("document_description"),
     });
 
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("product_master_data")
       .insert({
-        code: parsed.code,
-        name: parsed.name,
-        chassis_variant: parsed.chassis_variant ?? null,
-        body_variant: parsed.body_variant ?? null,
-        image_urls: parsed.image_url ? [parsed.image_url] : [],
-        brochure_url: parsed.brochure_url ?? null,
+        ...parsed,
+        battery_kwh: parsed.battery_kwh ?? null,
+        chassis_variant: parsed.wheelbase ?? null,
+        body_variant: parsed.body_application ?? null,
+        document_description: parsed.document_description ?? parsed.name,
+        default_inclusions: lines(formData.get("default_inclusions")),
+        default_exclusions: lines(formData.get("default_exclusions")),
+        image_urls: lines(formData.get("image_urls")),
         status: "ACTIVE",
         created_by: profile.id,
       })
@@ -81,7 +102,7 @@ export async function createProductAction(formData: FormData): Promise<ActionRes
 
 export async function toggleProductStatusAction(id: string, nextStatus: "ACTIVE" | "DISCONTINUED") {
   const profile = await requireProfile();
-  if (!canManageProductMasterData(profile.role)) {
+  if (!canManageProductMasterData(profile)) {
     throw new Error("Hanya Product Owner / System Admin yang dapat mengelola produk.");
   }
 

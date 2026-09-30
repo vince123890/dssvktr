@@ -3,18 +3,27 @@
 Proof-of-concept untuk **Enterprise Smart Pricing & Decision Support System**
 (VKTR-PriceCore), dibangun mengikuti spesifikasi di [`docs/PRD-VKTR-PriceCore.md`](docs/PRD-VKTR-PriceCore.md)
 dan [`docs/TECHNICAL-LOGIC-VKTR-PriceCore.md`](docs/TECHNICAL-LOGIC-VKTR-PriceCore.md)
-(v3.0 — hasil demo review, lihat `docs/transcribe.md`).
+**v4.0** — konfirmasi VKTR lewat `docs/BTEL - Cost and Roles and Flow.xlsx`
+(sheet *Cost Structure*, *Actors*, *Basic Workflow*) dan contoh dokumen
+`docs/Cost Estimate - PT Siborong Nusa Gemilang 20260906 (1).pdf`.
 
-> **v3.0 highlights.** Master data CBS kini tunggal untuk semua lini
-> bisnis (struktur riil VKTR/BTEL: COGS/Profitability/Sales/Add-Ons —
-> lihat `docs/BTEL-CostStructure.xlsx`); urutan pengisi cost line
-> dikoreksi menjadi Sales Officer → VP Operations → VP Finance → Chief
-> Sales; discount authority diganti dari tangga persentase diskon
-> menjadi **Margin Tier** berbasis GPM akhir (Tier 1 Auto / Tier 2
-> 3-Pihak / Tier 3 2-BOD); basis kurs dikoreksi dari USD ke **CNY
-> (Renminbi/Yuan)** — mata uang riil FOB Price; ditambahkan Project
-> Identifier (revisi quotation ter-link), Product Owner, dan Rate
-> Sensitivity Threshold.
+> **v4.0 highlights.**
+> - **Role & wewenang sebagai data** — 12 role sheet *Actors* (Sales
+>   Executive, Sales Lead, Sales Operations Manager, Head of Sales,
+>   Procurement Manager, Head of Procurement and Operations Control, Head
+>   of Corporate Finance, CCO, CFO, Authorized Agency, Product Owner,
+>   System Admin) dan matriks Maker/Checker/Releaser per scope diatur di
+>   **Settings**, bukan di kode.
+> - **Cost structure per varian** dirilis per scope lewat Maker → Checker
+>   → Releaser; STNK & Insurance dikoreksi ke Add-Ons.
+> - **Dua Basic Workflow VKTR**: *Price Estimate* (termasuk agency, excl./
+>   incl. VAT, tanpa approval) dan *Official Quotation* (KYC → validasi
+>   Sales Lead → generate Sales Operations per quantity band → Head of
+>   Sales → tier margin 15%/10%: Owner / CCO+CFO).
+> - **Dokumen Cost Estimate** — preview draft (watermark), print / simpan
+>   PDF, halaman spesifikasi, Cost Structure Sheet internal terpisah.
+> - Workflow, tier, quantity band, PPN, dan teks dokumen dapat diubah di
+>   Settings; perubahan workflow membuat versi baru.
 
 Stack: **Next.js 16 (App Router) + Supabase (Postgres, Auth, RLS) + Vercel**.
 
@@ -42,31 +51,30 @@ ini sepadan dengan kecepatan setup.
 
 ---
 
-## 2. Cakupan Modul (mengikuti PRD Module 1–8, v3.0)
+## 2. Cakupan Modul (PRD v4.0)
 
-| Modul PRD | Implementasi POC |
+| Modul | Implementasi |
 |---|---|
-| **Module 1** — Dynamic Pricing & Master Data | `/master-data` (CBS **tunggal**: COGS/Profitability/Sales/Add-Ons — bukan lagi Direct/Indirect/Margin per lini bisnis) dan `/master-data/product` (Product Master Data, dikelola Product Owner). Formula: **satu fungsi generik untuk semua lini bisnis** (`src/lib/pricing/engine.ts`) — lihat §Keputusan Desain. |
-| **Module 2** — Configurable Multi-Dept Workflow | `/proposals/[id]` (submit, approve/reject/targeted-reject, urutan VP Operations → VP Finance → Chief Sales) + `/admin` (Workflow Template Catalog, `src/lib/workflow/templateResolution.ts`). Project Identifier & revision (`src/lib/workflow/projectIdentifier.ts`), Duplicate/Fraud Guard (`src/lib/workflow/duplicateGuard.ts`). |
-| **Module 3** — State Tracking & Observability | `/lifecycle` (Kanban + Table view, SLA breach indicator) dan `/audit-log` (immutable audit trail, filterable). |
-| **Module 4** — DSS & Simulation | `/dss` (What-If slider simulator real-time — FX/CNY aktif, HMA referensi saja; Margin Guardrail alerts, Win/Loss Analytics). |
-| **Module 5** — Auth & RBAC | Supabase Auth + 7 role (Sales Officer/VP Operations/VP Finance/Chief Sales/Product Owner/BOD/Admin). Sales Officer **tidak melihat** kelompok COGS/Profitability/Add-Ons sama sekali (`src/lib/rbac.ts`). |
-| **Module 6** — Commercial Negotiation | `NegotiationPanel.tsx` — Margin-Tier Discount Authority (`src/lib/negotiation/marginTier.ts`): Tier 1 auto, Tier 2 AND-join 3 pihak, Tier 3 AND-join 2 BOD berbeda. Input diskon Rupiah atau persentase. |
-| **Module 8** — Mineral Index | HMA/HPM ditampilkan sebagai referensi (`src/lib/pricing/mineral.ts`) — dampak riil ke harga berjalan lewat kurs CNY/IDR, faktor pengali independen dinonaktifkan. |
-
----
+| **Settings** (FR-5.6, FR-2.1) | `/settings` — Roles & Users, Scope Authority (M/C/R Regular/Deviation + pemisahan tugas + export CSV), Workflow (langkah Official Quotation, akses Price Estimate), Tier Margin & Quantity Band, Umum & Dokumen (PPN, masa berlaku, nomor dokumen, teks). `src/lib/rbac.ts` hanya memeriksa **fungsi** role. |
+| **Cost Structure** (FR-1.1.2) | `/cost-structure` — price book per varian, versi, kurs CNY dikunci, banner rate sensitivity; `/cost-structure/[versionId]` — 4 scope dengan Maker/Checker/Releaser (`src/lib/costStructure.ts`). |
+| **Price Estimate** (Workflow A) | `/price-estimate` — make → model → type → variant, harga excl./incl. VAT, log & audit. |
+| **Official Quotation** (Workflow B) | `/proposals/new` (KYC + multi-varian), `/proposals/[id]` (aksi per role, panel harga Rp/%, timeline, tier approval), engine di `src/lib/workflow/quotationEngine.ts`. |
+| **Dokumen** (FR-1.5.3/1.5.4) | `/print/proposals/[id]` (Cost Estimate) dan `/print/proposals/[id]/cost-structure` (internal). |
+| Master Data | `/master-data` (cost item 4 scope, kurs CNY/IDR, rate sensitivity, HMA referensi) · `/master-data/product` (varian produk). |
+| Observability | `/` (antrean "menunggu tindakan Anda"), `/lifecycle` (Kanban/Table), `/audit-log`. |
+| DSS | `/dss` — what-if kurs/FOB/diskon → GM & tier, guardrail 15%, win/loss. |
 
 ## 3. Keputusan Desain POC (vs Technical Logic Doc lengkap)
 
 | Area | Spesifikasi Lengkap | Implementasi POC | Alasan |
 |---|---|---|---|
-| Formula Engine | Expression DSL + sandboxed evaluator (§3) | Satu formula generik di kode TS untuk semua lini bisnis (FR-1.2, v3.0) — cost items & template tetap 100% data-driven | Menghindari kompleksitas parser/sandboxing custom untuk scope POC, tanpa mengorbankan "no hardcoded cost structure" |
-| Workflow Template Catalog | Full no-code drag-drop builder (§4) | Workflow Definition & Steps dikonfigurasi via SQL seed / halaman `/admin` (view + toggle active + qualifier_type), bukan drag-drop UI | State machine, gatekeeping, dan `resolveWorkflowTemplate` logic tetap penuh — hanya UI authoring yang disederhanakan |
-| RBAC/ABAC | Field masking di response serializer (§8) | Sama — masking diterapkan di komponen React saat render (`maskBreakdownForRole`), didampingi RLS row-level di Postgres | Tetap mengikuti prinsip "masking di server/layer sebelum sampai client" |
-| Format Quotation PDF (FR-1.5.3) | Generator PDF dengan template dinamis | Data model `quotation_document_template` tersedia, **tanpa generator PDF aktif** | Menunggu contoh dokumen dari tim Sales/Product VKTR; prioritas iterasi ini ke governance/pricing/negotiation core |
-| Integrasi ERP/CRM/Notifikasi | API-first contracts (§9) | **Di-skip** — cost line & harga final tidak diekspor kemana pun | Sesuai instruksi; struktur `pricing_proposal_version` sudah siap untuk ditambahkan endpoint export |
-| SLA Escalation Notification | Email/Teams/WhatsApp push (§5) | SLA breach dihitung & ditampilkan di UI (`isSlaBreached`), tapi tidak ada pengiriman notifikasi keluar | Cron job pengirim notifikasi adalah pekerjaan infra terpisah di luar scope POC |
-| Exchange Rate Auto-Pull (FR-1.4.2) | Job terjadwal mingguan dari API bank | Kurs CNY/IDR diinput manual via `/master-data` (`createExchangeRateAction`); struktur `exchange_rate.pulled_at`/`source='bank-api'` sudah siap | Job scheduler adalah pekerjaan infra terpisah di luar scope POC |
+| Formula Engine | Expression DSL + sandboxed evaluator (§3) | Satu set fungsi murni di `src/lib/pricing/quotation.ts` untuk semua jalur (cost structure, quotation, Price Estimate, DSS, seed) | Tidak ada logika margin ganda; struktur biaya tetap 100% data |
+| Role & wewenang | Role sebagai data + slot fungsional (§2.1, §8) | Sama — `app_role` + `scope_authority`; kode hanya membaca fungsi. Kolom legacy `profile.role` dijaga sinkron untuk RLS lama | Role baru dari Settings langsung berlaku tanpa deploy |
+| Workflow Template | Editor no-code (§4.1a) | Editor langkah di Settings (pelaksana, kondisi lewati, tujuan tolak, SLA); simpan = versi baru; tier margin selalu disisipkan engine | Template tidak dapat melemahkan wewenang margin |
+| Dokumen | Render HTML → PDF server-side (§4.12) | Satu halaman `/print/...` untuk preview & cetak; PDF via dialog cetak browser | Tanpa headless browser di Vercel; isi preview = isi cetak |
+| Kedaluwarsa | Job harian (§4.11) | Dievaluasi saat halaman dibuka (`expireStaleQuotations`) | Tanpa scheduler |
+| Integrasi ERP/CRM/Notifikasi | API-first contracts (§9) | **Di-skip** | Sesuai arahan POC |
+| Exchange Rate Auto-Pull (FR-1.4.2) | Job mingguan dari API bank | Kurs CNY/IDR diinput di `/master-data` | Scheduler di luar scope POC |
 
 ---
 
@@ -88,18 +96,19 @@ cp .env.local.example .env.local
 ```
 
 ### 4.3 Jalankan Migration SQL
-Buka **SQL Editor** di Supabase Dashboard, jalankan berurutan (atau pakai
-`npm run migrate -- supabase/migrations/000X_....sql` jika `SUPABASE_DB_URL`
-sudah diset di `.env.local`):
+Tambahkan `SUPABASE_DB_URL` (Session pooler URI) ke `.env.local`, lalu
+jalankan berurutan `npm run migrate -- supabase/migrations/000X_....sql`
+(atau via SQL Editor Supabase):
 
-1. `supabase/migrations/0001_init_schema.sql` — tabel, enum, index
-2. `supabase/migrations/0002_rls_policies.sql` — RLS policies
-3. `supabase/migrations/0003_seed_data.sql` — departemen, cost items, CBS template, workflow definition, FX snapshot
-4. `supabase/migrations/0004_auth_trigger.sql` — trigger auto-create `profile` saat signup
-5. `supabase/migrations/0005_fix_current_version_id.sql` – `0010_currency_and_mineral_structures.sql` — perbaikan bug & v2.0/v2.1 (COGS Owner workflow, multi-currency, mineral index)
-6. `supabase/migrations/0011_v3_revision_enums.sql` — enum baru v3.0 (`cost_group`, `CNY`, `SUPERSEDED`, `PRODUCT_OWNER`, dst.)
-7. `supabase/migrations/0012_v3_revision_structures.sql` — tabel & kolom baru v3.0 (`project_identifier`, `product_master_data`, `margin_tier_authority`, `rate_sensitivity_config`, dst.)
-8. `supabase/migrations/0013_v3_seed_reset.sql` — **reset total** master data & data transaksional lama ke struktur riil VKTR/BTEL (lihat catatan di kepala file — proposal/cost item lama dihapus, tidak dimigrasikan)
+1. `0001`–`0013` — skema dasar s.d. v3.0.
+2. `0014_v4_enums.sql` — status & audit action v4.0 (harus terpisah:
+   nilai enum baru tidak boleh dipakai di transaksi yang sama).
+3. `0015_v4_structures.sql` — `app_role`, `scope_authority`,
+   `cost_structure_*`, `quotation_line_item`, `tier_approval`,
+   `app_setting`, `quantity_band_config`, RLS.
+4. `0016_v4_seed_reset.sql` — konfigurasi sesuai attachment (role,
+   matriks, tier 15%/10%, band, dua workflow, varian LDT) dan **reset data
+   transaksional**.
 
 ### 4.4 Install & Jalankan
 ```bash
@@ -114,28 +123,32 @@ Buka [http://localhost:3000](http://localhost:3000).
 
 ## 5. Demo Accounts
 
-Dibuat otomatis oleh `npm run seed:demo` (password sama untuk semua: `PriceCore123!`):
+Dibuat oleh `npm run seed:demo` (password semua: `PriceCore123!`):
 
-| Email | Role | Peran dalam alur |
-|---|---|---|
-| sales@vktr.demo | Sales Officer | Membuat quotation (data customer/unit, tanpa akses COGS), mengajukan diskon |
-| vpops@vktr.demo | VP Operations | COGS Owner — mengisi lebih dulu: kelompok COGS & Add-Ons |
-| vpfinance@vktr.demo | VP Finance | COGS Owner — kelompok Profitability; salah satu approver Tier 2 |
-| chiefsales@vktr.demo | Chief Sales | Meninjau & approve rilis; salah satu approver Tier 2 |
-| product@vktr.demo | Product Owner | Kelola Product Master Data (spesifikasi, gambar, brosur) |
-| bod1@vktr.demo | BOD | Approver Tier 3 (wajib 2 BOD berbeda) |
-| bod2@vktr.demo | BOD | Approver Tier 3 (wajib 2 BOD berbeda) |
-| admin@vktr.demo | System Admin | Master data, Workflow Template Catalog, Margin Tier Authority |
+| Email | Role (sheet Actors) |
+|---|---|
+| agency@vktr.demo | Authorized Agency (eksternal — hanya Price Estimate) |
+| sales.exec@vktr.demo | Sales Executive |
+| sales.lead@vktr.demo | Sales Lead |
+| salesops@vktr.demo | Sales Operations Manager |
+| headsales@vktr.demo | Head of Sales |
+| procurement@vktr.demo | Procurement Manager (COGS Owner) |
+| headproc@vktr.demo | Head of Procurement and Operations Control (COGS Owner) |
+| headfinance@vktr.demo | Head of Corporate Finance (Profitability Owner) |
+| cco@vktr.demo | Chief Commercial Officer (Pricing Committee) |
+| cfo@vktr.demo | Chief Finance Officer (Pricing Committee) |
+| product@vktr.demo | Product Owner |
+| admin@vktr.demo | System Admin |
+
+Akun v3.0 (sales@, vpops@, vpfinance@, chiefsales@, bod1@, bod2@) dihapus
+oleh seed — perannya tidak ada di sheet *Actors*.
 
 Dokumentasi demo:
 
-- [`docs/DEMO-FLOW-OVERVIEW.md`](docs/DEMO-FLOW-OVERVIEW.md) — **mulai di
-  sini**: peta peran, diagram alur quotation & negosiasi, urutan login.
-- [`docs/DEMO-SCENARIO.md`](docs/DEMO-SCENARIO.md) — langkah-demi-langkah
-  beserta angka yang harus diinput dan hasil yang diharapkan.
-- [`docs/DEMO-SCENARIO-CNY.md`](docs/DEMO-SCENARIO-CNY.md) — skenario
-  kedua: quotation berdenominasi **CNY (Renminbi)** dengan Rate
-  Sensitivity Threshold.
+- [`docs/DEMO-FLOW-PRICE-ESTIMATE.md`](docs/DEMO-FLOW-PRICE-ESTIMATE.md) — **Workflow A**, langkah demi langkah.
+- [`docs/DEMO-FLOW-OFFICIAL-QUOTATION.md`](docs/DEMO-FLOW-OFFICIAL-QUOTATION.md) — **Workflow B**, langkah demi langkah.
+- [`docs/DEMO-FLOW-OVERVIEW.md`](docs/DEMO-FLOW-OVERVIEW.md) — peta peran & diagram alur.
+- [`docs/DEMO-SCENARIO.md`](docs/DEMO-SCENARIO.md) / [`docs/DEMO-SCENARIO-CNY.md`](docs/DEMO-SCENARIO-CNY.md) — skenario naratif lengkap (termasuk kurs CNY).
 
 ### Mengulang demo
 
@@ -143,14 +156,10 @@ Dokumentasi demo:
 npm run reset:demo
 ```
 
-Mengembalikan aplikasi ke kondisi sebelum demo: proposal yang dibuat saat
-demo dihapus (beserta versi, cost line, hasil kalkulasi, workflow, dan
-audit log-nya), sementara 15 proposal historis dikembalikan ke posisi awal
-agar grafik Win/Loss Analytics tetap terisi.
-
-Master data dan akun demo tidak disentuh — **tidak perlu** menjalankan
-ulang migration SQL atau `seed:demo`, dan tidak perlu membuka Supabase
-Dashboard sama sekali. Aman dijalankan berkali-kali.
+Menghapus quotation, log Price Estimate, dan audit trail buatan demo;
+memulihkan cost structure v1 (RELEASED) dan quotation historis; bila kurs
+CNY/IDR diubah saat demo, menambahkan baris baru 2.600. Settings, master
+data, dan akun demo tidak disentuh.
 
 ---
 
@@ -174,69 +183,55 @@ Dashboard sama sekali. Aman dijalankan berkali-kali.
 ```
 src/
   app/
-    login/                 # Auth (Supabase Auth)
-    (app)/                 # Protected route group (sidebar layout)
-      page.tsx             # Executive overview dashboard
-      proposals/           # Module 1+2: create, CBS input, calculation, approval
-        [id]/
-          negotiation-actions.ts  # Module 6: margin-tier discount request/decision
-          revision-actions.ts     # Module 2: Hitung Ulang, Buat Revisi (Project Identifier)
-      lifecycle/           # Module 3: Kanban + Table lifecycle view
-      audit-log/           # Module 3: immutable audit trail
-      dss/                 # Module 4: What-If, Guardrails, Win/Loss
-      master-data/         # Module 1: Cost Items (COGS/Profitability/Sales/Add-Ons), CBS tunggal
-        product/            # Module 1 (FR-1.5): Product Master Data (Product Owner)
-      admin/                # Module 2/6: Workflow Template Catalog + Margin Tier Authority
-    api/simulate/          # Stateless what-if calculation endpoint
+    login/                     # Auth (Supabase Auth)
+    print/proposals/[id]/      # Dokumen Cost Estimate + Cost Structure Sheet (tanpa sidebar, siap cetak)
+    (app)/                     # Protected route group (sidebar difilter per fungsi role)
+      page.tsx                 # Overview + antrean "menunggu tindakan Anda"
+      price-estimate/          # Workflow A — Price Estimate per unit
+      proposals/               # Workflow B — KYC form (QuotationForm), list
+        [id]/                  # detail, ActionPanel, PricingEditor, quotation-actions.ts
+      cost-structure/          # Price book per varian + Maker/Checker/Releaser per scope
+      settings/                # Roles & Users, Scope Authority, Workflow, Tier & Band, Umum
+      lifecycle/ audit-log/ dss/ master-data/ (product/)
+    api/simulate/              # What-if (stateless)
+    api/settings/scope-authority.csv/  # Export matriks format sheet Actors
   lib/
-    pricing/
-      engine.ts            # Pricing Engine — satu formula untuk semua lini bisnis
-      currency.ts           # Multi-currency, basis CNY/IDR
-      rateSensitivity.ts     # FR-1.4.6 threshold check (banner, bukan auto-recalculate)
-      mineral.ts             # HMA/HPM — referensi saja, faktor dormant (FR-8.3)
-    workflow/
-      stateMachine.ts        # Gatekeeping, approve/reject/targeted-reject
-      releaseGate.ts          # 3 syarat rilis, termasuk margin tier AND-join
-      templateResolution.ts    # FR-2.0.1 Workflow Template Catalog resolution
-      projectIdentifier.ts      # FR-2.5 Project Identifier & revision proposal
-      duplicateGuard.ts          # FR-2.6 Duplicate/Fraud Guard
-    negotiation/
-      marginTier.ts          # FR-6.1 Margin Tier Authority, AND-join checks
-    rbac.ts                 # Field-level masking rules (per cost_group)
-    audit.ts                 # Append-only audit log writer
-    supabase/                # browser/server/middleware/admin clients
-supabase/migrations/         # SQL schema, RLS, seed data (0001-0013)
+    pricing/quotation.ts       # Engine murni: cost structure, diskon Rp/%, VAT, GM, tier, band
+    pricing/currency.ts, mineral.ts
+    costStructure.ts           # Loading versi, skenario, canPerformScopeAction (M/C/R + segregation)
+    workflow/quotationEngine.ts  # State machine Official Quotation, tier routing, release gate, expiry
+    workflow/duplicateGuard.ts, projectIdentifier.ts, proposalNumber.ts, labels.ts
+    rbac.ts                    # Fungsi role (FunctionalRole), slot tier, visibilitas cost structure
+    settings.ts, priceEstimateAccess.ts, auth.ts (requireInternal), audit.ts
+supabase/migrations/           # 0001-0016 (v4.0 = 0014-0016)
 scripts/
-  seed-demo.ts                # 8 demo users + historical proposals (struktur BTEL)
-  reset-demo.ts                # Reset ke state pasca-seed
+  demoData.ts                  # Akun, cost structure seed, quotation historis (dipakai seed & reset)
+  seed-demo.ts / reset-demo.ts / run-migration.ts
 docs/
-  PRD-VKTR-PriceCore.md              # v3.0
-  TECHNICAL-LOGIC-VKTR-PriceCore.md   # v3.0
-  BTEL-CostStructure.xlsx              # Sumber struktur CBS riil
-  transcribe.md                         # Transkrip demo review (sumber revisi v3.0)
-  DEMO-FLOW-OVERVIEW.md         # Peta peran + flow besar
-  DEMO-SCENARIO.md              # Langkah demi langkah (IDR)
-  DEMO-SCENARIO-CNY.md          # Skenario 2 (CNY/RMB + Rate Sensitivity)
+  PRD-VKTR-PriceCore.md, TECHNICAL-LOGIC-VKTR-PriceCore.md   # v4.0
+  DEMO-FLOW-PRICE-ESTIMATE.md, DEMO-FLOW-OFFICIAL-QUOTATION.md  # skrip demo per workflow
+  DEMO-FLOW-OVERVIEW.md, DEMO-SCENARIO.md, DEMO-SCENARIO-CNY.md
+  BTEL - Cost and Roles and Flow.xlsx, Cost Estimate - PT Siborong Nusa Gemilang 20260906 (1).pdf
 ```
 
 ---
 
 ## 8. Out of Scope (POC ini)
 
-- **Customer KYC & Opportunity Assessment (PRD Module 7)** — tetap tidak
-  dibangun; nama customer cukup field bebas pada Project Identifier.
-- Integrasi ERP (SAP/Odoo), CRM (Salesforce/HubSpot) — lihat §9 technical
-  logic doc untuk kontrak yang sudah dirancang dan siap diimplementasikan.
-- Notifikasi keluar (Email/MS Teams/WhatsApp) untuk SLA breach — breach
-  hanya divisualisasikan di UI.
-- Full no-code drag-drop workflow builder — konfigurasi via data seed/admin toggle.
-- Full expression-DSL formula editor — satu formula generik di kode untuk
-  semua lini bisnis (FR-1.2).
-- **Exchange rate auto-pull mingguan dari API bank** (FR-1.4.2) — kurs
-  CNY/IDR diinput manual; skema `source='bank-api'`/`pulled_at` sudah
-  siap untuk job scheduler.
-- **Generator PDF Format Quotation** (FR-1.5.3) — data model
-  `quotation_document_template` tersedia, belum ada rendering PDF aktif.
-- **Mineral Index Global Adjustment Factor** (FR-8.3) — dinonaktifkan
-  secara sengaja; HMA/HPM tampil sebagai referensi, dampak riil ke harga
-  berjalan lewat kurs CNY/IDR (lihat Technical Logic §13).
+- Integrasi ERP (SAP/Odoo), CRM (Salesforce/HubSpot) — kontrak di §9
+  technical logic.
+- Notifikasi keluar (Email/MS Teams/WhatsApp) untuk SLA & tembusan tier —
+  hanya tampil di UI.
+- Tarik kurs otomatis mingguan dari API bank — kurs CNY/IDR diinput di
+  Master Data; skema `source='bank-api'` sudah siap.
+- PDF dibuat lewat dialog cetak browser (*Save as PDF*) dari halaman
+  dokumen yang sama dengan preview — belum ada generator PDF server-side.
+- **Formula skema Rental** belum diterima dari VKTR — sewa/bulan diinput
+  manual oleh Sales Operations.
+- **Penyimpangan cost line per deal** (FR-1.1.3) belum dibangun —
+  penyesuaian harga per deal lewat diskon; nilai biaya berubah lewat versi
+  cost structure baru.
+- Pembuatan akun user dari Settings (akun dibuat lewat Supabase Auth /
+  seed; Settings mengatur role-nya).
+- Kedaluwarsa quotation dievaluasi saat halaman dibuka (bukan cron job).
+- Verifikasi KYC pihak ketiga, e-signature, Global Adjustment HPM.

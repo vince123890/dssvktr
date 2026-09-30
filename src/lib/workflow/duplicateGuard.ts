@@ -2,20 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { writeAuditLog } from "@/lib/audit";
 
 /**
- * Duplicate/Fraud Guard — Technical Logic §4.7 (FR-2.6).
+ * Duplicate/Fraud Guard — Technical Logic §4.7 (FR-2.6, v4.0).
  *
- * One Sales Officer may create at most one new quotation per day for
- * the same customer + product combination. Real sales activity rarely
- * produces more than one quotation a day for the same deal, so a
- * higher rate is treated as a candidate anomaly rather than silently
- * allowed.
- *
- * The window and limit are POC constants rather than a master-config
- * table — a simplification noted here rather than built as a full
- * admin-editable setting in this iteration.
+ * One Salesperson may open at most N new Official Quotations per day
+ * (N = app_setting fraud_guard_max_per_day, default 1) for the same
+ * customer + variant. Revisions on a Project Identifier are exempt —
+ * they continue an existing deal rather than start a new one.
  */
-
-const MAX_QUOTATIONS_PER_WINDOW = 1;
 
 export interface DuplicateGuardResult {
   allowed: boolean;
@@ -26,57 +19,49 @@ export async function canCreateNewQuotation(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any>,
   params: {
-    salesOfficerId: string;
-    customerName: string;
-    productMasterDataId: string | null;
+    salespersonId: string;
+    companyName: string;
+    productIds: string[];
+    maxPerDay: number;
   }
 ): Promise<DuplicateGuardResult> {
-  const { salesOfficerId, customerName, productMasterDataId } = params;
+  const { salespersonId, companyName, productIds, maxPerDay } = params;
 
   const windowStart = new Date();
   windowStart.setHours(0, 0, 0, 0);
 
-  let query = supabase
+  const { data: todays, error } = await supabase
     .from("pricing_proposal")
-    .select("id, pricing_proposal_version!inner(product_master_data_id)", {
-      count: "exact",
-      head: true,
-    })
-    .eq("created_by", salesOfficerId)
-    .eq("customer_name", customerName)
+    .select("id")
+    .eq("created_by", salespersonId)
+    .is("supersedes_proposal_id", null)
+    .filter("kyc->>company_name", "eq", companyName)
     .gte("created_at", windowStart.toISOString());
 
-  if (productMasterDataId) {
-    query = query.eq(
-      "pricing_proposal_version.product_master_data_id",
-      productMasterDataId
-    );
-  }
-
-  const { count, error } = await query;
-
-  // A guard failure should never silently let a duplicate through nor
-  // hard-block legitimate work — log and allow, since this is a
+  // A guard failure must never hard-block legitimate work: this is a
   // fraud-signal check, not a data-integrity constraint.
-  if (error) {
-    return { allowed: true };
-  }
+  if (error || !todays || todays.length === 0) return { allowed: true };
 
-  if ((count ?? 0) >= MAX_QUOTATIONS_PER_WINDOW) {
-    await writeAuditLog(supabase, {
-      entityType: "pricing_proposal",
-      entityId: salesOfficerId,
-      actorId: salesOfficerId,
-      action: "BLOCKED_DUPLICATE_ATTEMPT",
-      reason: `Melebihi batas ${MAX_QUOTATIONS_PER_WINDOW} quotation/hari untuk customer "${customerName}" + produk ini.`,
-    });
+  const { data: overlapping } = await supabase
+    .from("quotation_line_item")
+    .select("proposal_id")
+    .in("proposal_id", todays.map((p: { id: string }) => p.id))
+    .in("product_id", productIds);
 
-    return {
-      allowed: false,
-      reason:
-        "Batas quotation harian untuk customer & tipe unit ini sudah tercapai — coba lagi besok atau hubungi Chief Sales bila ini bukan duplikat.",
-    };
-  }
+  const count = new Set((overlapping ?? []).map((r: { proposal_id: string }) => r.proposal_id)).size;
+  if (count < maxPerDay) return { allowed: true };
 
-  return { allowed: true };
+  await writeAuditLog(supabase, {
+    entityType: "pricing_proposal",
+    entityId: salespersonId,
+    actorId: salespersonId,
+    action: "BLOCKED_DUPLICATE_ATTEMPT",
+    reason: `Melebihi batas ${maxPerDay} quotation/hari untuk customer "${companyName}" + varian yang sama.`,
+  });
+
+  return {
+    allowed: false,
+    reason:
+      "Batas quotation harian untuk customer & varian ini sudah tercapai — coba lagi besok atau hubungi Head of Sales bila ini bukan duplikat.",
+  };
 }

@@ -1,140 +1,81 @@
 import { createClient } from "@/lib/supabase/server";
-import { calculatePricing } from "@/lib/pricing/engine";
-import { resolveCurrentVersionId } from "@/lib/pricing/version";
-import { resolveExchangeRate } from "@/lib/pricing/currency";
-import { loadMineralContext, mineralAdjustmentFactor } from "@/lib/pricing/mineral";
+import { getCurrentProfile } from "@/lib/auth";
+import { canSeeCostStructure } from "@/lib/rbac";
+import { loadCostItems, loadVersionLines } from "@/lib/costStructure";
+import { computeCostStructure, resolveTier } from "@/lib/pricing/quotation";
+import { loadLadder, loadLines } from "@/lib/workflow/quotationEngine";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import type { CostItem } from "@/types/database";
+import type { PricingProposal } from "@/types/database";
 
 /**
- * FR-4.1 What-If Sensitivity Simulator — stateless endpoint.
- * Re-runs the same pricing engine used for the "official" calculation
- * (Technical Logic §7.1) with slider overrides, but never writes to
- * pricing_proposal_version / proposal_calculation_result.
+ * FR-4.1 What-If — stateless. Re-runs the same pricing engine as the
+ * official path (Technical Logic §7.1) on a quotation's locked cost
+ * structures with the slider overrides, and never writes anything.
+ *
+ * The price stays as quoted; the sliders move the COST (CNY rate, FOB
+ * price) and add an extra discount, so the result answers "what margin
+ * and which tier would this deal land in if ...".
  */
 
 const BodySchema = z.object({
-  proposalId: z.string().uuid(),
+  proposalId: z.string().min(1),
   fxDeltaPct: z.number().default(0),
-  materialCostDeltaPct: z.number().default(0),
-  volumeDiscountPct: z.number().default(0),
-  hmaDeltaPct: z.number().default(0),
+  fobDeltaPct: z.number().default(0),
+  extraDiscountPct: z.number().default(0),
 });
 
 export async function POST(request: Request) {
-  const json = await request.json();
-  const body = BodySchema.parse(json);
-
+  const me = await getCurrentProfile();
+  if (!me || !canSeeCostStructure(me)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const body = BodySchema.parse(await request.json());
   const supabase = await createClient();
 
-  const { data: proposal } = await supabase
-    .from("pricing_proposal")
-    .select("*")
-    .eq("id", body.proposalId)
-    .single();
+  const { data: row } = await supabase.from("pricing_proposal").select("*").eq("id", body.proposalId).maybeSingle();
+  if (!row) return NextResponse.json({ error: "Quotation not found" }, { status: 404 });
+  const proposal = row as PricingProposal;
 
-  if (!proposal) {
-    return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
-  }
-
-  const versionId = await resolveCurrentVersionId(supabase, proposal);
-  if (!versionId) {
-    return NextResponse.json(
-      { error: "Proposal has no version to simulate" },
-      { status: 404 }
-    );
-  }
-
-  const { data: template } = await supabase
-    .from("cbs_template")
-    .select("*")
-    .eq("id", proposal.cbs_template_id)
-    .single();
-
-  const { data: templateItems } = await supabase
-    .from("cbs_template_item")
-    .select("cost_item_id, cost_item(*)")
-    .eq("template_id", proposal.cbs_template_id);
-
-  const costItems: CostItem[] = (templateItems ?? [])
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((row: any) => row.cost_item)
-    .filter(Boolean);
-
-  const { data: costLines } = await supabase
-    .from("proposal_cost_line")
-    .select("*")
-    .eq("proposal_version_id", versionId);
-
-  const costLineValues: Record<string, number> = {};
-  for (const line of costLines ?? []) {
-    costLineValues[line.cost_item_id] = Number(line.value);
-  }
-
-  // Same sources the official calculation uses, so simulation and reality
-  // never diverge (Technical Logic §13.5).
-  const mineralCode =
-    costItems.find((c) => c.is_mineral_linked)?.mineral_code ?? "NI";
-  const [exchangeRate, mineral] = await Promise.all([
-    resolveExchangeRate(supabase),
-    loadMineralContext(supabase, mineralCode),
+  const [items, lines, ladder] = await Promise.all([
+    loadCostItems(supabase),
+    loadLines(supabase, proposal.id),
+    loadLadder(supabase, proposal.business_line),
   ]);
 
-  const fxRate = exchangeRate ? Number(exchangeRate.rate) : 2600;
-  // Dormant in v3.0 — always 1 regardless of baseline/current HPM
-  // (Technical Logic §13.2). hmaDeltaPct below only shifts the
-  // reference HPM number, never the price.
-  const baseMineralFactor = mineralAdjustmentFactor(
-    proposal.baseline_hpm_value,
-    mineral.hpm?.hpmWet ?? null
-  );
+  let baseMargin = 0, baseRevenue = 0, simMargin = 0, simRevenue = 0, baseTotal = 0, simTotal = 0;
+  for (const l of lines) {
+    if (!l.cost_structure_version_id) continue;
+    const vLines = await loadVersionLines(supabase, l.cost_structure_version_id);
+    const values: Record<string, number> = {};
+    const excluded = new Set<string>();
+    for (const vl of vLines) {
+      const item = items.find((i) => i.id === vl.cost_item_id);
+      const fobMove = item?.denomination === "CNY" ? 1 + body.fobDeltaPct / 100 : 1;
+      values[vl.cost_item_id] = Number(vl.value) * fobMove;
+      if (vl.is_excluded_at_cost) excluded.add(vl.cost_item_id);
+    }
+    const rate = Number(l.locked_fx_rate ?? 0) * (1 + body.fxDeltaPct / 100);
+    const cs = computeCostStructure({ items, values, excluded, fxRate: rate });
 
-  const baseCase = calculatePricing({
-    costItems,
-    costLineValues,
-    unitQuantity: proposal.unit_quantity,
-    fxRate,
-    fxBaselineRate: fxRate,
-    minGpmThreshold: Number(template?.min_gpm_threshold ?? 0.12),
-    mineralAdjustmentFactor: baseMineralFactor,
-  });
+    const net = Number(l.net_price_ex_vat);
+    const simNet = net * (1 - body.extraDiscountPct / 100);
+    const sales = Number(l.sales_cost);
+    baseMargin += (net - sales - Number(l.base_cost)) * l.quantity;
+    baseRevenue += (net - sales) * l.quantity;
+    simMargin += (simNet - sales - cs.baseCost) * l.quantity;
+    simRevenue += (simNet - sales) * l.quantity;
+    baseTotal += net * l.quantity;
+    simTotal += simNet * l.quantity;
 
-  const simulatedCase = calculatePricing({
-    costItems,
-    costLineValues,
-    unitQuantity: proposal.unit_quantity,
-    fxRate,
-    fxBaselineRate: fxRate,
-    minGpmThreshold: Number(template?.min_gpm_threshold ?? 0.12),
-    mineralAdjustmentFactor: baseMineralFactor,
-    simulation: {
-      fxDeltaPct: body.fxDeltaPct,
-      materialCostDeltaPct: body.materialCostDeltaPct,
-      volumeDiscountPct: body.volumeDiscountPct,
-      hmaDeltaPct: body.hmaDeltaPct,
-    },
-  });
+  }
+
+  const baseGm = baseRevenue > 0 ? baseMargin / baseRevenue : 0;
+  const simGm = simRevenue > 0 ? simMargin / simRevenue : 0;
+  const baseTier = resolveTier(baseGm * 100, ladder)?.tier ?? null;
+  const simTier = resolveTier(simGm * 100, ladder)?.tier ?? null;
 
   return NextResponse.json({
-    baseCase: {
-      finalPrice: baseCase.finalPrice,
-      gpm: baseCase.gpm,
-      ebitdaContribution: baseCase.ebitdaContribution,
-      bepUnits: baseCase.bepUnits,
-    },
-    simulatedCase: {
-      finalPrice: simulatedCase.finalPrice,
-      gpm: simulatedCase.gpm,
-      ebitdaContribution: simulatedCase.ebitdaContribution,
-      bepUnits: simulatedCase.bepUnits,
-    },
-    delta: {
-      finalPrice: simulatedCase.finalPrice - baseCase.finalPrice,
-      gpmPctPoints: (simulatedCase.gpm - baseCase.gpm) * 100,
-      ebitdaContribution: simulatedCase.ebitdaContribution - baseCase.ebitdaContribution,
-    },
-    isBelowThreshold: simulatedCase.isBelowGpmThreshold,
-    minGpmThreshold: Number(template?.min_gpm_threshold ?? 0.12),
+    baseCase: { totalExVat: baseTotal, gm: baseGm, margin: baseMargin, tier: baseTier },
+    simulatedCase: { totalExVat: simTotal, gm: simGm, margin: simMargin, tier: simTier },
+    delta: { gmPctPoints: (simGm - baseGm) * 100, margin: simMargin - baseMargin, totalExVat: simTotal - baseTotal },
   });
 }

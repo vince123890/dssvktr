@@ -99,7 +99,7 @@ export function LifecycleView({
       </div>
 
       {view === "kanban" ? (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-4 xl:grid-cols-7">
           {filteredColumns.map((col) => (
             <div key={col.status} className="space-y-2">
               <div className="flex items-center justify-between px-1">

@@ -1,43 +1,38 @@
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/Card";
-import { NewProposalForm } from "./NewProposalForm";
 import { createClient } from "@/lib/supabase/server";
+import { requireInternal } from "@/lib/auth";
+import { canInitiateQuotation } from "@/lib/rbac";
+import { loadQuotationFormOptions } from "@/lib/quotationOptions";
+import { QuotationForm } from "../QuotationForm";
+import { Card, CardContent } from "@/components/ui/Card";
 
-export default async function NewProposalPage() {
+export default async function NewQuotationPage() {
+  const profile = await requireInternal();
   const supabase = await createClient();
-  const { data: products } = await supabase
-    .from("product_master_data")
-    .select("id, name, code")
-    .eq("status", "ACTIVE")
-    .order("name");
 
-  return (
-    <div className="max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Buat Quotation Baru</h1>
-        <p className="text-sm text-muted mt-1">
-          Master data biaya bersifat tunggal untuk semua lini bisnis (FR-1.1) —
-          lini bisnis hanya menentukan alur approval yang dipakai (Workflow
-          Template).
-        </p>
-      </div>
-
+  if (!canInitiateQuotation(profile)) {
+    return (
       <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>Detail Quotation</CardTitle>
-            <CardDescription>Data ini akan menjadi header draft v1.0</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <NewProposalForm products={products ?? []} />
+        <CardContent className="py-10 text-center text-sm text-muted">
+          Official Quotation hanya diajukan oleh sales internal (Sales Executive / Sales Lead).
+          Gunakan menu <strong>Price Estimate</strong> untuk estimasi harga per unit.
         </CardContent>
       </Card>
+    );
+  }
+
+  const { products, projects } = await loadQuotationFormOptions(supabase);
+
+  return (
+    <div className="max-w-4xl space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold">Official Quotation Baru</h1>
+        <p className="text-sm text-muted mt-1">
+          Sales To Obtain Official Quotation — isi KYC dan varian kendaraan, tinjau di layar, lalu
+          simpan sebagai draft. Setelah submit, permintaan Sales Executive divalidasi Sales Lead
+          sebelum diproses Sales Operations. Anda tidak akan melihat struktur biaya di tahap mana pun.
+        </p>
+      </div>
+      <QuotationForm products={products} projects={projects} />
     </div>
   );
 }

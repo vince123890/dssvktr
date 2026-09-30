@@ -56,3 +56,32 @@ body {
   background: #cbd5e1;
   border-radius: 9999px;
 }
+
+/* Shared form control (v4.0 forms) */
+.pc-input {
+  width: 100%;
+  border: 1px solid var(--card-border);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.8rem;
+  background: white;
+  color: var(--foreground);
+}
+.pc-input:disabled {
+  background: var(--muted-bg);
+  color: var(--muted);
+}
+
+/* Printable Cost Estimate (FR-1.5.4) */
+@page {
+  size: A4;
+  margin: 12mm;
+}
+@media print {
+  body {
+    background: white;
+  }
+  .print-page-break {
+    break-before: page;
+  }
+}

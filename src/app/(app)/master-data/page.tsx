@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireProfile } from "@/lib/auth";
+import { requireInternal } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import type { CbsTemplate, CostGroup, CostItem, Department } from "@/types/database";
@@ -24,10 +24,18 @@ const COST_GROUP_TONE: Record<CostGroup, "info" | "success" | "warning" | "defau
   ADD_ONS: "default",
 };
 
-const COST_GROUP_ORDER: CostGroup[] = ["COGS", "PROFITABILITY", "SALES", "ADD_ONS"];
+const COST_GROUP_ORDER: CostGroup[] = ["COGS", "ADD_ONS", "PROFITABILITY", "SALES"];
+
+/** Scope ownership confirmed by sheet Actors (v4.0) — who may Make/Check/Release is set in Settings. */
+const SCOPE_OWNER: Record<CostGroup, string> = {
+  COGS: "COGS Owner",
+  ADD_ONS: "COGS Owner",
+  PROFITABILITY: "Profitability Owner",
+  SALES: "Sales Pricing Owner",
+};
 
 export default async function MasterDataPage() {
-  const profile = await requireProfile();
+  const profile = await requireInternal();
   const supabase = await createClient();
 
   const [
@@ -64,13 +72,12 @@ export default async function MasterDataPage() {
   const items = (costItems ?? []) as CostItem[];
   const depts = (departments ?? []) as Department[];
   const tmpls = (templates ?? []) as CbsTemplate[];
-  const deptById = Object.fromEntries(depts.map((d) => [d.id, d]));
 
   const grouped = Object.fromEntries(
     COST_GROUP_ORDER.map((g) => [g, items.filter((i) => i.cost_group === g)])
   ) as Record<CostGroup, CostItem[]>;
 
-  const canEdit = canConfigureMasterData(profile.role);
+  const canEdit = canConfigureMasterData(profile);
 
   return (
     <div className="space-y-6">
@@ -78,8 +85,10 @@ export default async function MasterDataPage() {
         <h1 className="text-xl font-semibold">Master Data &amp; CBS Builder</h1>
         <p className="text-sm text-muted mt-1">
           Cost Breakdown Structure (CBS) <strong>tunggal</strong> untuk seluruh
-          lini bisnis (FR-1.1) — struktur riil VKTR/BTEL: COGS, Profitability,
-          Sales, dan Add-Ons.
+          lini bisnis (FR-1.1) — struktur riil VKTR/BTEL: COGS, Add-Ons
+          (termasuk STNK &amp; Insurance), Profitability, dan Sales. Nilai per
+          varian dipelihara di menu Cost Structure lewat Maker → Checker →
+          Releaser.
         </p>
       </div>
 
@@ -152,7 +161,7 @@ export default async function MasterDataPage() {
                 <tr className="border-b border-card-border bg-slate-50 text-left text-xs text-muted">
                   <th className="px-5 py-2.5 font-medium">Code</th>
                   <th className="px-5 py-2.5 font-medium">Name</th>
-                  <th className="px-5 py-2.5 font-medium">Owner Dept</th>
+                  <th className="px-5 py-2.5 font-medium">Pemilik scope</th>
                   <th className="px-5 py-2.5 font-medium">Unit Type</th>
                   <th className="px-5 py-2.5 font-medium">Denom.</th>
                   <th className="px-5 py-2.5 font-medium">Mandatory</th>
@@ -178,7 +187,7 @@ export default async function MasterDataPage() {
                       )}
                     </td>
                     <td className="px-5 py-2.5 text-muted">
-                      {deptById[item.owner_department_id]?.name ?? "—"}
+                      {SCOPE_OWNER[item.cost_group]}
                     </td>
                     <td className="px-5 py-2.5 text-muted">{item.unit_type}</td>
                     <td className="px-5 py-2.5 text-muted">{item.denomination}</td>

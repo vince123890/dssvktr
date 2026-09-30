@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
+import { canConfigureMasterData } from "@/lib/rbac";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -30,7 +31,7 @@ const CostItemSchema = z.object({
 
 export async function createCostItemAction(formData: FormData) {
   const profile = await requireProfile();
-  if (profile.role !== "SYSTEM_ADMIN") {
+  if (!canConfigureMasterData(profile)) {
     throw new Error("Hanya System Admin yang dapat mengelola master data (FR-2.1).");
   }
 
@@ -102,7 +103,7 @@ export async function createCostItemAction(formData: FormData) {
 
 export async function toggleCostItemActiveAction(id: string, nextActive: boolean) {
   const profile = await requireProfile();
-  if (profile.role !== "SYSTEM_ADMIN") {
+  if (!canConfigureMasterData(profile)) {
     throw new Error("Hanya System Admin yang dapat mengelola master data.");
   }
 
@@ -139,7 +140,7 @@ const ExchangeRateSchema = z.object({
 export async function createExchangeRateAction(formData: FormData): Promise<ActionResult> {
   try {
     const profile = await requireProfile();
-    if (profile.role !== "SYSTEM_ADMIN") {
+    if (!canConfigureMasterData(profile)) {
       throw new Error("Hanya System Admin yang dapat memperbarui kurs.");
     }
 
@@ -193,7 +194,7 @@ export async function updateRateSensitivityAction(
 ): Promise<ActionResult> {
   try {
     const profile = await requireProfile();
-    if (profile.role !== "SYSTEM_ADMIN") {
+    if (!canConfigureMasterData(profile)) {
       throw new Error("Hanya System Admin yang dapat mengubah ambang sensitivitas.");
     }
 
@@ -245,7 +246,7 @@ const MineralIndexSchema = z.object({
 export async function createMineralIndexAction(formData: FormData): Promise<ActionResult> {
   try {
     const profile = await requireProfile();
-    if (profile.role !== "SYSTEM_ADMIN") {
+    if (!canConfigureMasterData(profile)) {
       throw new Error("Hanya System Admin yang dapat memperbarui HMA.");
     }
 

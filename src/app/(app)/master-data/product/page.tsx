@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireProfile } from "@/lib/auth";
+import { requireInternal } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { canManageProductMasterData } from "@/lib/rbac";
@@ -8,7 +8,7 @@ import { ProductForm } from "./ProductForm";
 import { ProductStatusButton } from "./ProductStatusButton";
 
 export default async function ProductMasterDataPage() {
-  const profile = await requireProfile();
+  const profile = await requireInternal();
   const supabase = await createClient();
 
   const { data: products } = await supabase
@@ -17,7 +17,7 @@ export default async function ProductMasterDataPage() {
     .order("created_at", { ascending: false });
 
   const items = (products ?? []) as ProductMasterData[];
-  const canEdit = canManageProductMasterData(profile.role);
+  const canEdit = canManageProductMasterData(profile);
 
   return (
     <div className="space-y-6">
@@ -39,7 +39,7 @@ export default async function ProductMasterDataPage() {
       {canEdit && (
         <Card>
           <CardHeader>
-            <CardTitle>Tambah Produk Baru</CardTitle>
+            <CardTitle>Tambah Varian Baru</CardTitle>
           </CardHeader>
           <CardContent>
             <ProductForm />
@@ -57,8 +57,8 @@ export default async function ProductMasterDataPage() {
               <tr className="border-b border-card-border bg-slate-50 text-left text-xs text-muted">
                 <th className="px-5 py-2.5 font-medium">Code</th>
                 <th className="px-5 py-2.5 font-medium">Name</th>
-                <th className="px-5 py-2.5 font-medium">Varian Sasis</th>
-                <th className="px-5 py-2.5 font-medium">Varian Karoseri</th>
+                <th className="px-5 py-2.5 font-medium">Model · Type · Variant</th>
+                <th className="px-5 py-2.5 font-medium">Build · Loco</th>
                 <th className="px-5 py-2.5 font-medium">Status</th>
                 {canEdit && <th className="px-5 py-2.5 font-medium" />}
               </tr>
@@ -68,8 +68,8 @@ export default async function ProductMasterDataPage() {
                 <tr key={p.id} className="border-b border-card-border last:border-0">
                   <td className="px-5 py-2.5 font-mono text-xs text-muted">{p.code}</td>
                   <td className="px-5 py-2.5 font-medium">{p.name}</td>
-                  <td className="px-5 py-2.5 text-muted">{p.chassis_variant ?? "—"}</td>
-                  <td className="px-5 py-2.5 text-muted">{p.body_variant ?? "—"}</td>
+                  <td className="px-5 py-2.5 text-muted">{[p.model, p.variant_type, p.variant].filter(Boolean).join(" · ") || p.chassis_variant || "—"}</td>
+                  <td className="px-5 py-2.5 text-muted">{[p.build_type, p.loco && `loco ${p.loco}`].filter(Boolean).join(" · ") || "—"}</td>
                   <td className="px-5 py-2.5">
                     <Badge tone={p.status === "ACTIVE" ? "success" : "default"}>
                       {p.status}

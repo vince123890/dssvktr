@@ -47,6 +47,15 @@ export type BusinessLine =
 
 export type ProposalStatus =
   | "DRAFT"
+  /** v4.0 Official Quotation state machine (Technical Logic §4.1). */
+  | "PENDING_SALES_LEAD_VALIDATION"
+  | "PENDING_SALES_OPERATIONS"
+  | "PENDING_HEAD_OF_SALES_REVIEW"
+  | "PENDING_ADDITIONAL_APPROVAL"
+  | "PENDING_OWNER_APPROVAL"
+  | "PENDING_PRICING_COMMITTEE_APPROVAL"
+  | "EXPIRED"
+  /** v3.0 statuses — still in the Postgres enum, no longer produced. */
   | "PENDING_COGS_VALIDATION"
   | "PENDING_CHIEF_SALES_REVIEW"
   | "PENDING_BOD_APPROVAL"
@@ -83,7 +92,20 @@ export type AuditAction =
   | "RATE_UPDATE"
   | "MINERAL_INDEX_UPDATE"
   | "SUPERSEDE"
-  | "BLOCKED_DUPLICATE_ATTEMPT";
+  | "BLOCKED_DUPLICATE_ATTEMPT"
+  | "MAKE"
+  | "CHECK"
+  | "RETURN"
+  | "VALIDATE"
+  | "GENERATE"
+  | "REVISE"
+  | "STEP_SKIPPED"
+  | "TIER_ROUTE"
+  | "TIER_CC"
+  | "EXPIRE"
+  | "PRINT"
+  | "SETTINGS_CHANGE"
+  | "PRICE_ESTIMATE";
 
 export type NegotiationStatus =
   | "PENDING_APPROVAL"
@@ -118,8 +140,195 @@ export interface Profile {
   id: string;
   full_name: string;
   email: string;
+  /** Legacy v1-v3 enum, still read by the older RLS policies. */
   role: UserRole;
   department_id: string | null;
+  /** v4.0 — the configurable app role (sheet Actors), see AppRole. */
+  app_role_code: string | null;
+  created_at: string;
+}
+
+/**
+ * Fixed "slots" the application logic checks (Technical Logic §2.1).
+ * App roles are data and can be added/renamed in Settings; code never
+ * compares an app role's name, only the functional roles it carries.
+ */
+export type FunctionalRole =
+  | "SALESPERSON"
+  | "SALES_VALIDATOR"
+  | "SALES_OPERATIONS"
+  | "SALES_RELEASER"
+  | "SALES_PRICING_OWNER"
+  | "COGS_OWNER"
+  | "PROFITABILITY_OWNER"
+  | "PRICING_COMMITTEE"
+  | "PRODUCT_OWNER"
+  | "EXTERNAL_AGENCY"
+  | "SYSTEM_ADMIN";
+
+export interface AppRole {
+  code: string;
+  name: string;
+  functional_roles: FunctionalRole[];
+  is_external: boolean;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Profile joined with its app role — what the app authorizes against. */
+export interface Actor extends Profile {
+  app_role: AppRole | null;
+}
+
+/** Cost structure scope (sheet Actors "Scope"): MARGIN == cost_group PROFITABILITY. */
+export type CostScope = "COGS" | "ADD_ONS" | "MARGIN" | "SALES";
+
+export type Scenario = "REGULAR" | "DEVIATION";
+
+export interface ScopeAuthority {
+  id: string;
+  app_role_code: string;
+  scope: CostScope;
+  scenario: Scenario;
+  can_make: boolean;
+  can_check: boolean;
+  can_release: boolean;
+}
+
+export interface ScopeSegregationRule {
+  scope: CostScope;
+  maker_ne_checker: boolean;
+  checker_ne_releaser: boolean;
+  allow_single_actor: boolean;
+}
+
+export interface QuantityBand {
+  band: number;
+  min_qty: number;
+  max_qty: number | null;
+  processing_mode: "AUTO" | "AUTO_WITH_MANUAL" | "MANUAL";
+  default_discount_pct: number;
+}
+
+export type CostStructureStatus = "DRAFT" | "RELEASED" | "RETIRED";
+export type ScopeStatus = "DRAFT" | "MADE" | "CHECKED" | "RELEASED" | "RETURNED";
+
+export interface CostStructureVersion {
+  id: string;
+  product_id: string;
+  version_no: number;
+  status: CostStructureStatus;
+  locked_fx_rate_id: string | null;
+  locked_fx_rate: number;
+  parent_version_id: string | null;
+  change_reason: string | null;
+  is_seed: boolean;
+  released_at: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface CostStructureLine {
+  id: string;
+  version_id: string;
+  cost_item_id: string;
+  value: number;
+  is_excluded_at_cost: boolean;
+}
+
+export interface CostStructureScopeState {
+  id: string;
+  version_id: string;
+  scope: CostScope;
+  status: ScopeStatus;
+  scenario: Scenario;
+  carried_over: boolean;
+  maker_id: string | null;
+  made_at: string | null;
+  checker_id: string | null;
+  checked_at: string | null;
+  releaser_id: string | null;
+  released_at: string | null;
+  note: string | null;
+  single_actor_flag: boolean;
+}
+
+export type ProjectType = "NEW_PROJECT" | "ADDITIONAL_RUNNING_PROJECT" | "REPLACEMENT";
+
+/** KYC form (sheet Basic Workflow B step 2), stored as a snapshot on the quotation. */
+export interface QuotationKyc {
+  company_name?: string;
+  official_address?: string;
+  project_name?: string;
+  project_type?: ProjectType;
+  application_body?: string;
+  utilization_content?: string;
+  route_description?: string;
+  origin?: string;
+  destination?: string;
+  production_value?: number;
+  production_unit?: string;
+  production_period?: "TRIP" | "CYCLE" | "DAY" | "MONTH" | "OTHER";
+  likelihood?: number;
+  gap_identified?: string;
+  other_information?: string;
+  requested_scheme?: "PURCHASE" | "RENTAL";
+}
+
+export type CommercialScheme = "PURCHASE" | "RENTAL";
+
+export interface QuotationLineItem {
+  id: string;
+  proposal_id: string;
+  product_id: string;
+  quantity: number;
+  sort_order: number;
+  cost_structure_version_id: string | null;
+  locked_fx_rate: number | null;
+  scheme: CommercialScheme;
+  rental_tenor_months: number | null;
+  rental_monthly_incl_vat: number | null;
+  list_price_ex_vat: number;
+  base_cost: number;
+  margin_amount: number;
+  sales_cost: number;
+  discount_input_mode: DiscountInputMode;
+  discount_amount: number;
+  discount_pct: number;
+  discount_source: string | null;
+  net_price_ex_vat: number;
+  net_price_incl_vat: number;
+  line_total_ex_vat: number;
+  line_total_incl_vat: number;
+  gm: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TierApproval {
+  id: string;
+  proposal_id: string;
+  round: number;
+  tier: number;
+  slot: string;
+  kind: "DECISION" | "CC";
+  actor_id: string | null;
+  decision: "APPROVE" | "REJECT" | null;
+  note: string | null;
+  is_void: boolean;
+  created_at: string;
+  decided_at: string | null;
+}
+
+export interface PriceEstimateLog {
+  id: string;
+  user_id: string;
+  product_id: string;
+  cost_structure_version_id: string | null;
+  price_ex_vat: number;
+  price_incl_vat: number;
   created_at: string;
 }
 
@@ -135,8 +344,12 @@ export interface CostItem {
   unit_type: UnitType;
   /** Currency this line's value is entered in (real CBS mixes CNY and IDR per item). */
   denomination: CurrencyCode;
-  /** May be filled in after base-price calculation without blocking it (FR-2.0), e.g. Delivery Service. */
+  /** May be valued later or released as "Exclusion — At cost" (FR-2.2 v4.0), e.g. Delivery Service. */
   may_follow_later: boolean;
+  /** Computed, never typed — FOB Price in IDR = FOB CNY x locked rate. */
+  is_derived: boolean;
+  /** Printed under "Exclusions — At cost" when a may_follow_later item is excluded. */
+  exclusion_label: string | null;
   is_mandatory: boolean;
   active: boolean;
   /** Moves with government mineral prices — receives the HPM factor (FR-8.3, dormant by default in v3.0). */
@@ -166,10 +379,21 @@ export interface CbsTemplateItem {
   sort_order: number;
 }
 
+export type WorkflowKind = "OFFICIAL_QUOTATION" | "PRICE_ESTIMATE";
+
+export type StepActionKind =
+  | "VALIDATE"
+  | "GENERATE_QUOTATION"
+  | "REVIEW_AND_ROUTE"
+  | "APPROVE";
+
 export interface WorkflowDefinition {
   id: string;
   business_line: BusinessLine;
   name: string;
+  workflow_kind: WorkflowKind;
+  /** Functional roles allowed to start this workflow. */
+  allowed_functions: FunctionalRole[];
   /** How this template is selected by resolveWorkflowTemplate() (FR-2.0.1). */
   qualifier_type: WorkflowQualifierType;
   min_value: number;
@@ -183,7 +407,16 @@ export interface WorkflowStepDefinition {
   id: string;
   workflow_definition_id: string;
   step_order: number;
-  department_id: string;
+  /** v3.0 department-based routing — null for v4.0 steps. */
+  department_id: string | null;
+  step_name: string | null;
+  action_kind: StepActionKind | null;
+  performer_function: FunctionalRole | null;
+  /** Step is skipped when the initiator carries this functional role. */
+  skip_if_initiator_function: FunctionalRole | null;
+  /** Where a rejection sends the quotation; null = back to the initiator (DRAFT). */
+  reject_to_step_order: number | null;
+  cc_functions: FunctionalRole[];
   status_label: ProposalStatus;
   is_mandatory_gate: boolean;
   sla_hours: number;
@@ -218,6 +451,28 @@ export interface PricingProposal {
   baseline_hpm_snapshot_id: string | null;
   /** The exchange_rate row used the last time this quotation was (re)calculated (FR-1.4.6). */
   last_calculated_rate_id: string | null;
+  /** v4.0 Official Quotation fields. */
+  kyc: QuotationKyc;
+  initiator_role_code: string | null;
+  account_person_ids: string[];
+  prepared_by: string | null;
+  quantity_band: number | null;
+  processing_mode: QuantityBand["processing_mode"] | null;
+  scenario: Scenario | null;
+  margin_tier: number | null;
+  gm: number | null;
+  total_ex_vat: number;
+  total_incl_vat: number;
+  vat_rate_pct: number | null;
+  document_number: string | null;
+  released_at: string | null;
+  valid_until: string | null;
+  inclusions: string[];
+  exclusions: string[];
+  special_notes: string[];
+  tier_round: number;
+  accepted_document_url: string | null;
+  is_seed: boolean;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -336,9 +591,15 @@ export interface WorkflowInstance {
 export interface WorkflowStepInstance {
   id: string;
   workflow_instance_id: string;
-  step_definition_id: string;
+  step_definition_id: string | null;
   step_order: number;
-  department_id: string;
+  department_id: string | null;
+  step_name: string | null;
+  action_kind: StepActionKind | null;
+  performer_function: FunctionalRole | null;
+  skip_if_initiator_function: FunctionalRole | null;
+  reject_to_step_order: number | null;
+  status_label: ProposalStatus | null;
   status: StepStatus;
   sla_hours: number;
   started_at: string | null;
@@ -389,8 +650,16 @@ export interface MarginTierAuthority {
   business_line: BusinessLine | null;
   gpm_lower_bound_pct: number | null;
   gpm_upper_bound_pct: number | null;
-  /** Roles that must all APPROVE (AND-join) before this tier clears. Empty for Tier 1 (auto). */
+  /** v3.0 — unused from v4.0 on; see decision_slots. */
   required_roles: UserRole[];
+  /**
+   * v4.0 — every slot must APPROVE (AND-join). A slot is a functional
+   * role ("COGS_OWNER") or a specific app role ("role:CCO").
+   */
+  decision_slots: string[];
+  /** Informed (tembusan) but not asked to decide. */
+  cc_slots: string[];
+  reject_target: string;
   allow_bod_delegation: boolean;
   is_active: boolean;
   created_at: string;
@@ -448,7 +717,21 @@ export interface ProductMasterData {
   name: string;
   chassis_variant: string | null;
   body_variant: string | null;
-  spec_sheet: Record<string, unknown>;
+  make: string | null;
+  model: string | null;
+  variant_type: string | null;
+  variant: string | null;
+  wheelbase: string | null;
+  battery_kwh: number | null;
+  body_application: string | null;
+  build_type: string | null;
+  loco: string | null;
+  /** Text printed as "Product"/"Description" on the Cost Estimate. */
+  document_description: string | null;
+  default_inclusions: string[];
+  default_exclusions: string[];
+  /** Section -> { label -> value }, printed on the Specification page. */
+  spec_sheet: Record<string, Record<string, string>>;
   image_urls: string[];
   brochure_url: string | null;
   status: "ACTIVE" | "DISCONTINUED";
