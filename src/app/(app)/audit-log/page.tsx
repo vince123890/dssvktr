@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireInternal } from "@/lib/auth";
+import { requireMenu } from "@/lib/menuAccess";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { formatDate } from "@/lib/utils";
@@ -41,7 +41,7 @@ export default async function AuditLogPage({
   searchParams: Promise<{ actor?: string; entity?: string }>;
 }) {
   const { actor, entity } = await searchParams;
-  await requireInternal();
+  await requireMenu("audit");
   const supabase = await createClient();
 
   let query = supabase

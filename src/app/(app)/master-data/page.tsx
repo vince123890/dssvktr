@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireInternal } from "@/lib/auth";
+import { requireMenu } from "@/lib/menuAccess";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import type { CbsTemplate, CostGroup, CostItem, Department } from "@/types/database";
@@ -35,7 +35,7 @@ const SCOPE_OWNER: Record<CostGroup, string> = {
 };
 
 export default async function MasterDataPage() {
-  const profile = await requireInternal();
+  const profile = await requireMenu("master_data");
   const supabase = await createClient();
 
   const [

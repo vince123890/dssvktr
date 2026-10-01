@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireInternal } from "@/lib/auth";
+import { canViewQuotation, loadValidatorVisibleRoles, requireMenu } from "@/lib/menuAccess";
 import { canSeeCostStructure, isExternal } from "@/lib/rbac";
 import { loadSettings } from "@/lib/settings";
 import { loadLines } from "@/lib/workflow/quotationEngine";
@@ -24,22 +24,17 @@ const longDate = (d: string | Date) =>
 
 export default async function CostEstimateDocumentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const me = await requireInternal();
+  const me = await requireMenu("quotations");
   const supabase = await createClient();
 
   const { data: row } = await supabase.from("pricing_proposal").select("*").eq("id", id).maybeSingle();
   if (!row) notFound();
   const p = row as PricingProposal;
+  if (!canViewQuotation(me, p, await loadValidatorVisibleRoles(supabase))) notFound();
 
   const released = ["QUOTATION_RELEASED", "EXPIRED", "SUPERSEDED"].includes(p.current_status);
-  if (isExternal(me) || (!released && !canSeeCostStructure(me))) {
-    return (
-      <div className="mx-auto max-w-xl p-10 text-center text-sm text-muted">
-        Dokumen tersedia untuk Salesperson setelah quotation dirilis. Draft hanya dapat dipratinjau oleh Sales
-        Operations, Head of Sales, dan approver.
-      </div>
-    );
-  }
+  // Salesperson sees the document only once released; drafts are for pricing roles (FR-1.5.4, FR-5.7).
+  if (isExternal(me) || (!released && !canSeeCostStructure(me))) notFound();
 
   const [settings, lines] = await Promise.all([loadSettings(supabase), loadLines(supabase, id)]);
   const personIds = [...new Set([...(p.account_person_ids ?? []), p.created_by, p.prepared_by].filter(Boolean) as string[])];

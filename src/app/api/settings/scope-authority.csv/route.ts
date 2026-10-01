@@ -10,7 +10,7 @@ import type { AppRole, ScopeAuthority } from "@/types/database";
  */
 export async function GET() {
   const me = await getCurrentProfile();
-  if (!me || !canManageSettings(me)) return new Response("Forbidden", { status: 403 });
+  if (!me || !canManageSettings(me)) return new Response("Not found", { status: 404 });
   const supabase = await createClient();
   const [{ data: roles }, { data: rows }] = await Promise.all([
     supabase.from("app_role").select("*").order("sort_order"),

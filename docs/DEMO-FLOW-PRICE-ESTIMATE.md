@@ -48,9 +48,10 @@ Tidak ada approval. Setiap estimasi tercatat (Audit Trail
 1. Login sebagai **agency@vktr.demo**.
 2. **Perhatikan:** aplikasi langsung membuka **Price Estimate**. Sidebar
    hanya berisi satu menu itu.
-3. Ketik manual alamat `/proposals` di browser → dialihkan kembali ke
-   Price Estimate. Official Quotation adalah *"only internal sales"*
-   (sheet Basic Workflow B, langkah 1).
+3. Ketik manual alamat `/proposals` (atau `/settings`, `/cost-structure`)
+   di browser → halaman **404**. Official Quotation adalah *"only
+   internal sales"* (sheet Basic Workflow B, langkah 1); menu di luar
+   matriks role tidak diakui keberadaannya (PRD FR-5.7).
 
 **Yang dibuktikan:** Authorized Agency boleh mengakses langkah 1 Workflow
 A, tetapi tidak dapat masuk ke Official Quotation maupun melihat cost
@@ -89,14 +90,16 @@ structure.
 
 ## A5 — Siapa yang boleh memakai Price Estimate diatur di Settings
 
-1. Login sebagai **admin@vktr.demo** → **Settings → Workflow**.
-2. Kartu **Price Estimate (per Unit)** menampilkan fungsi yang diizinkan:
-   *Salesperson* dan *Authorized Agency*.
-3. Nonaktifkan *Authorized Agency (eksternal)* → **Simpan akses**.
-4. (Jendela lain) login **agency@vktr.demo** → Price Estimate kini
-   menampilkan *"Role Anda tidak memiliki akses Price Estimate"*.
-5. Kembali sebagai admin, aktifkan lagi *Authorized Agency* → **Simpan
-   akses**.
+1. Login sebagai **admin@vktr.demo** → **Settings → Akses Menu**.
+2. Baris **Price Estimate** dicentang untuk EXTERNAL AGENCY, SALESPERSON,
+   SALES OPERATIONS, SALES RELEASER, SYSTEM ADMIN; di bawah nama menu
+   tertulis role yang mewarisinya.
+3. Hapus centang **EXTERNAL AGENCY** → **Simpan akses menu**.
+4. (Jendela lain) **agency@vktr.demo** → muat ulang: menu Price Estimate
+   hilang dan akun mendarat di halaman "belum memiliki akses"; membuka
+   `/price-estimate` → **404**.
+5. Kembali sebagai admin, centang lagi **EXTERNAL AGENCY** → **Simpan
+   akses menu**.
 
 **Yang dibuktikan:** workflow dari attachment dapat diatur di aplikasi
 tanpa ubah kode (PRD FR-2.1).

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireInternal } from "@/lib/auth";
+import { canViewQuotation, loadValidatorVisibleRoles, requireMenu } from "@/lib/menuAccess";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -12,12 +12,14 @@ import { Plus } from "lucide-react";
 import { BUSINESS_LINE_LABEL, STATUS_LABEL, STATUS_TONE } from "@/lib/workflow/labels";
 
 export default async function ProposalsPage() {
-  const me = await requireInternal();
+  const me = await requireMenu("quotations");
   const supabase = await createClient();
   await expireStaleQuotations(supabase, me.id);
 
   const { data } = await supabase.from("pricing_proposal").select("*").order("created_at", { ascending: false });
-  const proposals = (data ?? []) as PricingProposal[];
+  const validatorRoles = await loadValidatorVisibleRoles(supabase);
+  // Row-level visibility (FR-5.7): a Salesperson only sees their own quotations.
+  const proposals = ((data ?? []) as PricingProposal[]).filter((p) => canViewQuotation(me, p, validatorRoles));
   const seesCost = canSeeCostStructure(me);
 
   return (

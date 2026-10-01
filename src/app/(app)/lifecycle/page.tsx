@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireInternal } from "@/lib/auth";
+import { requireMenu } from "@/lib/menuAccess";
 import { KANBAN_COLUMNS, STATUS_LABEL } from "@/lib/workflow/labels";
 import type { PricingProposal } from "@/types/database";
 import { LifecycleView } from "./LifecycleView";
@@ -10,7 +10,7 @@ export default async function LifecyclePage({
   searchParams: Promise<{ view?: string }>;
 }) {
   const { view } = await searchParams;
-  await requireInternal();
+  await requireMenu("lifecycle");
   const supabase = await createClient();
 
   const { data } = await supabase

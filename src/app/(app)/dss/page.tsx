@@ -1,17 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireInternal } from "@/lib/auth";
+import { notFound } from "next/navigation";
+import { requireMenu } from "@/lib/menuAccess";
 import { canSeeCostStructure } from "@/lib/rbac";
-import { Card, CardContent } from "@/components/ui/Card";
 import { WhatIfSimulator } from "./WhatIfSimulator";
 import { GuardrailAlerts } from "./GuardrailAlerts";
 import { WinLossAnalytics, type WinLossPoint, type OptimalBand } from "./WinLossAnalytics";
 import type { PricingProposal, QuotationLineItem } from "@/types/database";
 
 export default async function DssPage() {
-  const me = await requireInternal();
-  if (!canSeeCostStructure(me)) {
-    return <Card><CardContent className="py-10 text-center text-sm text-muted">DSS menampilkan margin — hanya untuk peran yang berwenang melihat cost structure.</CardContent></Card>;
-  }
+  const me = await requireMenu("dss");
+  if (!canSeeCostStructure(me)) notFound();
   const supabase = await createClient();
 
   const [{ data: proposalsData }, { data: lineRows }] = await Promise.all([

@@ -1,25 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Actor, FunctionalRole } from "@/types/database";
-import { canSeeCostStructure, hasAnyFunction } from "@/lib/rbac";
+import type { Actor } from "@/types/database";
+import { canAccessMenu, loadMenuAccess } from "@/lib/menuAccess";
 
 /**
- * Who may use Price Estimate is configured in Settings → Workflow (the
- * PRICE_ESTIMATE template's allowed functions). Internal roles that can
- * already see the cost structure always may.
+ * Who may use Price Estimate follows the menu access matrix (Settings →
+ * Akses Menu, PRD FR-5.7) — one policy for the sidebar, the page and the
+ * server action.
  */
 export async function canUsePriceEstimate(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any>,
   actor: Actor
 ): Promise<boolean> {
-  if (canSeeCostStructure(actor)) return true;
-  const { data } = await supabase
-    .from("workflow_definition")
-    .select("allowed_functions")
-    .eq("workflow_kind", "PRICE_ESTIMATE")
-    .eq("is_active", true)
-    .limit(1)
-    .maybeSingle();
-  const allowed = (data?.allowed_functions ?? ["SALESPERSON", "EXTERNAL_AGENCY"]) as FunctionalRole[];
-  return hasAnyFunction(actor, allowed);
+  return canAccessMenu(actor, "price_estimate", await loadMenuAccess(supabase));
 }

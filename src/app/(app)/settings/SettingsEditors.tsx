@@ -23,7 +23,7 @@ import {
   assignUserRoleAction,
   saveBandsAction,
   saveGeneralSettingsAction,
-  savePriceEstimateAccessAction,
+  saveMenuAccessAction,
   saveRoleAction,
   saveScopeAuthorityAction,
   saveSegregationAction,
@@ -487,33 +487,75 @@ export function WorkflowEditor({
   );
 }
 
-export function PriceEstimateAccessEditor({ definitionId, allowed }: { definitionId: string; allowed: FunctionalRole[] }) {
-  const [fns, setFns] = useState(allowed);
+export function MenuAccessEditor({
+  menus,
+  access,
+  roles,
+}: {
+  menus: { key: string; label: string; href: string; locked: boolean }[];
+  access: Record<string, FunctionalRole[]>;
+  roles: AppRole[];
+}) {
+  const [matrix, setMatrix] = useState(access);
   const { isPending, save, feedback } = useSaver();
+  const toggle = (menu: string, fn: FunctionalRole) =>
+    setMatrix((m) => {
+      const cur = m[menu] ?? [];
+      return { ...m, [menu]: cur.includes(fn) ? cur.filter((x) => x !== fn) : [...cur, fn] };
+    });
+  const rolesFor = (menu: string) =>
+    roles.filter((r) => r.is_active && r.functional_roles.some((f) => (matrix[menu] ?? []).includes(f))).map((r) => r.name);
+
   return (
     <Card>
       <CardHeader>
         <div>
-          <CardTitle>Price Estimate (per Unit)</CardTitle>
-          <CardDescription>Sheet Basic Workflow A — tanpa langkah approval. Atur siapa yang boleh memakai.</CardDescription>
+          <CardTitle>Akses Menu per Fungsi</CardTitle>
+          <CardDescription>
+            Menu yang tidak dicentang untuk suatu fungsi <strong>disembunyikan</strong> dari sidebar dan halamannya
+            menjawab <strong>404</strong> bila dibuka lewat URL. Role mewarisi menu dari fungsi yang dimilikinya. Settings
+            selalu hanya untuk System Admin.
+          </CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="flex flex-wrap gap-1">
-          {FUNCTIONAL_ROLES.map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFns((x) => (x.includes(f) ? x.filter((y) => y !== f) : [...x, f]))}
-              className={`rounded-full border px-2 py-0.5 text-[10px] ${fns.includes(f) ? "border-primary bg-blue-50 text-primary" : "border-card-border text-muted"}`}
-            >
-              {FUNCTIONAL_ROLE_LABEL[f]}
-            </button>
-          ))}
-        </div>
-        <p className="text-[11px] text-muted">Peran internal yang melihat cost structure selalu dapat memakai Price Estimate.</p>
+      <CardContent className="space-y-3 overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-card-border text-left text-muted">
+              <th className="py-2 pr-2 font-medium">Menu</th>
+              {FUNCTIONAL_ROLES.map((f) => (
+                <th key={f} className="px-1 py-2 text-center text-[10px] font-medium" title={FUNCTIONAL_ROLE_LABEL[f]}>
+                  {f.replaceAll("_", " ")}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {menus.map((m) => (
+              <tr key={m.key} className="border-b border-card-border align-top last:border-0">
+                <td className="py-2 pr-2">
+                  <div className="font-medium">{m.label}</div>
+                  <div className="font-mono text-[10px] text-muted">{m.href}</div>
+                  <div className="mt-0.5 text-[10px] text-muted">{rolesFor(m.key).join(", ") || "— tidak ada role —"}</div>
+                </td>
+                {FUNCTIONAL_ROLES.map((f) => (
+                  <td key={f} className="px-1 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      disabled={m.locked}
+                      checked={(matrix[m.key] ?? []).includes(f)}
+                      onChange={() => toggle(m.key, f)}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
         <div className="flex items-center gap-2">
-          <Button size="sm" disabled={isPending} onClick={() => save(() => savePriceEstimateAccessAction(definitionId, fns))}>Simpan akses</Button>
+          <Button size="sm" disabled={isPending} onClick={() => save(() => saveMenuAccessAction(matrix), "Akses menu tersimpan.")}>
+            Simpan akses menu
+          </Button>
           {feedback}
         </div>
       </CardContent>

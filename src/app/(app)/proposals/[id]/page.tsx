@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireInternal } from "@/lib/auth";
+import { canViewQuotation, loadValidatorVisibleRoles, requireMenu } from "@/lib/menuAccess";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -49,7 +49,7 @@ import { AlertTriangle, CheckCircle2, FileText, Printer, XCircle } from "lucide-
 
 export default async function QuotationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const me = await requireInternal();
+  const me = await requireMenu("quotations");
   const supabase = await createClient();
 
   await expireStaleQuotations(supabase, me.id);
@@ -57,6 +57,7 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
   const { data: row } = await supabase.from("pricing_proposal").select("*").eq("id", id).maybeSingle();
   if (!row) notFound();
   const proposal = row as PricingProposal;
+  if (!canViewQuotation(me, proposal, await loadValidatorVisibleRoles(supabase))) notFound();
 
   const [lines, { instance, steps }, tierRows, ladder, settings, currentRate, items] = await Promise.all([
     loadLines(supabase, id),

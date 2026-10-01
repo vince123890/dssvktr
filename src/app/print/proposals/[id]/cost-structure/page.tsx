@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireInternal } from "@/lib/auth";
+import { requireMenu } from "@/lib/menuAccess";
 import { canSeeCostStructure } from "@/lib/rbac";
 import { loadLines } from "@/lib/workflow/quotationEngine";
 import { evaluateVersion, loadCostItems, loadVersionLines } from "@/lib/costStructure";
@@ -17,10 +17,8 @@ import type { PricingProposal, ProductMasterData } from "@/types/database";
  */
 export default async function CostStructureSheetPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const me = await requireInternal();
-  if (!canSeeCostStructure(me)) {
-    return <div className="p-10 text-center text-sm text-muted">Anda tidak berwenang melihat cost structure.</div>;
-  }
+  const me = await requireMenu("cost_structure");
+  if (!canSeeCostStructure(me)) notFound();
   const supabase = await createClient();
   const { data: row } = await supabase.from("pricing_proposal").select("*").eq("id", id).maybeSingle();
   if (!row) notFound();

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireInternal } from "@/lib/auth";
+import { notFound } from "next/navigation";
+import { requireMenu } from "@/lib/menuAccess";
 import { canSeeCostStructure } from "@/lib/rbac";
 import { evaluateVersion, loadCostItems, loadVersionLines } from "@/lib/costStructure";
 import { resolveExchangeRate } from "@/lib/pricing/currency";
@@ -14,10 +15,8 @@ import { AlertTriangle } from "lucide-react";
 const STATUS_TONE = { DRAFT: "info", RELEASED: "success", RETIRED: "default" } as const;
 
 export default async function CostStructurePage() {
-  const me = await requireInternal();
-  if (!canSeeCostStructure(me)) {
-    return <Card><CardContent className="py-10 text-center text-sm text-muted">Anda tidak berwenang melihat cost structure.</CardContent></Card>;
-  }
+  const me = await requireMenu("cost_structure");
+  if (!canSeeCostStructure(me)) notFound();
   const supabase = await createClient();
 
   const [{ data: products }, { data: versions }, items, currentRate, { data: rateConfig }] = await Promise.all([

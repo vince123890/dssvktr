@@ -1,12 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireInternal } from "@/lib/auth";
+import { requireMenu } from "@/lib/menuAccess";
 import { canInitiateQuotation } from "@/lib/rbac";
 import { loadQuotationFormOptions } from "@/lib/quotationOptions";
 import { QuotationForm } from "../QuotationForm";
 import { Card, CardContent } from "@/components/ui/Card";
 
 export default async function NewQuotationPage() {
-  const profile = await requireInternal();
+  const profile = await requireMenu("quotations");
   const supabase = await createClient();
 
   if (!canInitiateQuotation(profile)) {

@@ -1,19 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireProfile } from "@/lib/auth";
+import { canViewQuotation, loadValidatorVisibleRoles, requireMenu } from "@/lib/menuAccess";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { formatCompactIDR, timeAgo } from "@/lib/utils";
 import { IN_FLIGHT_STATUSES, STATUS_LABEL, STATUS_TONE } from "@/lib/workflow/labels";
-import { actorFillsSlot, functionsOf, isExternal, roleLabel } from "@/lib/rbac";
+import { actorFillsSlot, functionsOf, roleLabel } from "@/lib/rbac";
 import { expireStaleQuotations } from "@/lib/workflow/quotationEngine";
 import type { PricingProposal, TierApproval, WorkflowStepInstance } from "@/types/database";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { FileStack, ShieldCheck, AlertTriangle, Clock, ArrowRight, Inbox } from "lucide-react";
 
 export default async function OverviewPage() {
-  const profile = await requireProfile();
-  if (isExternal(profile)) redirect("/price-estimate");
+  const profile = await requireMenu("overview");
   const supabase = await createClient();
   await expireStaleQuotations(supabase, profile.id);
 
@@ -24,7 +22,8 @@ export default async function OverviewPage() {
     supabase.from("workflow_step_instance").select("id").eq("status", "IN_PROGRESS").lt("sla_due_at", new Date().toISOString()),
   ]);
 
-  const proposals = (proposalsData ?? []) as PricingProposal[];
+  const validatorRoles = await loadValidatorVisibleRoles(supabase);
+  const proposals = ((proposalsData ?? []) as PricingProposal[]).filter((p) => canViewQuotation(profile, p, validatorRoles));
   const byVersion = new Map(proposals.map((p) => [p.current_version_id, p]));
   const inFlight = proposals.filter((p) => IN_FLIGHT_STATUSES.includes(p.current_status));
   const released = proposals.filter((p) => p.current_status === "QUOTATION_RELEASED");

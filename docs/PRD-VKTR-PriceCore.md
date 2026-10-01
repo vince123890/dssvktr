@@ -103,6 +103,12 @@
 >     ditampilkan di layar dan dicetak/diunduh PDF dalam format *Cost
 >     Estimate* (FR-1.5.3), termasuk halaman spesifikasi, untuk setiap
 >     versi yang pernah dirilis.
+> 19. **Menu & akses data dibatasi per role** (FR-5.7, permintaan VKTR
+>     pasca-review). Setiap role hanya melihat menu yang ia pakai; menu
+>     lain **disembunyikan**, dan halamannya menjawab **404** bila dibuka
+>     lewat URL. Data quotation juga dibatasi per baris (Salesperson
+>     hanya melihat quotation miliknya). Matriks diatur di Settings →
+>     Akses Menu.
 
 ### Riwayat Revisi Sebelumnya (ringkas)
 
@@ -830,6 +836,58 @@ Peran berikut mengikuti sheet *Actors* dan *Basic Workflow* pada
   > Migrasi ke role sheet *Actors* sekaligus membuatnya dapat diatur
   > adalah pekerjaan Phase 1.
 
+- **FR-5.7 Menu & Data Access per Role — sembunyikan & 404 (baru)**
+
+  Prinsip: **setiap role hanya melihat menu yang ia gunakan**. Menu di
+  luar matriks tidak tampil di sidebar, dan halamannya — termasuk bila
+  dibuka langsung lewat URL, link lama, atau bookmark — menjawab
+  **404 Not Found** (bukan pesan "tidak berwenang"), sehingga keberadaan
+  halaman pun tidak terungkap. Aksi server di belakangnya ikut menolak.
+
+  Matriks default per role (sheet *Actors* + *Basic Workflow*):
+
+| Menu | Authorized Agency | Sales Executive | Sales Lead | Sales Ops Mgr | Head of Sales | Procurement Mgr | Head of Proc & Ops Control | Head of Corp Finance | CCO | CFO | Product Owner | System Admin |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Overview (antrean "menunggu tindakan Anda") | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| Price Estimate | ✓ | ✓ | ✓ | ✓ | ✓ | – | – | – | – | – | – | ✓ |
+| Official Quotation | – | ✓ ¹ | ✓ ² | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| Lifecycle & Approvals | – | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| Cost Structure (M/C/R) | – | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| Decision Support (DSS) | – | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| Master Data & Kurs | – | – | – | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| Product Master Data | – | – | – | – | – | – | – | – | – | – | ✓ | ✓ |
+| Audit Trail | – | – | – | – | ✓ | – | – | – | ✓ | ✓ | – | ✓ |
+| Settings | – | – | – | – | – | – | – | – | – | – | – | ✓ (terkunci) |
+| **Halaman awal setelah login** | Price Estimate | Overview | Overview | Overview | Overview | Overview | Overview | Overview | Overview | Overview | Product Master Data | Overview |
+
+¹ Hanya quotation yang ia ajukan / ia menjadi Sales/Account Person.
+² Quotation miliknya + permintaan Sales Executive yang ia validasi (POC belum mengenal struktur tim, sehingga semua permintaan Sales Executive).
+
+  - **Dasar matriks adalah fungsi, bukan nama role.** Matriks disimpan
+    sebagai *menu → fungsi* (lihat Technical Logic §8.4); role mewarisi
+    menu dari fungsi yang dicentang di Settings → Roles. Role baru
+    (mis. *Corporate Finance Manager* dengan fungsi Profitability Owner)
+    otomatis mendapat menu Profitability Owner.
+  - **Dapat diatur** di **Settings → Akses Menu** (grid menu × fungsi).
+    Menu **Settings** terkunci untuk System Admin agar admin tidak
+    mengunci dirinya sendiri.
+  - **Halaman awal** setelah login = menu pertama yang diizinkan
+    (Authorized Agency → Price Estimate, Product Owner → Product Master
+    Data). Role tanpa menu apa pun mendapat halaman "belum memiliki
+    akses".
+  - **Pembatasan per baris (data scope)** untuk Official Quotation:
+    Salesperson hanya melihat quotation yang ia ajukan atau ia menjadi
+    Sales/Account Person; Sales Lead menambah permintaan Sales Executive
+    yang ia validasi; peran penentu harga & approver (Sales Operations,
+    Head of Sales, COGS/Profitability Owner, Pricing Committee, Admin)
+    melihat semua. Quotation di luar cakupan tidak muncul di daftar,
+    Overview, maupun Kanban, dan detail/dokumennya menjawab 404.
+  - **Dokumen**: Cost Estimate mengikuti hak lihat quotation (Salesperson
+    hanya setelah rilis); Cost Structure Sheet mengikuti menu Cost
+    Structure.
+  - Akses Price Estimate tidak lagi diatur terpisah di Workflow — satu
+    sumber kebijakan, yaitu matriks menu ini.
+
 ### Module 6 — Discount & Margin-Tier Approval
 
 *Mendigitalkan penetapan diskon dan hierarki wewenang berbasis margin sesuai langkah 5–7 Basic Workflow Official Quotation.*
@@ -1014,6 +1072,7 @@ menghasilkan **quotation revisi** yang kembali melewati lapisan B–C.
 | Kategori | Requirement |
 |---|---|
 | **Integrasi** | *API-First Architecture*. ERP (SAP/Odoo) untuk sinkronisasi *costing*; CRM (Salesforce/HubSpot) untuk data pra-penjualan. |
+| **Menu & Data Access** | Menu di luar matriks role disembunyikan dan halamannya menjawab 404 (FR-5.7); kebijakan yang sama dipakai sidebar, halaman, route API, dan server action. |
 | **Security & Access** | RBAC/ABAC berbasis peran, scope, dan skenario. Salesperson & Authorized Agency tidak dapat membaca cost structure; detail cost structure hanya untuk Sales Operations, Head of Sales, pemilik scope, dan Pricing Committee. Wewenang ditegakkan di *service layer*. |
 | **Segregation of Duties** | Maker, Checker, Releaser dicatat terpisah; aturan orang berbeda ditegakkan server sesuai master config. |
 | **Kerahasiaan Dokumen** | Dokumen pelanggan tidak pernah memuat cost structure; watermark/disclaimer kerahasiaan sesuai template. |
@@ -1044,7 +1103,7 @@ Pembaruan v4.0 ditandai **baru/direvisi**:
 
 | Module | Fitur Utama |
 |---|---|
-| Auth & User Management | Login, User Management (CRUD) **+ akun eksternal Authorized Agency (baru)**, RBAC/ABAC **per scope & skenario (direvisi)**, **Settings Roles & Authorities: CRUD role, user→role, matriks Scope × M/C/R × skenario, aturan pemisahan tugas, import/export Excel (baru)**, Access Audit Log |
+| Auth & User Management | **Matriks Akses Menu per fungsi + 404 + pembatasan data quotation per baris (baru, FR-5.7)**, Login, User Management (CRUD) **+ akun eksternal Authorized Agency (baru)**, RBAC/ABAC **per scope & skenario (direvisi)**, **Settings Roles & Authorities: CRUD role, user→role, matriks Scope × M/C/R × skenario, aturan pemisahan tugas, import/export Excel (baru)**, Access Audit Log |
 | Settings Workflow | **Editor langkah Basic Workflow (role, aksi, kondisi lewati, tujuan tolak, SLA, cc), editor Quantity Band, editor Tier Margin, versioning konfigurasi (baru)** |
 | Master Data | Master Cost Item 4 scope (**kepemilikan terkonfirmasi, STNK/Insurance di Add-Ons — direvisi**), **Cost Structure per Varian + Maker–Checker–Releaser (baru)**, **Scope Authority Matrix Regular/Deviation (baru)**, Product Master Data (**atribut varian, inclusions/exclusions — direvisi**), **Quantity Band Config (baru)**, **PPN Config (baru)**, Margin Tier Authority (**15%/10% — direvisi**), Exchange Rate CNY otomatis + Rate Sensitivity, HMA (referensi) |
 | Dynamic Pricing | Formula Engine (**GM setelah diskon, excl. VAT — direvisi**), Multi-Currency (kurs dikunci per versi cost structure), **Multi-line item (baru)**, **Skema Purchase/Rental (baru)**, Project Identifier, Export PDF |
@@ -1095,6 +1154,8 @@ Pembaruan v4.0 ditandai **baru/direvisi**:
 | Quotation revisi tidak ter-*link* ke Project Identifier asal | 0 insiden — FR-2.5 |
 | Akurasi data biaya vs ERP | Selisih < 1% |
 | Perubahan role/wewenang/workflow yang membutuhkan rilis ulang aplikasi | **0** — seluruhnya lewat Settings (FR-5.6, FR-2.1) |
+| Halaman di luar matriks menu yang dapat dibuka suatu role (termasuk lewat URL langsung) | **0** — dijawab 404 (FR-5.7) |
+| Quotation milik Salesperson lain yang terlihat oleh Salesperson | **0 insiden** — FR-5.7 |
 | Dokumen pelanggan tercetak memuat cost structure, atau versi draft tercetak tanpa watermark | **0 insiden** — FR-1.5.4 |
 
 ---

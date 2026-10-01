@@ -5,6 +5,7 @@ import { requireProfile } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { hasFunction } from "@/lib/rbac";
 import { generateProposalNumber } from "@/lib/workflow/proposalNumber";
+import { canViewQuotation, loadValidatorVisibleRoles } from "@/lib/menuAccess";
 import {
   activeStep,
   actorCanActOnStep,
@@ -39,6 +40,10 @@ async function run(
     const actor = await requireProfile();
     const supabase = await createClient();
     const proposal = await loadProposal(supabase, proposalId);
+    // Row-level policy (FR-5.7): acting on an invisible quotation looks like it does not exist.
+    if (!canViewQuotation(actor, proposal, await loadValidatorVisibleRoles(supabase))) {
+      throw new Error("Quotation tidak ditemukan.");
+    }
     await fn({ supabase, actor, proposal });
     revalidatePath(`/proposals/${proposalId}`);
     revalidatePath("/proposals");
@@ -501,6 +506,9 @@ export async function createRevisionAction(proposalId: string, reason: string): 
     const actor = await requireProfile();
     const supabase = await createClient();
     const proposal = await loadProposal(supabase, proposalId);
+    if (!canViewQuotation(actor, proposal, await loadValidatorVisibleRoles(supabase))) {
+      throw new Error("Quotation tidak ditemukan.");
+    }
     if (!hasFunction(actor, "SALESPERSON")) throw new Error("Revisi diajukan oleh Salesperson.");
     if (proposal.current_status !== "QUOTATION_RELEASED" && proposal.current_status !== "EXPIRED") {
       throw new Error("Revisi hanya untuk quotation yang sudah dirilis atau kedaluwarsa.");

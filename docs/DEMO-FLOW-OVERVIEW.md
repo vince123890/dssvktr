@@ -55,6 +55,28 @@ mengganti nama, dan mengubah wewenangnya (PRD FR-5.6).
 
 Password seluruh akun: `PriceCore123!`
 
+### Menu yang terlihat per peran (PRD FR-5.7)
+
+Menu di luar daftar ini **tidak tampil** di sidebar dan halamannya
+menjawab **404** bila dibuka lewat URL. Diatur di Settings → Akses Menu.
+
+| Menu | Authorized Agency | Sales Executive | Sales Lead | Sales Ops Mgr | Head of Sales | Procurement Mgr | Head of Proc & Ops Control | Head of Corp Finance | CCO | CFO | Product Owner | System Admin |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Overview (antrean "menunggu tindakan Anda") | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| Price Estimate | ✓ | ✓ | ✓ | ✓ | ✓ | – | – | – | – | – | – | ✓ |
+| Official Quotation | – | ✓ ¹ | ✓ ² | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| Lifecycle & Approvals | – | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| Cost Structure (M/C/R) | – | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| Decision Support (DSS) | – | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| Master Data & Kurs | – | – | – | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| Product Master Data | – | – | – | – | – | – | – | – | – | – | ✓ | ✓ |
+| Audit Trail | – | – | – | – | ✓ | – | – | – | ✓ | ✓ | – | ✓ |
+| Settings | – | – | – | – | – | – | – | – | – | – | – | ✓ (terkunci) |
+| **Halaman awal setelah login** | Price Estimate | Overview | Overview | Overview | Overview | Overview | Overview | Overview | Overview | Overview | Product Master Data | Overview |
+
+¹ Hanya quotation yang ia ajukan / ia menjadi Sales/Account Person.
+² Quotation miliknya + permintaan Sales Executive yang ia validasi (POC belum mengenal struktur tim, sehingga semua permintaan Sales Executive).
+
 ---
 
 ## 2. Lapisan 0 — Cost Structure per Varian (Maker → Checker → Releaser)

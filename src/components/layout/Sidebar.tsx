@@ -1,8 +1,9 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { hasAnyFunction, isExternal, roleLabel } from "@/lib/rbac";
-import type { Actor, FunctionalRole } from "@/types/database";
+import { roleLabel } from "@/lib/rbac";
+import type { MenuKey } from "@/lib/menuAccess";
+import type { Actor } from "@/types/database";
 import {
   LayoutDashboard,
   Database,
@@ -20,47 +21,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/app/login/actions";
 
-const INTERNAL: FunctionalRole[] = [
-  "SALESPERSON",
-  "SALES_VALIDATOR",
-  "SALES_OPERATIONS",
-  "SALES_RELEASER",
-  "SALES_PRICING_OWNER",
-  "COGS_OWNER",
-  "PROFITABILITY_OWNER",
-  "PRICING_COMMITTEE",
-  "PRODUCT_OWNER",
-  "SYSTEM_ADMIN",
+/** Order & icons only — which items show is decided on the server (menuAccess.ts). */
+const NAV_ITEMS: { key: MenuKey; href: string; label: string; icon: React.ElementType }[] = [
+  { key: "overview", href: "/", label: "Overview", icon: LayoutDashboard },
+  { key: "price_estimate", href: "/price-estimate", label: "Price Estimate", icon: Tag },
+  { key: "quotations", href: "/proposals", label: "Official Quotation", icon: Calculator },
+  { key: "lifecycle", href: "/lifecycle", label: "Lifecycle & Approvals", icon: KanbanSquare },
+  { key: "cost_structure", href: "/cost-structure", label: "Cost Structure (M/C/R)", icon: Layers },
+  { key: "dss", href: "/dss", label: "Decision Support (DSS)", icon: SlidersHorizontal },
+  { key: "master_data", href: "/master-data", label: "Master Data & Kurs", icon: Database },
+  { key: "product", href: "/master-data/product", label: "Product Master Data", icon: Package },
+  { key: "audit", href: "/audit-log", label: "Audit Trail", icon: ScrollText },
+  { key: "settings", href: "/settings", label: "Settings", icon: Settings },
 ];
 
-const COST_OWNERS: FunctionalRole[] = [
-  "COGS_OWNER",
-  "PROFITABILITY_OWNER",
-  "SALES_PRICING_OWNER",
-  "PRICING_COMMITTEE",
-  "SYSTEM_ADMIN",
-];
-
-/** Menu visibility follows functional roles, so a role added in Settings gets the right menus. */
-const NAV_ITEMS: { href: string; label: string; icon: React.ElementType; functions: FunctionalRole[] | "ALL" }[] = [
-  { href: "/", label: "Overview", icon: LayoutDashboard, functions: INTERNAL },
-  { href: "/price-estimate", label: "Price Estimate", icon: Tag, functions: "ALL" },
-  { href: "/proposals", label: "Official Quotation", icon: Calculator, functions: INTERNAL },
-  { href: "/lifecycle", label: "Lifecycle & Approvals", icon: KanbanSquare, functions: INTERNAL },
-  { href: "/cost-structure", label: "Cost Structure (M/C/R)", icon: Layers, functions: COST_OWNERS },
-  { href: "/dss", label: "Decision Support (DSS)", icon: SlidersHorizontal, functions: COST_OWNERS.concat(["SALES_RELEASER", "SALES_OPERATIONS"]) },
-  { href: "/master-data", label: "Master Data & Kurs", icon: Database, functions: COST_OWNERS },
-  { href: "/master-data/product", label: "Product Master Data", icon: Package, functions: INTERNAL },
-  { href: "/audit-log", label: "Audit Trail", icon: ScrollText, functions: INTERNAL },
-  { href: "/settings", label: "Settings", icon: Settings, functions: ["SYSTEM_ADMIN"] },
-];
-
-export function Sidebar({ profile }: { profile: Actor }) {
+export function Sidebar({ profile, menus }: { profile: Actor; menus: MenuKey[] }) {
   const pathname = usePathname();
-  const external = isExternal(profile);
-  const items = NAV_ITEMS.filter((item) =>
-    item.functions === "ALL" ? true : !external && hasAnyFunction(profile, item.functions)
-  );
+  const items = NAV_ITEMS.filter((item) => menus.includes(item.key));
 
   return (
     <aside className="flex h-screen w-64 flex-col border-r border-card-border bg-white print:hidden">

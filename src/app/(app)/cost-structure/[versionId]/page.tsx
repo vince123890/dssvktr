@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireInternal } from "@/lib/auth";
+import { requireMenu } from "@/lib/menuAccess";
 import { canSeeCostStructure } from "@/lib/rbac";
 import {
   canPerformScopeAction,
@@ -25,7 +25,7 @@ import type {
 
 export default async function CostStructureVersionPage({ params }: { params: Promise<{ versionId: string }> }) {
   const { versionId } = await params;
-  const me = await requireInternal();
+  const me = await requireMenu("cost_structure");
   if (!canSeeCostStructure(me)) notFound();
   const supabase = await createClient();
 

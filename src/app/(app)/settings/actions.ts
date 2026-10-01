@@ -5,6 +5,7 @@ import { requireProfile } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { FUNCTIONAL_ROLES, canManageSettings, legacyRoleFor } from "@/lib/rbac";
 import { SETTING_KEYS, type AppSettings } from "@/lib/settings";
+import { MENUS, type MenuKey } from "@/lib/menuAccess";
 import { isNextControlFlowError, toActionError, type ActionResult } from "@/lib/actionResult";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -236,12 +237,25 @@ export async function saveWorkflowStepsAction(
   });
 }
 
-export async function savePriceEstimateAccessAction(definitionId: string, functions: FunctionalRole[]): Promise<ActionResult> {
-  return guarded(async ({ supabase }) => {
-    const parsed = z.array(FunctionalRoleEnum).min(1).parse(functions);
-    const { error } = await supabase.from("workflow_definition").update({ allowed_functions: parsed }).eq("id", definitionId);
+const MENU_KEYS = MENUS.map((m) => m.key) as [MenuKey, ...MenuKey[]];
+
+/**
+ * Menu access matrix (PRD FR-5.7): menu -> functional roles. Settings is
+ * locked to System Admin so an admin can never lock themselves out.
+ */
+export async function saveMenuAccessAction(access: Partial<Record<MenuKey, FunctionalRole[]>>): Promise<ActionResult> {
+  return guarded(async ({ supabase, actorId }) => {
+    const parsed = z.record(z.enum(MENU_KEYS), z.array(FunctionalRoleEnum)).parse(access);
+    const value: Partial<Record<MenuKey, FunctionalRole[]>> = {};
+    for (const m of MENUS) {
+      if (m.locked) continue;
+      value[m.key] = parsed[m.key] ?? m.defaultFunctions;
+    }
+    const { error } = await supabase
+      .from("app_setting")
+      .upsert({ key: "menu_access", value, updated_by: actorId, updated_at: new Date().toISOString() }, { onConflict: "key" });
     if (error) throw new Error(error.message);
-    return `Akses Price Estimate: ${parsed.join(", ")}`;
+    return `Akses menu disimpan: ${Object.entries(value).map(([k, v]) => `${k}=[${(v ?? []).join(",")}]`).join(" ")}`;
   });
 }
 

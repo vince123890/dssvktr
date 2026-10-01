@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireInternal } from "@/lib/auth";
+import { requireMenu } from "@/lib/menuAccess";
 import { loadQuotationFormOptions } from "@/lib/quotationOptions";
 import { QuotationForm } from "../../QuotationForm";
 import { notFound, redirect } from "next/navigation";
@@ -7,12 +7,13 @@ import type { PricingProposal, QuotationLineItem } from "@/types/database";
 
 export default async function EditQuotationDraftPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const profile = await requireInternal();
+  const profile = await requireMenu("quotations");
   const supabase = await createClient();
 
   const { data } = await supabase.from("pricing_proposal").select("*").eq("id", id).maybeSingle();
   if (!data) notFound();
   const proposal = data as PricingProposal;
+  if (proposal.created_by !== profile.id) notFound();
   if (proposal.current_status !== "DRAFT" || proposal.created_by !== profile.id) {
     redirect(`/proposals/${id}`);
   }

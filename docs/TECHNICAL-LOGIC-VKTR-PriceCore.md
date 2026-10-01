@@ -97,6 +97,9 @@
 > 24. **Workflow step dapat dikonfigurasi penuh** (§2.1
 >     `workflow_step_definition`, §4.1a) — role pelaksana, jenis aksi,
 >     kondisi lewati, tujuan tolak, cc.
+> 25. **Menu & data access per role** (§8.4, §8.5) — matriks menu →
+>     fungsi (`app_setting.menu_access`), menu di luar matriks disembunyikan
+>     dan halamannya 404; quotation dibatasi per baris.
 
 ---
 
@@ -267,6 +270,11 @@ Seed (sheet *Actors*) — `✓✓✓` = Maker, Checker, Releaser:
 | Chief Finance Officer | ✓✓✓ | ✓✓✓ | ✓✓✓ | ✓✓✓ | **Deviation saja** |
 
 **`scope_segregation_rule`** (FR-1.1.2): scope, `maker_ne_checker` (default `true`), `checker_ne_releaser` (default `false`), `allow_single_actor_when_only_one_holder` (default `true`, menandai audit `SINGLE_ACTOR_RELEASE`). Konfigurasi ini menjawab kasus scope `MARGIN` yang hanya dipegang satu role — **perlu konfirmasi VKTR** (§14).
+
+**`app_setting` key `menu_access`** (PRD FR-5.7 — **baru**): JSON
+`{ menu_key: FunctionalRole[] }` yang menimpa default di kode
+(`src/lib/menuAccess.ts`). Menu `settings` tidak pernah dibaca dari sini
+(terkunci `SYSTEM_ADMIN`).
 
 **`scenario_config`**: `deviation_gm_threshold_pct` (default `10.00`) — ambang pemisah Regular/Deviation, sama dengan batas Tier 2/Tier 3 (§11.1).
 
@@ -1407,6 +1415,81 @@ Implementasi memakai ulang **Formula Engine (§3)** dengan variable context yang
 2. **Service layer**: `canPerform` (§4.8), gate workflow (§4.2), serializer *allow-list* per slot.
 3. **Database**: Postgres RLS sebagai *defense in depth* — kebijakan RLS membaca tabel `user_role_assignment`/`scope_authority`, bukan kolom `role` enum.
 
+### 8.4 Menu Access Matrix — sembunyikan & 404 (PRD FR-5.7)
+
+Matriks default (menu → fungsi); turunan per role ada di PRD FR-5.7.
+
+| Menu | Fungsi default yang boleh membuka |
+|---|---|
+| Overview | SALESPERSON, SALES_OPERATIONS, SALES_RELEASER, COGS_OWNER, PROFITABILITY_OWNER, PRICING_COMMITTEE, SYSTEM_ADMIN |
+| Price Estimate | EXTERNAL_AGENCY, SALESPERSON, SALES_OPERATIONS, SALES_RELEASER, SYSTEM_ADMIN |
+| Official Quotation | SALESPERSON, SALES_OPERATIONS, SALES_RELEASER, COGS_OWNER, PROFITABILITY_OWNER, PRICING_COMMITTEE, SYSTEM_ADMIN |
+| Lifecycle & Approvals, DSS | SALES_OPERATIONS, SALES_RELEASER, COGS_OWNER, PROFITABILITY_OWNER, PRICING_COMMITTEE, SYSTEM_ADMIN |
+| Cost Structure | SALES_PRICING_OWNER, COGS_OWNER, PROFITABILITY_OWNER, PRICING_COMMITTEE, SYSTEM_ADMIN |
+| Master Data & Kurs | COGS_OWNER, PROFITABILITY_OWNER, PRICING_COMMITTEE, SYSTEM_ADMIN |
+| Product Master Data | PRODUCT_OWNER, SYSTEM_ADMIN |
+| Audit Trail | SALES_RELEASER, PRICING_COMMITTEE, SYSTEM_ADMIN |
+| Settings | SYSTEM_ADMIN (terkunci, tidak dapat diubah) |
+
+```pseudo
+function loadMenuAccess():
+    access = DEFAULT_MENU_ACCESS
+    overrides = app_setting['menu_access']           # Settings → Akses Menu
+    for menu in MENUS where not menu.locked:
+        if overrides[menu] exists: access[menu] = overrides[menu]
+    return access
+
+function canAccessMenu(actor, menu, access):
+    return any(fn in actor.app_role.functional_roles for fn in access[menu])
+
+# Server layout — sidebar hanya menerima menu yang diizinkan
+layout: menus = MENUS.filter(m => canAccessMenu(actor, m, access))
+
+# Setiap page server memanggil guard sebelum memuat data apa pun
+function requireMenu(menu):
+    if not canAccessMenu(actor, menu, access):
+        if menu == 'overview': redirect(landingHref(actor))   # menu pertama yang diizinkan
+        notFound()                                             # 404 — halaman "tidak ada"
+```
+
+| Lapisan | Penegakan |
+|---|---|
+| Sidebar | Item yang tidak diizinkan tidak dirender (bukan disabled) |
+| Halaman (`page.tsx`) | `requireMenu(key)` → `notFound()` (404) |
+| Route API | `/api/simulate` → 404 tanpa menu DSS; export CSV → 404 tanpa fungsi SYSTEM_ADMIN |
+| Server action | Pemeriksaan fungsi/langkah seperti sebelumnya + `canViewQuotation`; menolak dengan pesan "tidak ditemukan" |
+| Halaman awal | `/` mengarahkan role tanpa menu Overview ke menu pertamanya; role tanpa menu → `/no-access` |
+
+**Pemetaan halaman → menu**: `/` overview · `/price-estimate` ·
+`/proposals`, `/proposals/new`, `/proposals/[id]`, `/proposals/[id]/edit`,
+`/print/proposals/[id]` → quotations · `/lifecycle` · `/cost-structure`,
+`/cost-structure/[id]`, `/print/proposals/[id]/cost-structure` →
+cost_structure · `/dss` · `/master-data` · `/master-data/product` →
+product · `/audit-log` → audit · `/settings` (dan `/admin` lama) →
+settings.
+
+### 8.5 Row-Level Quotation Visibility (PRD FR-5.7)
+
+```pseudo
+SEES_ALL = [SALES_OPERATIONS, SALES_RELEASER, COGS_OWNER,
+            PROFITABILITY_OWNER, PRICING_COMMITTEE, SYSTEM_ADMIN]
+
+function canViewQuotation(actor, q):
+    if actor has any SEES_ALL: return true
+    if q.created_by == actor.id or actor.id in q.account_person_ids: return true
+    if actor has SALES_VALIDATOR:
+        # POC tanpa hierarki tim: semua permintaan dari role Salesperson
+        # yang tidak punya fungsi validator (Sales Executive)
+        return q.initiator_role_code in rolesWith(SALESPERSON) - rolesWith(SALES_VALIDATOR)
+    return false
+```
+
+Dipakai oleh daftar quotation, Overview (antrean & aktivitas), detail,
+edit draft, dokumen Cost Estimate, dan server action quotation. Kanban
+Lifecycle hanya dapat dibuka peran `SEES_ALL`. *Defense in depth* RLS
+Postgres untuk aturan baris ini dicatat sebagai pekerjaan lanjutan —
+pada POC, penegakan berada di service layer.
+
 ## 9. Integration Contracts (NFR — API-First)
 
 ### 9.1 ERP (SAP/Odoo) — Sinkronisasi Master BOM & Costing
@@ -1912,6 +1995,7 @@ ada logika ganda antara simulasi dan perhitungan sesungguhnya.
 | **FR-2.10 (penerimaan pelanggan)** | `pricing_proposal.outcome`, `accepted_document_url` (§2.1) |
 | FR-3.1 – FR-3.3 | Dashboard (status §4.1 & antrean M/C/R), SLA Job §5, Audit §6 |
 | FR-4.1 – FR-4.3 | DSS §7 (+ tier yang berlaku, Likelihood KYC) |
+| **FR-5.7 (Menu & data access per role, 404)** | `src/lib/menuAccess.ts` (`MENUS`, `requireMenu`, `canViewQuotation`), `app_setting.menu_access`, Settings → Akses Menu (§8.4, §8.5) |
 | **FR-5.6 (Roles & Authorities Settings)** | `app_role`, `functional_role`, `user_role_assignment`, `scope_authority` (§2.1), §8 |
 | **FR-6.0 – FR-6.5 (diskon & tier 15/10)** | `margin_tier_authority`, `tier_approval`, `customer_request` (§2.1), §11 |
 | **FR-7.1 – FR-7.4 (KYC)** | `customer_kyc`, `pricing_proposal.kyc_snapshot` (§2.1), `canSubmitQuotation` (§4.2) |

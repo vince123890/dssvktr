@@ -233,6 +233,25 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
    GENERATE, UPDATE (diskon), TIER_ROUTE, TIER_CC, APPROVE, REJECT,
    RELEASE, SUPERSEDE, EXPIRE, PRINT, BLOCKED_DUPLICATE_ATTEMPT.
 
+## B6b — Menu & data hanya yang dipakai role (PRD FR-5.7)
+
+1. Login bergantian dan bandingkan sidebar:
+   - **sales.exec@vktr.demo**: Overview, Price Estimate, Official
+     Quotation — tanpa Lifecycle, Cost Structure, DSS, Master Data,
+     Audit, Settings.
+   - **procurement@vktr.demo**: Overview, Official Quotation, Lifecycle,
+     Cost Structure, DSS, Master Data & Kurs — tanpa Price Estimate,
+     Product, Audit, Settings.
+   - **product@vktr.demo**: langsung mendarat di **Product Master Data**
+     (satu-satunya menu).
+2. Sebagai **sales.exec@vktr.demo**, buka `/settings`, `/cost-structure`,
+   dan `/audit-log` langsung lewat URL → semuanya **404**.
+3. Sebagai **sales.exec@vktr.demo**, buka daftar Official Quotation →
+   hanya quotation yang ia ajukan (B1, B3, revisi B4). Quotation B2
+   (diajukan Sales Lead) tidak muncul, dan membuka URL-nya → **404**.
+4. Sebagai **sales.lead@vktr.demo** → daftar memuat B2 (miliknya) dan
+   permintaan Sales Executive yang ia validasi (B1, B3).
+
 ## B7 — (Opsional) Role & workflow diatur di aplikasi
 
 1. **admin@vktr.demo** → **Settings → Workflow**: langkah *Validasi Sales
@@ -269,3 +288,4 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
 | WON, kedaluwarsa 30 hari | B5 |
 | Fraud guard, antrean per role, audit trail | B6 |
 | Role & workflow dapat diatur di Settings | B7 |
+| Menu di luar role tersembunyi & 404; quotation dibatasi per baris | B6b |

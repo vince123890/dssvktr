@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireInternal } from "@/lib/auth";
+import { requireMenu } from "@/lib/menuAccess";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { canManageProductMasterData } from "@/lib/rbac";
@@ -8,7 +8,7 @@ import { ProductForm } from "./ProductForm";
 import { ProductStatusButton } from "./ProductStatusButton";
 
 export default async function ProductMasterDataPage() {
-  const profile = await requireInternal();
+  const profile = await requireMenu("product");
   const supabase = await createClient();
 
   const { data: products } = await supabase

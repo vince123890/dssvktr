@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { canSeeCostStructure } from "@/lib/rbac";
+import { actorCanUseMenu } from "@/lib/menuAccess";
 import { loadCostItems, loadVersionLines } from "@/lib/costStructure";
 import { computeCostStructure, resolveTier } from "@/lib/pricing/quotation";
 import { loadLadder, loadLines } from "@/lib/workflow/quotationEngine";
@@ -27,7 +28,9 @@ const BodySchema = z.object({
 
 export async function POST(request: Request) {
   const me = await getCurrentProfile();
-  if (!me || !canSeeCostStructure(me)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!me || !canSeeCostStructure(me) || !(await actorCanUseMenu(me, "dss"))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   const body = BodySchema.parse(await request.json());
   const supabase = await createClient();
 

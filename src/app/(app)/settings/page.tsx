@@ -1,14 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireInternal } from "@/lib/auth";
 import { FUNCTIONAL_ROLES, FUNCTIONAL_ROLE_LABEL, canManageSettings } from "@/lib/rbac";
 import { loadSettings } from "@/lib/settings";
+import { MENUS, loadMenuAccess, requireMenu } from "@/lib/menuAccess";
 import { loadBands } from "@/lib/workflow/quotationEngine";
 import { Card, CardContent } from "@/components/ui/Card";
 import Link from "next/link";
 import {
   BandEditor,
   GeneralSettingsEditor,
-  PriceEstimateAccessEditor,
+  MenuAccessEditor,
   RolesEditor,
   ScopeAuthorityEditor,
   TierEditor,
@@ -27,6 +27,7 @@ import type {
 
 const TABS = [
   { key: "roles", label: "Roles & Users" },
+  { key: "menus", label: "Akses Menu" },
   { key: "authority", label: "Scope Authority (M/C/R)" },
   { key: "workflow", label: "Workflow" },
   { key: "tier", label: "Tier Margin & Quantity Band" },
@@ -35,7 +36,7 @@ const TABS = [
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { tab = "roles" } = await searchParams;
-  const me = await requireInternal();
+  const me = await requireMenu("settings");
   if (!canManageSettings(me)) {
     return <Card><CardContent className="py-10 text-center text-sm text-muted">Settings hanya untuk System Admin.</CardContent></Card>;
   }
@@ -52,6 +53,15 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <RolesEditor roles={roles} />
         <UsersEditor users={users ?? []} roles={roles} />
       </div>
+    );
+  } else if (tab === "menus") {
+    const access = await loadMenuAccess(supabase);
+    body = (
+      <MenuAccessEditor
+        menus={MENUS.map((m) => ({ key: m.key, label: m.label, href: m.href, locked: Boolean(m.locked) }))}
+        access={access}
+        roles={roles}
+      />
     );
   } else if (tab === "authority") {
     const [{ data: rows }, { data: rules }, settings] = await Promise.all([
@@ -72,7 +82,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     const { data: defs } = await supabase.from("workflow_definition").select("*").eq("is_active", true).order("created_at");
     const active = (defs ?? []) as WorkflowDefinition[];
     const oq = active.filter((d) => d.workflow_kind === "OFFICIAL_QUOTATION");
-    const pe = active.find((d) => d.workflow_kind === "PRICE_ESTIMATE");
     const stepsByDef = new Map<string, StepDraft[]>();
     for (const d of oq) {
       const { data: steps } = await supabase.from("workflow_step_definition").select("*").eq("workflow_definition_id", d.id).order("step_order");
@@ -90,7 +99,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     }
     body = (
       <div className="space-y-6">
-        {pe && <PriceEstimateAccessEditor definitionId={pe.id} allowed={pe.allowed_functions} />}
+        <p className="text-xs text-muted">
+          Workflow A — Price Estimate tidak memiliki langkah approval; siapa yang boleh memakainya diatur di tab{" "}
+          <strong>Akses Menu</strong> (menu Price Estimate).
+        </p>
         {oq.map((d) => (
           <WorkflowEditor key={d.id} definitionId={d.id} name={d.name} version={d.version} steps={stepsByDef.get(d.id) ?? []} />
         ))}
