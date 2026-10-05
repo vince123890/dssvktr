@@ -14,11 +14,10 @@ import type {
   Scenario,
   ScopeAuthority,
   ScopeSegregationRule,
-  StepActionKind,
 } from "@/types/database";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus } from "lucide-react";
 import {
   assignUserRoleAction,
   saveBandsAction,
@@ -28,7 +27,6 @@ import {
   saveScopeAuthorityAction,
   saveSegregationAction,
   saveTiersAction,
-  saveWorkflowStepsAction,
 } from "./actions";
 
 function useSaver() {
@@ -364,129 +362,6 @@ export function ScopeAuthorityEditor({
 // Workflow
 // ---------------------------------------------------------------------
 
-export interface StepDraft {
-  step_name: string;
-  action_kind: StepActionKind;
-  performer_function: FunctionalRole;
-  skip_if_initiator_function: FunctionalRole | null;
-  reject_to_step_order: number | null;
-  sla_hours: number;
-}
-
-const KIND_LABEL: Record<StepActionKind, string> = {
-  VALIDATE: "Validasi permintaan",
-  APPROVE: "Persetujuan tambahan",
-  GENERATE_QUOTATION: "Generate quotation (quantity band)",
-  REVIEW_AND_ROUTE: "Review & rilis / rute tier",
-};
-
-export function WorkflowEditor({
-  definitionId,
-  name,
-  version,
-  steps: initial,
-}: {
-  definitionId: string;
-  name: string;
-  version: number;
-  steps: StepDraft[];
-}) {
-  const [steps, setSteps] = useState(initial);
-  const { isPending, save, feedback } = useSaver();
-  const update = (idx: number, patch: Partial<StepDraft>) => setSteps((s) => s.map((x, i) => (i === idx ? { ...x, ...patch } : x)));
-  const move = (idx: number, dir: -1 | 1) =>
-    setSteps((s) => {
-      const n = [...s];
-      const j = idx + dir;
-      if (j < 0 || j >= n.length) return s;
-      [n[idx], n[j]] = [n[j], n[idx]];
-      return n;
-    });
-
-  return (
-    <Card>
-      <CardHeader>
-        <div>
-          <CardTitle>{name} <Badge>v{version}</Badge></CardTitle>
-          <CardDescription>
-            Sheet Basic Workflow B. Langkah 1–3 (KYC, review, submit) selalu oleh Salesperson; langkah di bawah dapat
-            diubah. Routing tier margin (≥15% / 10–15% / &lt;10%) selalu ditambahkan setelah Review — atur di tab Tier.
-          </CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {steps.map((s, idx) => (
-          <div key={idx} className="grid grid-cols-1 gap-2 rounded-lg border border-card-border p-3 md:grid-cols-12">
-            <div className="flex items-center gap-1 md:col-span-1">
-              <span className="text-sm font-semibold">{idx + 1}</span>
-              <button type="button" onClick={() => move(idx, -1)} className="text-muted hover:text-foreground" aria-label="Naik"><ArrowUp size={13} /></button>
-              <button type="button" onClick={() => move(idx, 1)} className="text-muted hover:text-foreground" aria-label="Turun"><ArrowDown size={13} /></button>
-            </div>
-            <label className="space-y-1 text-[11px] text-muted md:col-span-3">
-              <span>Nama langkah</span>
-              <input className="pc-input" value={s.step_name} onChange={(e) => update(idx, { step_name: e.target.value })} />
-            </label>
-            <label className="space-y-1 text-[11px] text-muted md:col-span-2">
-              <span>Jenis aksi</span>
-              <select className="pc-input" value={s.action_kind} onChange={(e) => update(idx, { action_kind: e.target.value as StepActionKind })}>
-                {Object.entries(KIND_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-              </select>
-            </label>
-            <label className="space-y-1 text-[11px] text-muted md:col-span-2">
-              <span>Pelaksana (fungsi)</span>
-              <select className="pc-input" value={s.performer_function} onChange={(e) => update(idx, { performer_function: e.target.value as FunctionalRole })}>
-                {FUNCTIONAL_ROLES.map((f) => <option key={f} value={f}>{FUNCTIONAL_ROLE_LABEL[f]}</option>)}
-              </select>
-            </label>
-            <label className="space-y-1 text-[11px] text-muted md:col-span-2">
-              <span>Lewati bila pengaju punya fungsi</span>
-              <select className="pc-input" value={s.skip_if_initiator_function ?? ""} onChange={(e) => update(idx, { skip_if_initiator_function: (e.target.value || null) as FunctionalRole | null })}>
-                <option value="">— tidak dilewati —</option>
-                {FUNCTIONAL_ROLES.map((f) => <option key={f} value={f}>{FUNCTIONAL_ROLE_LABEL[f]}</option>)}
-              </select>
-            </label>
-            <label className="space-y-1 text-[11px] text-muted md:col-span-1">
-              <span>Bila ditolak</span>
-              <select className="pc-input" value={s.reject_to_step_order ?? ""} onChange={(e) => update(idx, { reject_to_step_order: e.target.value ? Number(e.target.value) : null })}>
-                <option value="">Salesperson (draft)</option>
-                {steps.slice(0, idx).map((p, j) => <option key={j} value={j + 1}>Langkah {j + 1}</option>)}
-              </select>
-            </label>
-            <div className="flex items-end gap-1 md:col-span-1">
-              <label className="space-y-1 text-[11px] text-muted">
-                <span>SLA (jam)</span>
-                <input className="pc-input" type="number" min={1} value={s.sla_hours} onChange={(e) => update(idx, { sla_hours: Number(e.target.value) })} />
-              </label>
-              <button type="button" onClick={() => setSteps((st) => st.filter((_, i) => i !== idx))} className="mb-1.5 text-muted hover:text-danger" aria-label="Hapus langkah">
-                <Trash2 size={14} />
-              </button>
-            </div>
-          </div>
-        ))}
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() =>
-              setSteps((s) => [
-                ...s.slice(0, Math.max(0, s.length - 1)),
-                { step_name: "Persetujuan tambahan", action_kind: "APPROVE", performer_function: "SALES_RELEASER", skip_if_initiator_function: null, reject_to_step_order: null, sla_hours: 24 },
-                ...s.slice(Math.max(0, s.length - 1)),
-              ])
-            }
-          >
-            <Plus size={13} /> Tambah langkah
-          </Button>
-          <Button size="sm" disabled={isPending} onClick={() => save(() => saveWorkflowStepsAction(definitionId, steps), "Workflow disimpan sebagai versi baru.")}>
-            Simpan sebagai versi baru
-          </Button>
-          {feedback}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 export function MenuAccessEditor({
   menus,
   access,
@@ -709,9 +584,22 @@ export function GeneralSettingsEditor({ settings }: { settings: AppSettings }) {
         <L label="Alamat penerbit (per baris)"><textarea className="pc-input" rows={4} value={s.issuerAddress.join("\n")} onChange={lines("issuerAddress")} /></L>
         <L label="Disclaimer"><textarea className="pc-input" rows={4} value={s.documentDisclaimer} onChange={str("documentDisclaimer")} /></L>
         <L label="Special notes default (per baris)" className="md:col-span-2"><textarea className="pc-input" rows={3} value={s.defaultSpecialNotes.join("\n")} onChange={lines("defaultSpecialNotes")} /></L>
+        <div className="md:col-span-2 border-t border-card-border pt-3 text-xs font-semibold">Qualifier Workflow Template (statis) &amp; blacklist</div>
+        <L label="Segmen customer (per baris)"><textarea className="pc-input" rows={3} value={s.qualifierSegments.join("\n")} onChange={lines("qualifierSegments")} /></L>
+        <L label="Industri / bidang usaha (per baris)"><textarea className="pc-input" rows={3} value={s.qualifierIndustries.join("\n")} onChange={lines("qualifierIndustries")} /></L>
+        <L label="Hubungan pelanggan (per baris)"><textarea className="pc-input" rows={3} value={s.qualifierRelationships.join("\n")} onChange={lines("qualifierRelationships")} /></L>
+        <L label="Customer blacklist — nama perusahaan (per baris)"><textarea className="pc-input" rows={3} value={s.customerBlacklist.join("\n")} onChange={lines("customerBlacklist")} /></L>
         <div className="flex items-center gap-2 md:col-span-2">
           <Button size="sm" disabled={isPending}
-            onClick={() => save(() => saveGeneralSettingsAction({ ...s, issuerAddress: s.issuerAddress.filter(Boolean), defaultSpecialNotes: s.defaultSpecialNotes.filter(Boolean) }))}>
+            onClick={() => save(() => saveGeneralSettingsAction({
+                ...s,
+                issuerAddress: s.issuerAddress.filter(Boolean),
+                defaultSpecialNotes: s.defaultSpecialNotes.filter(Boolean),
+                qualifierSegments: s.qualifierSegments.map((x) => x.trim()).filter(Boolean),
+                qualifierIndustries: s.qualifierIndustries.map((x) => x.trim()).filter(Boolean),
+                qualifierRelationships: s.qualifierRelationships.map((x) => x.trim()).filter(Boolean),
+                customerBlacklist: s.customerBlacklist.map((x) => x.trim()).filter(Boolean),
+              }))}>
             Simpan
           </Button>
           {feedback}

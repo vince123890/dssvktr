@@ -22,12 +22,10 @@ import {
 } from "@/lib/workflow/quotationEngine";
 import { isNextControlFlowError, toActionError, type ActionResult } from "@/lib/actionResult";
 import { revalidatePath } from "next/cache";
-import type {
-  Actor,
-  PricingProposal,
-  WorkflowDefinition,
-  WorkflowStepDefinition,
-} from "@/types/database";
+import { loadSettings } from "@/lib/settings";
+import { evaluateVersion, loadCostItems, loadReleasedVersion, loadVersionLines } from "@/lib/costStructure";
+import { isBlacklisted, loadActiveQuotationTemplates, resolveTemplate } from "@/lib/workflow/templateCatalog";
+import type { Actor, PricingProposal, WorkflowStepDefinition } from "@/types/database";
 
 type Db = Awaited<ReturnType<typeof createClient>>;
 
@@ -82,16 +80,32 @@ export async function submitQuotationAction(proposalId: string): Promise<ActionR
     const lines = await loadLines(supabase, proposal.id);
     if (lines.length === 0) throw new Error("b. Minimal satu varian kendaraan & kuantitas.");
 
-    const { data: defs } = await supabase
-      .from("workflow_definition")
-      .select("*")
-      .eq("is_active", true)
-      .eq("workflow_kind", "OFFICIAL_QUOTATION")
-      .order("version", { ascending: false });
-    const candidates = (defs ?? []) as WorkflowDefinition[];
-    const template =
-      candidates.find((d) => d.qualifier_type === "BUSINESS_LINE" && d.business_line === proposal.business_line) ??
-      candidates.find((d) => d.qualifier_type !== "BUSINESS_LINE");
+    // Workflow Template Catalog (FR-2.0.1, v4.1): estimated value from the
+    // RELEASED cost structures (basic price × qty), then the most specific
+    // template whose qualifiers match this deal.
+    const [items, settings, templates] = await Promise.all([
+      loadCostItems(supabase),
+      loadSettings(supabase),
+      loadActiveQuotationTemplates(supabase),
+    ]);
+    let estimatedValue = 0;
+    for (const line of lines) {
+      const version = await loadReleasedVersion(supabase, line.product_id);
+      if (!version) throw new Error("Ada varian tanpa cost structure RELEASED — tidak dapat disubmit.");
+      const cs = evaluateVersion(items, await loadVersionLines(supabase, version.id), Number(version.locked_fx_rate));
+      estimatedValue += cs.listPriceExVat * line.quantity;
+    }
+    const blacklisted = isBlacklisted(proposal.kyc.company_name, settings.customerBlacklist);
+    const resolution = resolveTemplate(templates, {
+      segment: proposal.kyc.customer_segment ?? null,
+      industry: proposal.kyc.industry ?? null,
+      relationship: proposal.kyc.relationship ?? null,
+      businessLine: proposal.business_line,
+      quantity: lines.reduce((s, l) => s + l.quantity, 0),
+      estimatedValue,
+      isBlacklisted: blacklisted,
+    });
+    const template = resolution.template;
     if (!template) {
       await supabase.from("pricing_proposal").update({ current_status: "CONFIG_ERROR" }).eq("id", proposal.id);
       throw new Error("Tidak ada Workflow Template Official Quotation yang aktif (CONFIG_ERROR).");
@@ -150,8 +164,16 @@ export async function submitQuotationAction(proposalId: string): Promise<ActionR
 
     await supabase
       .from("pricing_proposal")
-      .update({ workflow_definition_id: template.id, tier_round: 0 })
+      .update({
+        workflow_definition_id: template.id,
+        workflow_template_code: template.template_code,
+        workflow_selection_reason: resolution.reason,
+        estimated_value: estimatedValue,
+        is_blacklisted: blacklisted,
+        tier_round: 0,
+      })
       .eq("id", proposal.id);
+    proposal.workflow_template_code = template.template_code;
 
     // A revision whose KYC and vehicles are unchanged goes straight to
     // Sales Operations (FR-2.5) — nothing new for the Sales Lead to validate.
@@ -171,7 +193,7 @@ export async function submitQuotationAction(proposalId: string): Promise<ActionR
       proposalId: proposal.id,
       actorId: actor.id,
       action: "SUBMIT",
-      reason: `Workflow: ${template.name} v${template.version}`,
+      reason: `Workflow: ${template.name} v${template.version} — ${resolution.reason}`,
     });
 
     await advanceFrom(

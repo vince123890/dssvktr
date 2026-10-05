@@ -275,6 +275,10 @@ export interface QuotationKyc {
   gap_identified?: string;
   other_information?: string;
   requested_scheme?: "PURCHASE" | "RENTAL";
+  /** Deal qualifiers (v4.1) used to pick the Workflow Template. */
+  customer_segment?: string;
+  industry?: string;
+  relationship?: string;
 }
 
 export type CommercialScheme = "PURCHASE" | "RENTAL";
@@ -394,6 +398,21 @@ export interface WorkflowDefinition {
   workflow_kind: WorkflowKind;
   /** Functional roles allowed to start this workflow. */
   allowed_functions: FunctionalRole[];
+  /** v4.1 catalog: versions of one template share this code. */
+  template_code: string | null;
+  description: string | null;
+  /** Tie-breaker when two templates are equally specific (higher wins). */
+  priority: number;
+  /** Qualifiers — an empty list / null means "any". min_value/max_value = estimated value (IDR excl. VAT). */
+  q_segments: string[];
+  q_industries: string[];
+  q_relationships: string[];
+  q_business_lines: string[];
+  q_min_qty: number | null;
+  q_max_qty: number | null;
+  q_blacklist: boolean | null;
+  /** Used when no other template matches. */
+  is_fallback: boolean;
   /** How this template is selected by resolveWorkflowTemplate() (FR-2.0.1). */
   qualifier_type: WorkflowQualifierType;
   min_value: number;
@@ -473,6 +492,11 @@ export interface PricingProposal {
   tier_round: number;
   accepted_document_url: string | null;
   is_seed: boolean;
+  /** v4.1 — template the resolver picked at submit, and why. */
+  workflow_template_code: string | null;
+  workflow_selection_reason: string | null;
+  estimated_value: number | null;
+  is_blacklisted: boolean;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -660,6 +684,8 @@ export interface MarginTierAuthority {
   /** Informed (tembusan) but not asked to decide. */
   cc_slots: string[];
   reject_target: string;
+  /** v4.1 — ladder belonging to one Workflow Template; null = global ladder. */
+  workflow_template_code: string | null;
   allow_bod_delegation: boolean;
   is_active: boolean;
   created_at: string;

@@ -65,6 +65,7 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
    | e. Produksi | `6` `trip` per hari |
    | f. Likelihood | 4 — Medium to High |
    | g. Gap identified | `Armada diesel tidak memenuhi target emisi proyek` |
+   | Kualifikasi deal | Segmen `B2B` · Industri `Konstruksi` · Hubungan `Reguler` |
    | b. Varian & qty | LDT 4x2 SWB Dumper 90 kWh × **1** |
 
 3. Kosongkan dulu **g** → **Simpan Draft & Tinjau** → pesan *"g. Gap
@@ -141,6 +142,7 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
    | c | Proyek baru · `Armada Dumper 5 Tahun` |
    | d–g | `Dumper` / `Material agregat`; `Site → stockpile`, `Site`, `Stockpile`; `10 trip per hari`; Likelihood 3; gap `Kebutuhan armada listrik jangka panjang` |
    | h | Skema diminta: **Rental** |
+   | Kualifikasi | `B2B` · `Konstruksi` · `Reguler` (→ template Standard) |
    | b | LDT 4x2 SWB Dumper 90 kWh × **40** |
 
 2. Submit → **sales.lead@vktr.demo** → Validasi.
@@ -161,11 +163,12 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
 
 5. **headsales@vktr.demo** → buka **Cost Structure Sheet** (tab baru,
    dokumen internal *Highly Confidential*) untuk ditinjau → kembali →
-   **Accept & rilis / rute**. Status: **Tier 3 — CCO & CFO**.
+   **Accept & rilis / rute**. Status: **Approval Tier — Pricing Committee (CCO &
+   CFO)** (Tier 3).
 6. **headproc@vktr.demo** dan **headfinance@vktr.demo** membuka quotation:
    panel alur menampilkan *Tembusan (cc): COGS Owner, Profitability
    Owner* — tanpa tombol keputusan.
-7. **cco@vktr.demo** → **Approve**. Status **tetap** Tier 3 — satu dari dua
+7. **cco@vktr.demo** → **Approve**. Status **tetap** menunggu Pricing Committee — satu dari dua
    belum cukup (AND-join).
 8. **cfo@vktr.demo** → catatan `Diskon terlalu dalam untuk kontrak 40 unit`
    → **Reject**. Quotation **kembali ke Sales Operations**; putaran tier
@@ -176,10 +179,10 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
 9. **salesops@vktr.demo** → ganti mode **%**, isi `4` (Rp 33.182.000/unit).
    Dampak: net **Rp 796.368.000**, GM **14,34%**, **Tier 2 — COGS Owner +
    Profitability Owner** → Simpan → Teruskan.
-10. **headsales@vktr.demo** → **Accept** → status **Tier 2 — COGS &
-    Profitability Owner**.
+10. **headsales@vktr.demo** → **Accept** → status **Approval Tier — COGS &
+    Profitability Owner** (Tier 2).
 11. **procurement@vktr.demo** → **Approve** (mengisi slot COGS Owner).
-    Status masih Tier 2. (Bila **headproc@vktr.demo** mencoba juga, tidak
+    Status masih menunggu (Tier 2). (Bila **headproc@vktr.demo** mencoba juga, tidak
     ada slot tersisa untuknya.)
 12. **headfinance@vktr.demo** → **Approve** → Release Gate lolos →
     **Quotation Released**. Total 40 unit: excl. VAT Rp 31.854.720.000,
@@ -232,6 +235,32 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
 4. **admin@vktr.demo** → **Audit Trail**: SUBMIT, VALIDATE, STEP_SKIPPED,
    GENERATE, UPDATE (diskon), TIER_ROUTE, TIER_CC, APPROVE, REJECT,
    RELEASE, SUPERSEDE, EXPIRE, PRINT, BLOCKED_DUPLICATE_ATTEMPT.
+
+## B6c — Workflow Template Catalog: alur berbeda per jenis deal
+
+1. **admin@vktr.demo** → **Settings → Workflow**: katalog berisi 6
+   template (Standard, Blacklist, Relasi Khusus, Nilai Besar, B2G,
+   Industri Tambang & Perkebunan) beserta qualifier, langkah, prioritas,
+   dan tier masing-masing.
+2. Kartu **Uji pemilihan template**: Segmen `B2G` → **Uji** → terpilih
+   *B2G Pemerintah*; ubah Hubungan ke `Relasi khusus` → terpilih *Relasi
+   Khusus* (prioritas 20 > 10); centang Blacklist → *Customer Blacklist*.
+3. **sales.exec@vktr.demo** → Official Quotation baru `Dinas Lingkungan
+   Hidup Kota Bekasi`, Segmen **B2G**, Industri `Municipality`, 2 unit SWB
+   → Submit. Panel alur menampilkan **Workflow Template: Official
+   Quotation — B2G Pemerintah** + alasan. Setelah validasi Sales Lead,
+   langkah *Verifikasi dokumen tender (Head of Sales)* muncul sebelum
+   Sales Operations; saat Head of Sales Accept (GM 16,10%, Tier 1), quotation
+   tetap ke **Pricing Committee (CCO & CFO)** — tier khusus B2G.
+4. **Template baru tanpa kode**: Settings → Workflow → **Duplikat** pada
+   *Industri Tambang & Perkebunan* → nama `Official Quotation —
+   Municipality`, pada qualifier Industri hapus `Pertambangan` &
+   `Perkebunan` lalu pilih `Municipality`, prioritas `8` →
+   **Buat template**. Uji lagi: Industri `Municipality` (segmen B2B) →
+   template baru terpilih.
+5. **Settings → Tier Margin** → pilih template *Municipality* → **Buat
+   tier khusus (salin global)** → ubah pemutus Tier 2 → simpan. Wewenang
+   diskon kini berbeda untuk template ini saja.
 
 ## B6b — Menu & data hanya yang dipakai role (PRD FR-5.7)
 
@@ -289,3 +318,4 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
 | Fraud guard, antrean per role, audit trail | B6 |
 | Role & workflow dapat diatur di Settings | B7 |
 | Menu di luar role tersembunyi & 404; quotation dibatasi per baris | B6b |
+| Workflow Template Catalog: pemilihan otomatis, alur & tier per template, template baru tanpa kode | B6c |

@@ -41,7 +41,7 @@ export async function POST(request: Request) {
   const [items, lines, ladder] = await Promise.all([
     loadCostItems(supabase),
     loadLines(supabase, proposal.id),
-    loadLadder(supabase, proposal.business_line),
+    loadLadder(supabase, proposal.business_line, proposal.workflow_template_code),
   ]);
 
   let baseMargin = 0, baseRevenue = 0, simMargin = 0, simRevenue = 0, baseTotal = 0, simTotal = 0;

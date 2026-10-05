@@ -44,6 +44,10 @@ const KycSchema = z.object({
   gap_identified: z.string().trim().min(3, "g. Gap identified wajib diisi"),
   other_information: z.string().optional(),
   requested_scheme: z.enum(["PURCHASE", "RENTAL"]).default("PURCHASE"),
+  // Deal qualifiers (v4.1) — pick the Workflow Template at submit.
+  customer_segment: z.string().trim().min(1, "Segmen customer wajib dipilih"),
+  industry: z.string().trim().min(1, "Industri/bidang usaha wajib dipilih"),
+  relationship: z.string().trim().min(1, "Hubungan pelanggan wajib dipilih"),
 });
 
 const QuotationInputSchema = z.object({

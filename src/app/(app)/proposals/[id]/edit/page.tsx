@@ -32,6 +32,7 @@ export default async function EditQuotationDraftPage({ params }: { params: Promi
       <QuotationForm
         products={options.products}
         projects={options.projects}
+        qualifiers={options.qualifiers}
         proposalId={id}
         initial={{
           businessLine: proposal.business_line,

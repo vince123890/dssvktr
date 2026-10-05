@@ -20,6 +20,12 @@ export interface ProductOption {
   hasReleasedCost: boolean;
 }
 
+export interface QualifierOptions {
+  segments: string[];
+  industries: string[];
+  relationships: string[];
+}
+
 export interface ProjectOption {
   id: string;
   code: string;
@@ -35,11 +41,13 @@ export interface ProjectOption {
 export function QuotationForm({
   products,
   projects,
+  qualifiers,
   initial,
   proposalId,
 }: {
   products: ProductOption[];
   projects: ProjectOption[];
+  qualifiers: QualifierOptions;
   initial?: { businessLine: string; kyc: QuotationKyc; lines: { product_id: string; quantity: number }[] };
   proposalId?: string;
 }) {
@@ -52,6 +60,8 @@ export function QuotationForm({
       production_period: "DAY",
       likelihood: 3,
       requested_scheme: "PURCHASE",
+      customer_segment: qualifiers.segments.includes("B2B") ? "B2B" : qualifiers.segments[0],
+      relationship: qualifiers.relationships[0],
     }
   );
   const [businessLine, setBusinessLine] = useState(initial?.businessLine ?? "B2B_COMMERCIAL_FLEET");
@@ -182,6 +192,38 @@ export function QuotationForm({
           </Field>
           <Field label="h. Informasi lain" className="md:col-span-2">
             <textarea className="pc-input" rows={2} value={kyc.other_information ?? ""} onChange={(e) => set("other_information", e.target.value)} placeholder="Metode pembayaran, kompetitor, jadwal, dsb." />
+          </Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Kualifikasi deal *</CardTitle>
+            <CardDescription>
+              Menentukan Workflow Template yang dipakai (segmen, industri, hubungan pelanggan). Template dipilih
+              otomatis saat submit — Anda tidak memilih alur approval sendiri.
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Field label="Segmen customer *">
+            <select className="pc-input" value={kyc.customer_segment ?? ""} onChange={(e) => set("customer_segment", e.target.value)}>
+              <option value="">Pilih...</option>
+              {qualifiers.segments.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </Field>
+          <Field label="Industri / bidang usaha *">
+            <select className="pc-input" value={kyc.industry ?? ""} onChange={(e) => set("industry", e.target.value)}>
+              <option value="">Pilih...</option>
+              {qualifiers.industries.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </Field>
+          <Field label="Hubungan pelanggan *">
+            <select className="pc-input" value={kyc.relationship ?? ""} onChange={(e) => set("relationship", e.target.value)}>
+              <option value="">Pilih...</option>
+              {qualifiers.relationships.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
           </Field>
         </CardContent>
       </Card>

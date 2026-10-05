@@ -20,7 +20,7 @@ export default async function NewQuotationPage() {
     );
   }
 
-  const { products, projects } = await loadQuotationFormOptions(supabase);
+  const { products, projects, qualifiers } = await loadQuotationFormOptions(supabase);
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -32,7 +32,7 @@ export default async function NewQuotationPage() {
           sebelum diproses Sales Operations. Anda tidak akan melihat struktur biaya di tahap mana pun.
         </p>
       </div>
-      <QuotationForm products={products} projects={projects} />
+      <QuotationForm products={products} projects={projects} qualifiers={qualifiers} />
     </div>
   );
 }

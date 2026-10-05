@@ -219,6 +219,40 @@ flowchart TD
 
 ---
 
+## 4b. Workflow Template Catalog — ±30 alur, satu mesin
+
+Demo review: *"ada 30 variasi workflow ... baru habis itu kita bisa
+assign untuk deal tipe apa ke workflow yang mana"*. Qualifier statis,
+template bertambah. Saat submit, sistem memilih template aktif yang
+cocok (prioritas tertinggi → paling spesifik), atau template dasar.
+
+```mermaid
+flowchart LR
+    K["KYC + kualifikasi deal<br/>segmen · industri · relasi<br/>lini bisnis · qty"] --> S{{"Submit<br/>estimasi nilai & cek blacklist"}}
+    S --> R["resolveTemplate<br/>prioritas → spesifisitas"]
+    R --> T1["Blacklist (100)"]
+    R --> T2["Relasi Khusus (20)"]
+    R --> T3["Nilai Besar ≥ Rp 50 M (15)"]
+    R --> T4["B2G Pemerintah (10)"]
+    R --> T5["Industri Tambang/Kebun (5)"]
+    R --> T6["... template ke-N"]
+    R --> T0["Standard (dasar)"]
+```
+
+| Template (kode) | Qualifier | Prioritas | Langkah setelah KYC | Tier margin |
+|---|---|---|---|---|
+| Official Quotation — Standard (`OQ-STANDARD`) | — (dasar/fallback) | 0 | Validasi Sales Lead* → Generate → Review & Rilis | Global |
+| Official Quotation — Customer Blacklist (`OQ-BLACKLIST`) | Customer di blacklist | 100 | Validasi Sales Lead → **Persetujuan Pricing Committee** → Generate → Review | Khusus: semua tier diputus CCO + CFO |
+| Official Quotation — Relasi Khusus (`OQ-RELASI-KHUSUS`) | Hubungan = Relasi khusus | 20 | Generate → Review (tanpa validasi Sales Lead) | Khusus: GM < 15% langsung CCO + CFO |
+| Official Quotation — Nilai Besar (`OQ-NILAI-BESAR`) | Estimasi nilai ≥ Rp 50 M | 15 | Validasi* → **Persetujuan kelayakan deal (Pricing Committee)** → Generate → Review | Global |
+| Official Quotation — B2G Pemerintah (`OQ-B2G`) | Segmen = B2G | 10 | Validasi* → **Verifikasi dokumen tender (Head of Sales)** → Generate → Review (SLA 48 jam) | Khusus: setiap tier sampai CCO + CFO |
+| Official Quotation — Industri Tambang & Perkebunan (`OQ-INDUSTRI-BERAT`) | Industri = Pertambangan / Perkebunan | 5 | Validasi* → Generate → **Review aplikasi & karoseri (COGS Owner)** → Review | Global |
+
+\* dilewati bila pengaju Sales Lead.
+
+Kelola di **Settings → Workflow** (katalog, template baru, duplikat,
+uji pemilihan) dan **Settings → Tier Margin** (tier per template).
+
 ## 5. Project Identifier — Revisi & Negosiasi Setelah Rilis
 
 ```mermaid
