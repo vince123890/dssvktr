@@ -1,4 +1,4 @@
-import type { ProposalStatus, ScopeStatus, StepStatus } from "@/types/database";
+import type { ProposalStatus, ScopeStatus, StepActionKind, StepStatus } from "@/types/database";
 
 export const STATUS_LABEL: Record<ProposalStatus, string> = {
   DRAFT: "Draft (KYC)",
@@ -116,4 +116,12 @@ export const PERIOD_LABEL: Record<string, string> = {
   DAY: "per hari",
   MONTH: "per bulan",
   OTHER: "lainnya",
+};
+
+/** Workflow template step kinds (Settings → Workflow). */
+export const STEP_KIND_LABEL: Record<StepActionKind, string> = {
+  VALIDATE: "Validasi permintaan",
+  APPROVE: "Persetujuan tambahan",
+  GENERATE_QUOTATION: "Generate quotation (quantity band)",
+  REVIEW_AND_ROUTE: "Review & rilis / rute tier",
 };

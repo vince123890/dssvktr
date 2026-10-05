@@ -250,8 +250,11 @@ flowchart LR
 
 \* dilewati bila pengaju Sales Lead.
 
-Kelola di **Settings → Workflow** (katalog, template baru, duplikat,
-uji pemilihan) dan **Settings → Tier Margin** (tier per template).
+Kelola di **Settings → Workflow**: daftar bernomor + tombol **Tambah
+workflow**; klik satu baris → halaman detail `/settings/workflow/[kode]`
+(qualifier, alur langkah, tier, riwayat versi, pemakaian) dengan tombol
+Ubah / Duplikat / Aktifkan-Nonaktifkan; kartu uji pemilihan di bawah
+daftar. Tier per template di **Settings → Tier Margin**.
 
 ## 5. Project Identifier — Revisi & Negosiasi Setelah Rilis
 

@@ -5,6 +5,7 @@ import { MENUS, loadMenuAccess, requireMenu } from "@/lib/menuAccess";
 import { loadBands } from "@/lib/workflow/quotationEngine";
 import { Card, CardContent } from "@/components/ui/Card";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   BandEditor,
   GeneralSettingsEditor,
@@ -14,7 +15,7 @@ import {
   TierEditor,
   UsersEditor,
 } from "./SettingsEditors";
-import { CatalogTable, TemplateEditor, TemplateTester, type StepDraft, type TemplateRow } from "./WorkflowCatalog";
+import { CatalogTable, TemplateTester, type TemplateRow } from "./WorkflowCatalog";
 import { TierScopeBar } from "./TierScopeBar";
 import { BUSINESS_LINE_LABEL } from "@/lib/workflow/labels";
 import type {
@@ -38,9 +39,13 @@ const TABS = [
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; edit?: string; from?: string; scope?: string; saved?: string }>;
+  searchParams: Promise<{ tab?: string; edit?: string; from?: string; scope?: string }>;
 }) {
-  const { tab = "roles", edit, from, scope, saved } = await searchParams;
+  const { tab = "roles", edit, from, scope } = await searchParams;
+  // Old editor links (?tab=workflow&edit=…) now live on their own pages.
+  if (tab === "workflow" && edit) {
+    redirect(edit === "new" ? `/settings/workflow/new${from ? `?from=${encodeURIComponent(from)}` : ""}` : `/settings/workflow/${encodeURIComponent(edit)}/edit`);
+  }
   const me = await requireMenu("settings");
   if (!canManageSettings(me)) {
     return <Card><CardContent className="py-10 text-center text-sm text-muted">Settings hanya untuk System Admin.</CardContent></Card>;
@@ -101,87 +106,56 @@ export default async function SettingsPage({
       const code = d.template_code ?? d.id;
       if (!latest.has(code)) latest.set(code, d);
     }
-    const stepsFor = async (id: string): Promise<StepDraft[]> => {
-      const { data: steps } = await supabase.from("workflow_step_definition").select("*").eq("workflow_definition_id", id).order("step_order");
-      return ((steps ?? []) as WorkflowStepDefinition[]).map((s) => ({
-        step_name: s.step_name ?? `Langkah ${s.step_order}`,
-        action_kind: s.action_kind ?? "APPROVE",
-        performer_function: s.performer_function ?? "SALES_RELEASER",
-        skip_if_initiator_function: s.skip_if_initiator_function,
-        reject_to_step_order: s.reject_to_step_order,
-        sla_hours: s.sla_hours,
-      }));
-    };
+    const stepCounts = new Map<string, string[]>();
+    const latestIds = [...latest.values()].map((d) => d.id);
+    const { data: stepRows } = await supabase
+      .from("workflow_step_definition")
+      .select("workflow_definition_id, step_name, step_order")
+      .in("workflow_definition_id", latestIds)
+      .order("step_order");
+    for (const s of (stepRows ?? []) as Pick<WorkflowStepDefinition, "workflow_definition_id" | "step_name" | "step_order">[]) {
+      stepCounts.set(s.workflow_definition_id, [...(stepCounts.get(s.workflow_definition_id) ?? []), s.step_name ?? `Langkah ${s.step_order}`]);
+    }
     const ownLadder = new Set((ladders ?? []).map((l: { workflow_template_code: string }) => l.workflow_template_code));
 
-    if (edit) {
-      const source = latest.get(edit === "new" ? from ?? "" : edit) ?? latest.get("OQ-STANDARD") ?? null;
-      const isNew = edit === "new";
-      const steps = source ? await stepsFor(source.id) : [];
-      body = (
-        <TemplateEditor
-          key={`${edit}-${from ?? ""}`}
-          templateCode={isNew ? null : edit}
-          isFallback={!isNew && Boolean(source?.is_fallback)}
-          lists={lists}
-          initial={{
-            name: isNew ? (source ? `${source.name} (salinan)` : "") : source?.name ?? "",
-            description: source?.description ?? "",
-            priority: isNew ? 10 : source?.priority ?? 0,
-            q_segments: isNew && source?.is_fallback ? [] : source?.q_segments ?? [],
-            q_industries: source?.q_industries ?? [],
-            q_relationships: source?.q_relationships ?? [],
-            q_business_lines: source?.q_business_lines ?? [],
-            q_min_qty: source?.q_min_qty ?? null,
-            q_max_qty: source?.q_max_qty ?? null,
-            min_value: Number(source?.min_value ?? 0),
-            max_value: source?.max_value == null ? null : Number(source.max_value),
-            q_blacklist: source?.q_blacklist ?? null,
-            steps,
-          }}
-        />
-      );
-    } else {
-      const rows: TemplateRow[] = [];
-      for (const [code, d] of latest) {
-        const qualifiers = [
-          d.q_segments.length ? `Segmen: ${d.q_segments.join(", ")}` : null,
-          d.q_industries.length ? `Industri: ${d.q_industries.join(", ")}` : null,
-          d.q_relationships.length ? `Relasi: ${d.q_relationships.join(", ")}` : null,
-          d.q_business_lines.length ? `Lini: ${d.q_business_lines.map((b) => BUSINESS_LINE_LABEL[b] ?? b).join(", ")}` : null,
-          d.q_min_qty !== null || d.q_max_qty !== null ? `Qty: ${d.q_min_qty ?? 1}–${d.q_max_qty ?? "∞"}` : null,
-          Number(d.min_value) > 0 || d.max_value !== null
-            ? `Nilai: Rp ${Number(d.min_value).toLocaleString("id-ID")}–${d.max_value === null ? "∞" : Number(d.max_value).toLocaleString("id-ID")}`
-            : null,
-          d.q_blacklist === null ? null : d.q_blacklist ? "Customer blacklist" : "Bukan blacklist",
-        ].filter(Boolean) as string[];
-        rows.push({
-          code,
-          name: d.name,
-          description: d.description,
-          version: d.version,
-          isActive: d.is_active,
-          isFallback: d.is_fallback,
-          priority: d.priority,
-          qualifiers,
-          stepNames: (await stepsFor(d.id)).map((s) => s.step_name),
-          hasOwnLadder: ownLadder.has(code),
-        });
-      }
-      rows.sort((a, b) => Number(b.isActive) - Number(a.isActive) || b.priority - a.priority || a.name.localeCompare(b.name));
-      body = (
-        <div className="space-y-6">
-          {saved && <p className="rounded-lg bg-success-bg px-3 py-2 text-xs text-success">Template {saved} tersimpan.</p>}
-          <p className="text-xs text-muted">
-            Workflow A — Price Estimate tidak memiliki langkah approval; siapa yang boleh memakainya diatur di tab{" "}
-            <strong>Akses Menu</strong>. Daftar pilihan qualifier (segmen, industri, relasi) dan blacklist customer diatur
-            di tab <strong>Umum &amp; Dokumen</strong>.
-          </p>
-          <CatalogTable rows={rows} />
-          <TemplateTester lists={lists} />
-        </div>
-      );
+    const rows: TemplateRow[] = [];
+    for (const [code, d] of latest) {
+      const qualifiers = [
+        d.q_segments.length ? `Segmen: ${d.q_segments.join(", ")}` : null,
+        d.q_industries.length ? `Industri: ${d.q_industries.join(", ")}` : null,
+        d.q_relationships.length ? `Relasi: ${d.q_relationships.join(", ")}` : null,
+        d.q_business_lines.length ? `Lini: ${d.q_business_lines.map((b) => BUSINESS_LINE_LABEL[b] ?? b).join(", ")}` : null,
+        d.q_min_qty !== null || d.q_max_qty !== null ? `Qty: ${d.q_min_qty ?? 1}–${d.q_max_qty ?? "∞"}` : null,
+        Number(d.min_value) > 0 || d.max_value !== null
+          ? `Nilai: Rp ${Number(d.min_value).toLocaleString("id-ID")}–${d.max_value === null ? "∞" : Number(d.max_value).toLocaleString("id-ID")}`
+          : null,
+        d.q_blacklist === null ? null : d.q_blacklist ? "Customer blacklist" : "Bukan blacklist",
+      ].filter(Boolean) as string[];
+      rows.push({
+        code,
+        name: d.name,
+        description: d.description,
+        version: d.version,
+        isActive: d.is_active,
+        isFallback: d.is_fallback,
+        priority: d.priority,
+        qualifiers,
+        stepNames: stepCounts.get(d.id) ?? [],
+        hasOwnLadder: ownLadder.has(code),
+      });
     }
+    rows.sort((a, b) => Number(b.isActive) - Number(a.isActive) || b.priority - a.priority || a.name.localeCompare(b.name));
+    body = (
+      <div className="space-y-6">
+        <p className="text-xs text-muted">
+          Workflow A — Price Estimate tidak memiliki langkah approval; siapa yang boleh memakainya diatur di tab{" "}
+          <strong>Akses Menu</strong>. Daftar pilihan qualifier (segmen, industri, relasi) dan blacklist customer diatur
+          di tab <strong>Umum &amp; Dokumen</strong>.
+        </p>
+        <CatalogTable rows={rows} />
+        <TemplateTester lists={lists} />
+      </div>
+    );
   } else if (tab === "tier") {
     const [{ data: tierRows }, bands, { data: defs }] = await Promise.all([
       supabase.from("margin_tier_authority").select("*").eq("is_active", true).is("business_line", null).order("tier"),

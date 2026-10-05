@@ -656,10 +656,15 @@ Peran berikut mengikuti sheet *Actors* dan *Basic Workflow* pada
 \* dilewati bila pengaju Sales Lead.
 
 - **FR-2.1 No-Code Workflow Configurator (Settings → Workflow)**
-  - **Katalog**: daftar seluruh template (qualifier, langkah, prioritas,
-    tier, status), tombol **Template baru**, **Ubah**, **Duplikat**,
+  - **Daftar workflow** (`/settings?tab=workflow`): tabel bernomor seluruh
+    template (qualifier, jumlah langkah, prioritas, tier, status) dengan
+    tombol **Tambah workflow**; klik baris membuka halaman detail.
+  - **Halaman detail** (`/settings/workflow/[kode]`): kapan dipakai
+    (qualifier), tier margin yang berlaku (khusus atau global), alur
+    langkah lengkap (KYC → langkah template → tier), riwayat versi, dan
+    quotation yang memakainya; tombol **Ubah**, **Duplikat**,
     **Aktifkan/Nonaktifkan** (template dasar tidak dapat dinonaktifkan).
-  - **Editor template**: qualifier (pilihan dari daftar statis, rentang
+  - **Editor template** (`/settings/workflow/new`, `…/[kode]/edit`): qualifier (pilihan dari daftar statis, rentang
     qty & nilai, blacklist), prioritas, dan langkah — nama, jenis aksi
     (validasi / persetujuan tambahan / generate / review & rute), fungsi
     pelaksana (FR-5.6), kondisi lewati, tujuan bila ditolak, SLA.

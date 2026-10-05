@@ -112,3 +112,46 @@ export function isBlacklisted(companyName: string | undefined, blacklist: string
   const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
   return Boolean(companyName) && blacklist.some((b) => norm(b) === norm(companyName!));
 }
+
+export interface TemplateBundle {
+  latest: WorkflowDefinition;
+  versions: WorkflowDefinition[];
+  steps: import("@/types/database").WorkflowStepDefinition[];
+}
+
+/** Latest version of a template (by code) with its steps and version history. */
+export async function loadTemplateBundle(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any>,
+  templateCode: string
+): Promise<TemplateBundle | null> {
+  const { data } = await supabase
+    .from("workflow_definition")
+    .select("*")
+    .eq("template_code", templateCode)
+    .order("version", { ascending: false });
+  const versions = (data ?? []) as WorkflowDefinition[];
+  const latest = versions[0];
+  if (!latest) return null;
+  const { data: steps } = await supabase
+    .from("workflow_step_definition")
+    .select("*")
+    .eq("workflow_definition_id", latest.id)
+    .order("step_order");
+  return { latest, versions, steps: (steps ?? []) as TemplateBundle["steps"] };
+}
+
+/** Human-readable qualifier lines for a template. */
+export function describeQualifiers(d: WorkflowDefinition, businessLineLabel: Record<string, string> = {}): string[] {
+  return [
+    d.q_segments.length ? `Segmen customer: ${d.q_segments.join(", ")}` : null,
+    d.q_industries.length ? `Industri: ${d.q_industries.join(", ")}` : null,
+    d.q_relationships.length ? `Hubungan pelanggan: ${d.q_relationships.join(", ")}` : null,
+    d.q_business_lines.length ? `Lini bisnis: ${d.q_business_lines.map((b) => businessLineLabel[b] ?? b).join(", ")}` : null,
+    d.q_min_qty !== null || d.q_max_qty !== null ? `Kuantitas: ${d.q_min_qty ?? 1}–${d.q_max_qty ?? "∞"} unit` : null,
+    Number(d.min_value) > 0 || d.max_value !== null
+      ? `Estimasi nilai: Rp ${Number(d.min_value).toLocaleString("id-ID")} – ${d.max_value === null ? "∞" : `Rp ${Number(d.max_value).toLocaleString("id-ID")}`}`
+      : null,
+    d.q_blacklist === null ? null : d.q_blacklist ? "Customer tercantum di blacklist" : "Customer tidak di blacklist",
+  ].filter(Boolean) as string[];
+}

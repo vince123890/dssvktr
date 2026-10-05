@@ -238,10 +238,14 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
 
 ## B6c — Workflow Template Catalog: alur berbeda per jenis deal
 
-1. **admin@vktr.demo** → **Settings → Workflow**: katalog berisi 6
-   template (Standard, Blacklist, Relasi Khusus, Nilai Besar, B2G,
+1. **admin@vktr.demo** → **Settings → Workflow**: daftar bernomor berisi 6
+   workflow (Standard, Blacklist, Relasi Khusus, Nilai Besar, B2G,
    Industri Tambang & Perkebunan) beserta qualifier, langkah, prioritas,
-   dan tier masing-masing.
+   dan tier masing-masing. **Klik baris B2G** → halaman detail: kapan
+   dipakai, tier margin khusus (Tier 1 → CCO & CFO), alur langkah
+   (KYC → Validasi Sales Lead → Verifikasi dokumen tender → Sales
+   Operations → Review → tier), riwayat versi, dan quotation yang memakainya.
+   **← Daftar workflow** untuk kembali.
 2. Kartu **Uji pemilihan template**: Segmen `B2G` → **Uji** → terpilih
    *B2G Pemerintah*; ubah Hubungan ke `Relasi khusus` → terpilih *Relasi
    Khusus* (prioritas 20 > 10); centang Blacklist → *Customer Blacklist*.
@@ -252,13 +256,16 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
    langkah *Verifikasi dokumen tender (Head of Sales)* muncul sebelum
    Sales Operations; saat Head of Sales Accept (GM 16,10%, Tier 1), quotation
    tetap ke **Pricing Committee (CCO & CFO)** — tier khusus B2G.
-4. **Template baru tanpa kode**: Settings → Workflow → **Duplikat** pada
-   *Industri Tambang & Perkebunan* → nama `Official Quotation —
+4. **Workflow baru tanpa kode**: Settings → Workflow → klik *Industri
+   Tambang & Perkebunan* → **Duplikat** → nama `Official Quotation —
    Municipality`, pada qualifier Industri hapus `Pertambangan` &
    `Perkebunan` lalu pilih `Municipality`, prioritas `8` →
-   **Buat template**. Uji lagi: Industri `Municipality` (segmen B2B) →
-   template baru terpilih.
-5. **Settings → Tier Margin** → pilih template *Municipality* → **Buat
+   **Buat workflow** → langsung terbuka halaman detailnya. **← Daftar
+   workflow**: daftar kini berisi 7. (Alternatif: tombol **Tambah
+   workflow** di atas daftar untuk mulai dari langkah template dasar.)
+   Uji lagi: Industri `Municipality` (segmen B2B) → workflow baru terpilih.
+5. Di detail *Municipality* → kartu Tier margin → **Buat tier khusus**
+   (membuka Settings → Tier Margin untuk template ini) → **Buat
    tier khusus (salin global)** → ubah pemutus Tier 2 → simpan. Wewenang
    diskon kini berbeda untuk template ini saja.
 

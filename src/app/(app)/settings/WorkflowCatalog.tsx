@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { FUNCTIONAL_ROLES, FUNCTIONAL_ROLE_LABEL } from "@/lib/rbac";
-import { BUSINESS_LINE_LABEL } from "@/lib/workflow/labels";
+import { BUSINESS_LINE_LABEL, STEP_KIND_LABEL as KIND_LABEL } from "@/lib/workflow/labels";
 import { formatIDR } from "@/lib/utils";
 import type { FunctionalRole, StepActionKind } from "@/types/database";
 import Link from "next/link";
@@ -55,98 +55,94 @@ export interface QualifierLists {
   businessLines: string[];
 }
 
-const KIND_LABEL: Record<StepActionKind, string> = {
-  VALIDATE: "Validasi permintaan",
-  APPROVE: "Persetujuan tambahan",
-  GENERATE_QUOTATION: "Generate quotation (quantity band)",
-  REVIEW_AND_ROUTE: "Review & rilis / rute tier",
-};
-
 export function CatalogTable({ rows }: { rows: TemplateRow[] }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
   const active = rows.filter((r) => r.isActive).length;
 
   return (
     <Card>
       <CardHeader>
         <div>
-          <CardTitle>Katalog Workflow Template — Official Quotation</CardTitle>
+          <CardTitle>Daftar Workflow — Official Quotation ({rows.length})</CardTitle>
           <CardDescription>
-            {active} template aktif dari {rows.length}. Saat quotation disubmit, sistem memilih template aktif yang
-            qualifier-nya cocok dengan deal (prioritas tertinggi → paling spesifik); bila tidak ada, dipakai template
-            dasar. Pengaju tidak memilih alur sendiri.
+            {active} aktif. Klik baris untuk melihat detail. Saat quotation disubmit, sistem memilih workflow aktif yang
+            qualifier-nya cocok (prioritas tertinggi → paling spesifik); bila tidak ada, dipakai workflow dasar.
           </CardDescription>
         </div>
-        <Link href="/settings?tab=workflow&edit=new">
-          <Button size="sm"><Plus size={13} /> Template baru</Button>
+        <Link href="/settings/workflow/new">
+          <Button size="sm"><Plus size={13} /> Tambah workflow</Button>
         </Link>
       </CardHeader>
       <CardContent className="overflow-x-auto p-0">
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-card-border bg-slate-50 text-left text-muted">
-              <th className="px-4 py-2 font-medium">Template</th>
-              <th className="px-4 py-2 font-medium">Qualifier</th>
+              <th className="w-8 px-4 py-2 font-medium">#</th>
+              <th className="px-4 py-2 font-medium">Workflow</th>
+              <th className="px-4 py-2 font-medium">Dipakai bila</th>
               <th className="px-4 py-2 font-medium">Langkah</th>
               <th className="px-4 py-2 font-medium">Prioritas</th>
               <th className="px-4 py-2 font-medium">Tier margin</th>
               <th className="px-4 py-2 font-medium">Status</th>
-              <th className="px-4 py-2 font-medium" />
+              <th className="px-4 py-2" />
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.code} className="border-b border-card-border align-top last:border-0">
-                <td className="px-4 py-2">
-                  <div className="font-medium">{r.name} <span className="font-normal text-muted">v{r.version}</span></div>
-                  <div className="font-mono text-[10px] text-muted">{r.code}</div>
+            {rows.map((r, i) => (
+              <tr
+                key={r.code}
+                onClick={() => router.push(`/settings/workflow/${encodeURIComponent(r.code)}`)}
+                className="cursor-pointer border-b border-card-border align-top last:border-0 hover:bg-blue-50/40"
+              >
+                <td className="px-4 py-3 text-muted">{i + 1}</td>
+                <td className="px-4 py-3">
+                  <div className="font-medium text-primary">{r.name}</div>
+                  <div className="font-mono text-[10px] text-muted">{r.code} · v{r.version}</div>
                   {r.description && <div className="mt-0.5 max-w-xs text-[11px] text-muted">{r.description}</div>}
                 </td>
-                <td className="px-4 py-2">
-                  {r.isFallback ? <Badge>Dasar (fallback)</Badge> : r.qualifiers.map((q) => <div key={q}>{q}</div>)}
+                <td className="px-4 py-3">
+                  {r.isFallback ? <Badge>Dasar — bila tidak ada yang cocok</Badge> : r.qualifiers.map((q) => <div key={q}>{q}</div>)}
                 </td>
-                <td className="px-4 py-2">
-                  <ol className="list-decimal pl-4">{r.stepNames.map((s, i) => <li key={i}>{s}</li>)}</ol>
-                  <div className="text-[10px] text-muted">+ routing tier margin</div>
-                </td>
-                <td className="px-4 py-2">{r.priority}</td>
-                <td className="px-4 py-2">
-                  <Link href={`/settings?tab=tier&scope=${encodeURIComponent(r.code)}`} className="text-primary hover:underline">
-                    {r.hasOwnLadder ? "Khusus template" : "Global"}
-                  </Link>
-                </td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-3">{r.stepNames.length} langkah + tier</td>
+                <td className="px-4 py-3">{r.priority}</td>
+                <td className="px-4 py-3">{r.hasOwnLadder ? "Khusus" : "Global"}</td>
+                <td className="px-4 py-3">
                   <Badge tone={r.isActive ? "success" : "default"}>{r.isActive ? "Aktif" : "Nonaktif"}</Badge>
                 </td>
-                <td className="space-y-1 px-4 py-2 text-right">
-                  <Link href={`/settings?tab=workflow&edit=${encodeURIComponent(r.code)}`} className="block text-primary hover:underline">Ubah</Link>
-                  <Link href={`/settings?tab=workflow&edit=new&from=${encodeURIComponent(r.code)}`} className="block text-primary hover:underline">Duplikat</Link>
-                  {!r.isFallback && (
-                    <button
-                      type="button"
-                      disabled={isPending}
-                      className="block w-full text-right text-muted hover:text-foreground"
-                      onClick={() =>
-                        startTransition(async () => {
-                          const res = await setTemplateActiveAction(r.code, !r.isActive);
-                          if (res.ok) router.refresh();
-                          else setError(res.error ?? "Gagal");
-                        })
-                      }
-                    >
-                      {r.isActive ? "Nonaktifkan" : "Aktifkan"}
-                    </button>
-                  )}
-                </td>
+                <td className="px-4 py-3 text-right text-primary">Detail →</td>
               </tr>
             ))}
           </tbody>
         </table>
-        {error && <p className="px-4 py-2 text-xs text-danger">{error}</p>}
       </CardContent>
     </Card>
+  );
+}
+
+/** Activate / deactivate button used on the detail page. */
+export function TemplateActiveToggle({ code, isActive, isFallback }: { code: string; isActive: boolean; isFallback: boolean }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  if (isFallback) return null;
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <Button
+        size="sm"
+        variant={isActive ? "secondary" : "success"}
+        loading={isPending}
+        onClick={() =>
+          startTransition(async () => {
+            const res = await setTemplateActiveAction(code, !isActive);
+            if (res.ok) router.refresh();
+            else setError(res.error ?? "Gagal");
+          })
+        }
+      >
+        {isActive ? "Nonaktifkan" : "Aktifkan"}
+      </Button>
+      {error && <span className="text-xs text-danger">{error}</span>}
+    </div>
   );
 }
 
@@ -203,13 +199,15 @@ export function TemplateEditor({
     <Card>
       <CardHeader>
         <div>
-          <CardTitle>{templateCode ? `Ubah template ${templateCode}` : "Template baru"}</CardTitle>
+          <CardTitle>{templateCode ? `Ubah workflow ${templateCode}` : "Tambah workflow baru"}</CardTitle>
           <CardDescription>
             Simpan = versi baru; quotation yang sedang berjalan tetap memakai versi lamanya. Langkah KYC & submit
             selalu oleh Salesperson; routing tier margin selalu setelah Review.
           </CardDescription>
         </div>
-        <Link href="/settings?tab=workflow" className="text-xs text-primary hover:underline">← Katalog</Link>
+        <Link href={templateCode ? `/settings/workflow/${encodeURIComponent(templateCode)}` : "/settings?tab=workflow"} className="text-xs text-primary hover:underline">
+          ← {templateCode ? "Detail workflow" : "Daftar workflow"}
+        </Link>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -340,12 +338,12 @@ export function TemplateEditor({
               startTransition(async () => {
                 setError(null);
                 const res = await saveTemplateAction(templateCode, t);
-                if (res.ok && res.templateCode) router.push(`/settings?tab=workflow&saved=${encodeURIComponent(res.templateCode)}`);
+                if (res.ok && res.templateCode) router.push(`/settings/workflow/${encodeURIComponent(res.templateCode)}?saved=1`);
                 else setError(res.error ?? "Gagal menyimpan");
               })
             }
           >
-            {templateCode ? "Simpan sebagai versi baru" : "Buat template"}
+            {templateCode ? "Simpan sebagai versi baru" : "Buat workflow"}
           </Button>
           {error && <p className="text-xs text-danger">{error}</p>}
         </div>
