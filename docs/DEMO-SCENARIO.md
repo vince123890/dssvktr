@@ -175,6 +175,14 @@ diatur di aplikasi**, bukan tertanam di kode.
 **Perhatikan:** varian belum muncul di pilihan Price Estimate maupun
 Official Quotation — cost structure-nya belum dirilis.
 
+4. *(Ubah varian)* Di **Katalog Produk**, klik **Ubah** pada varian SWB
+   → form terbuka terisi data varian (kode tidak dapat diubah). Ganti
+   Inclusions *default* — mis. tambah `Driver training 1 day` →
+   **Simpan Perubahan**. Login **admin@vktr.demo** → **Audit Trail**:
+   tercatat `UPDATE` pada *product_master_data* dengan nilai lama & baru.
+   Inclusions baru hanya terbawa ke quotation baru; harga tetap diatur di
+   Cost Structure.
+
 ---
 
 ## 3. Cost Structure v1 — Maker → Checker → Releaser

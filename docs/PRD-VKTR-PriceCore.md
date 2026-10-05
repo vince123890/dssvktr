@@ -426,6 +426,17 @@ Peran berikut mengikuti sheet *Actors* dan *Basic Workflow* pada
 
     Status `ACTIVE`/`DISCONTINUED` (soft-disable) agar quotation lama
     tetap merujuk data yang berlaku saat itu.
+
+    **Siklus hidup varian** (Product Owner / System Admin, menu Product
+    Master Data): **Tambah** → **Ubah** (tombol *Ubah* per baris; kode
+    varian tetap karena cost structure & quotation merujuk ke baris yang
+    sama; setiap field yang berubah tercatat `UPDATE` di audit trail
+    beserta nilai lama/baru) → **Discontinue / Aktifkan**. Perubahan
+    deskripsi dan halaman spesifikasi langsung berlaku di semua cetakan,
+    termasuk cetak ulang quotation yang sudah dirilis; *default*
+    inclusions/exclusions hanya terbawa ke quotation baru (disalin saat
+    harga pertama kali dihitung). **Harga tidak diatur di sini** —
+    perubahan harga selalu lewat versi baru cost structure (FR-1.4).
   - **FR-1.5.2 Quotation Item Linking** — Salesperson memilih varian
     dari Product Master Data (satu atau lebih, FR-2.0 KYC b);
     spesifikasi, deskripsi, dan *default* inclusions/exclusions terbawa
