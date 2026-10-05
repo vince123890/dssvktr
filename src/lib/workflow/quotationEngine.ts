@@ -183,30 +183,36 @@ export async function priceQuotation(
   let lockedRateId: string | null = null;
   const excludedLabels = new Set<string>();
 
-  for (const line of lines) {
-    let version: CostStructureVersion | null = null;
-    if (options.refreshVersions || !line.cost_structure_version_id) {
-      version = await loadReleasedVersion(supabase, line.product_id);
-    } else {
-      const { data } = await supabase
-        .from("cost_structure_version")
-        .select("*")
-        .eq("id", line.cost_structure_version_id)
-        .maybeSingle();
-      version = (data as CostStructureVersion | null) ?? null;
-    }
-    if (!version) {
-      const { data: product } = await supabase
-        .from("product_master_data")
-        .select("name")
-        .eq("id", line.product_id)
-        .maybeSingle();
-      throw new Error(
-        `Cost structure untuk varian "${product?.name ?? line.product_id}" belum RELEASED — COGS/Profitability/Sales Owner harus merilisnya dulu.`
-      );
-    }
+  // Every line's cost structure loads in parallel; nothing is written until all are priced.
+  const loaded = await Promise.all(
+    lines.map(async (line) => {
+      let version: CostStructureVersion | null = null;
+      if (options.refreshVersions || !line.cost_structure_version_id) {
+        version = await loadReleasedVersion(supabase, line.product_id);
+      } else {
+        const { data } = await supabase
+          .from("cost_structure_version")
+          .select("*")
+          .eq("id", line.cost_structure_version_id)
+          .maybeSingle();
+        version = (data as CostStructureVersion | null) ?? null;
+      }
+      if (!version) {
+        const { data: product } = await supabase
+          .from("product_master_data")
+          .select("name")
+          .eq("id", line.product_id)
+          .maybeSingle();
+        throw new Error(
+          `Cost structure untuk varian "${product?.name ?? line.product_id}" belum RELEASED — COGS/Profitability/Sales Owner harus merilisnya dulu.`
+        );
+      }
+      return { line, version, versionLines: await loadVersionLines(supabase, version.id) };
+    })
+  );
+  const lineWrites: PromiseLike<unknown>[] = [];
 
-    const versionLines = await loadVersionLines(supabase, version.id);
+  for (const { line, version, versionLines } of loaded) {
     const cs = evaluateVersion(items, versionLines, Number(version.locked_fx_rate));
     for (const vl of versionLines) {
       if (!vl.is_excluded_at_cost) continue;
@@ -253,7 +259,7 @@ export async function priceQuotation(
     });
 
     const scheme = edit?.scheme ?? line.scheme;
-    await supabase
+    lineWrites.push(supabase
       .from("quotation_line_item")
       .update({
         cost_structure_version_id: version.id,
@@ -277,7 +283,7 @@ export async function priceQuotation(
         rental_monthly_incl_vat:
           scheme === "RENTAL" ? (edit?.rentalMonthlyInclVat ?? line.rental_monthly_incl_vat) : null,
       })
-      .eq("id", line.id);
+      .eq("id", line.id));
 
     priced.push({
       quantity: line.quantity,
@@ -323,7 +329,7 @@ export async function priceQuotation(
   }
   if (proposal.special_notes.length === 0) patch.special_notes = settings.defaultSpecialNotes;
 
-  await supabase.from("pricing_proposal").update(patch).eq("id", proposal.id);
+  await Promise.all([...lineWrites, supabase.from("pricing_proposal").update(patch).eq("id", proposal.id)]);
 
   return { gm, tier, totalExVat, totalInclVat };
 }
@@ -399,11 +405,13 @@ export async function advanceFrom(
       continue;
     }
 
-    await setStep(supabase, step, openPatch(step));
-    await supabase
-      .from("pricing_proposal")
-      .update({ current_status: step.status_label ?? "PENDING_SALES_OPERATIONS", current_step_order: step.step_order })
-      .eq("id", proposal.id);
+    await Promise.all([
+      setStep(supabase, step, openPatch(step)),
+      supabase
+        .from("pricing_proposal")
+        .update({ current_status: step.status_label ?? "PENDING_SALES_OPERATIONS", current_step_order: step.step_order })
+        .eq("id", proposal.id),
+    ]);
 
     if (step.action_kind === "GENERATE_QUOTATION") {
       await priceQuotation(supabase, proposal, { refreshVersions: true, applyBandDefaults: true });
@@ -786,17 +794,21 @@ export async function expireStaleQuotations(supabase: Db, actorId: string): Prom
     .eq("current_status", "QUOTATION_RELEASED")
     .eq("outcome", "PENDING")
     .lt("valid_until", today);
-  for (const p of (data ?? []) as { id: string; document_number: string | null }[]) {
-    await supabase.from("pricing_proposal").update({ current_status: "EXPIRED" }).eq("id", p.id);
-    await writeAuditLog(supabase, {
-      entityType: "pricing_proposal",
-      entityId: p.id,
-      proposalId: p.id,
-      actorId,
-      action: "EXPIRE",
-      reason: `Masa berlaku ${p.document_number ?? ""} habis — perpanjang lewat revisi.`,
-    });
-  }
+  const stale = (data ?? []) as { id: string; document_number: string | null }[];
+  if (stale.length === 0) return;
+  await supabase.from("pricing_proposal").update({ current_status: "EXPIRED" }).in("id", stale.map((p) => p.id));
+  await Promise.all(
+    stale.map((p) =>
+      writeAuditLog(supabase, {
+        entityType: "pricing_proposal",
+        entityId: p.id,
+        proposalId: p.id,
+        actorId,
+        action: "EXPIRE",
+        reason: `Masa berlaku ${p.document_number ?? ""} habis — perpanjang lewat revisi.`,
+      })
+    )
+  );
 }
 
 export function actorCanActOnStep(actor: Actor, step: WorkflowStepInstance | null): boolean {

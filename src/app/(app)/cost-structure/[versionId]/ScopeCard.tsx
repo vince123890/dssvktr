@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { SCOPE_STATUS_LABEL, SCOPE_STATUS_TONE } from "@/lib/workflow/labels";
 import { formatIDR } from "@/lib/utils";
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { CostScope, CostStructureScopeState } from "@/types/database";
 import { saveScopeValuesAction, scopeTransitionAction, type ScopeTransition } from "../actions";
@@ -51,7 +50,6 @@ export function ScopeCard({
   people: { maker: string | null; checker: string | null; releaser: string | null };
   scopeTotal: number;
 }) {
-  const router = useRouter();
   const [values, setValues] = useState<Record<string, number>>(Object.fromEntries(items.map((i) => [i.id, i.value])));
   const [excluded, setExcluded] = useState<Set<string>>(new Set(items.filter((i) => i.excluded).map((i) => i.id)));
   const [note, setNote] = useState("");
@@ -67,7 +65,6 @@ export function ScopeCard({
       const r = await fn();
       if (r.ok) {
         setNote("");
-        router.refresh();
       } else setError(r.error ?? "Gagal");
     });
   }

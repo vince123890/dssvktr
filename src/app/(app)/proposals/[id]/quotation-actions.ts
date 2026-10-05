@@ -35,11 +35,13 @@ async function run(
   fn: (ctx: { supabase: Db; actor: Actor; proposal: PricingProposal }) => Promise<void>
 ): Promise<ActionResult> {
   try {
-    const actor = await requireProfile();
-    const supabase = await createClient();
-    const proposal = await loadProposal(supabase, proposalId);
+    const [actor, supabase] = await Promise.all([requireProfile(), createClient()]);
+    const [proposal, validatorRoles] = await Promise.all([
+      loadProposal(supabase, proposalId),
+      loadValidatorVisibleRoles(supabase),
+    ]);
     // Row-level policy (FR-5.7): acting on an invisible quotation looks like it does not exist.
-    if (!canViewQuotation(actor, proposal, await loadValidatorVisibleRoles(supabase))) {
+    if (!canViewQuotation(actor, proposal, validatorRoles)) {
       throw new Error("Quotation tidak ditemukan.");
     }
     await fn({ supabase, actor, proposal });
@@ -88,13 +90,15 @@ export async function submitQuotationAction(proposalId: string): Promise<ActionR
       loadSettings(supabase),
       loadActiveQuotationTemplates(supabase),
     ]);
-    let estimatedValue = 0;
-    for (const line of lines) {
-      const version = await loadReleasedVersion(supabase, line.product_id);
-      if (!version) throw new Error("Ada varian tanpa cost structure RELEASED — tidak dapat disubmit.");
-      const cs = evaluateVersion(items, await loadVersionLines(supabase, version.id), Number(version.locked_fx_rate));
-      estimatedValue += cs.listPriceExVat * line.quantity;
-    }
+    const lineValues = await Promise.all(
+      lines.map(async (line) => {
+        const version = await loadReleasedVersion(supabase, line.product_id);
+        if (!version) throw new Error("Ada varian tanpa cost structure RELEASED — tidak dapat disubmit.");
+        const cs = evaluateVersion(items, await loadVersionLines(supabase, version.id), Number(version.locked_fx_rate));
+        return cs.listPriceExVat * line.quantity;
+      })
+    );
+    const estimatedValue = lineValues.reduce((s, v) => s + v, 0);
     const blacklisted = isBlacklisted(proposal.kyc.company_name, settings.customerBlacklist);
     const resolution = resolveTemplate(templates, {
       segment: proposal.kyc.customer_segment ?? null,

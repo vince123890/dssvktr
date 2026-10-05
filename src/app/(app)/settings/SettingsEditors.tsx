@@ -15,7 +15,6 @@ import type {
   ScopeAuthority,
   ScopeSegregationRule,
 } from "@/types/database";
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 import {
@@ -30,14 +29,12 @@ import {
 } from "./actions";
 
 function useSaver() {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const save = (fn: () => Promise<{ ok: boolean; error?: string }>, okText = "Tersimpan.") =>
     startTransition(async () => {
       const r = await fn();
       setMsg(r.ok ? { ok: true, text: okText } : { ok: false, text: r.error ?? "Gagal menyimpan" });
-      if (r.ok) router.refresh();
     });
   const feedback =
     msg ? <p className={`text-xs ${msg.ok ? "text-success" : "text-danger"}`}>{msg.text}</p> : null;

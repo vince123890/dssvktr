@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notFound, redirect } from "next/navigation";
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { hasAnyFunction, hasFunction } from "@/lib/rbac";
@@ -122,6 +123,9 @@ export async function loadMenuAccess(
   return access;
 }
 
+/** Menu access for the current request — layout, page and actions share one query. */
+export const getMenuAccess = cache(async (): Promise<MenuAccess> => loadMenuAccess(await createClient()));
+
 export function canAccessMenu(actor: Pick<Actor, "app_role">, key: MenuKey, access: MenuAccess): boolean {
   return hasAnyFunction(actor, access[key] ?? []);
 }
@@ -140,9 +144,7 @@ export function landingHref(actor: Pick<Actor, "app_role">, access: MenuAccess):
  * answers 404 — the page is treated as if it did not exist.
  */
 export async function requireMenu(key: MenuKey): Promise<Actor> {
-  const actor = await requireProfile();
-  const supabase = await createClient();
-  const access = await loadMenuAccess(supabase);
+  const [actor, access] = await Promise.all([requireProfile(), getMenuAccess()]);
   if (!canAccessMenu(actor, key, access)) {
     if (key === "overview") redirect(landingHref(actor, access));
     notFound();
@@ -152,8 +154,7 @@ export async function requireMenu(key: MenuKey): Promise<Actor> {
 
 /** Same check for route handlers / server actions (no redirect, no 404 page). */
 export async function actorCanUseMenu(actor: Actor, key: MenuKey): Promise<boolean> {
-  const supabase = await createClient();
-  return canAccessMenu(actor, key, await loadMenuAccess(supabase));
+  return canAccessMenu(actor, key, await getMenuAccess());
 }
 
 /**

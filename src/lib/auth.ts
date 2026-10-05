@@ -10,16 +10,14 @@ import { cache } from "react";
  */
 export const getCurrentProfile = cache(async (): Promise<Actor | null> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
+  const { data } = await supabase.auth.getClaims();
+  const userId = data?.claims?.sub;
+  if (!userId) return null;
 
   const { data: profile } = await supabase
     .from("profile")
     .select("*, app_role:app_role_code(*)")
-    .eq("id", user.id)
+    .eq("id", userId)
     .single();
 
   return profile as Actor | null;

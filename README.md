@@ -178,6 +178,19 @@ data, dan akun demo tidak disentuh.
    tanpa konfigurasi tambahan.
 5. Jalankan `npm run seed:demo` dari mesin lokal (bukan dari Vercel) yang
    menunjuk ke project Supabase yang sama, agar demo data tersedia.
+6. **Region harus sama dengan database.** `vercel.json` mengunci fungsi
+   server di `hnd1` (Tokyo) karena project Supabase berada di
+   `ap-northeast-1` (Tokyo). Satu klik tombol aksi menjalankan puluhan
+   query; bila fungsi di region default `iad1` (Washington), setiap query
+   menempuh ±150 ms lintas Pasifik. Bila Supabase dipindah, ubah `regions`
+   ke region Vercel terdekat dengannya.
+
+**Performa aksi.** Server action memanggil `revalidatePath`, sehingga UI
+terbaru ikut di respons action yang sama — komponen klien **tidak**
+memanggil `router.refresh()` lagi (itu render ulang kedua). Sesi
+diverifikasi dengan `auth.getClaims()` (JWT ES256 diverifikasi lokal, tanpa
+round trip ke Supabase Auth), akses menu di-cache per request, dan query
+yang saling bebas dijalankan paralel.
 
 ---
 

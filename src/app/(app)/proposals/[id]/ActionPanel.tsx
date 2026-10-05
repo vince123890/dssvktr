@@ -40,10 +40,9 @@ export function ActionPanel({ proposalId, caps }: { proposalId: string; caps: Ac
     setError(null);
     startTransition(async () => {
       const result = await fn();
-      if (result.ok) {
-        setNote("");
-        router.refresh();
-      } else setError(result.error ?? "Terjadi kesalahan");
+      // The action revalidates this page; the fresh UI arrives with its response.
+      if (result.ok) setNote("");
+      else setError(result.error ?? "Terjadi kesalahan");
     });
   }
 

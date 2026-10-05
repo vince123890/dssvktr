@@ -1,6 +1,5 @@
 import { requireProfile } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
-import { allowedMenus, loadMenuAccess } from "@/lib/menuAccess";
+import { allowedMenus, getMenuAccess } from "@/lib/menuAccess";
 import { Sidebar } from "@/components/layout/Sidebar";
 
 export default async function AppLayout({
@@ -8,11 +7,10 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const profile = await requireProfile();
-  const supabase = await createClient();
   // Menus outside the role's matrix are not rendered at all (PRD FR-5.7);
   // their pages answer 404 via requireMenu().
-  const menus = allowedMenus(profile, await loadMenuAccess(supabase));
+  const [profile, access] = await Promise.all([requireProfile(), getMenuAccess()]);
+  const menus = allowedMenus(profile, access);
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">

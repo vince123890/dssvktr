@@ -121,7 +121,6 @@ export function CatalogTable({ rows }: { rows: TemplateRow[] }) {
 
 /** Activate / deactivate button used on the detail page. */
 export function TemplateActiveToggle({ code, isActive, isFallback }: { code: string; isActive: boolean; isFallback: boolean }) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   if (isFallback) return null;
@@ -134,8 +133,7 @@ export function TemplateActiveToggle({ code, isActive, isFallback }: { code: str
         onClick={() =>
           startTransition(async () => {
             const res = await setTemplateActiveAction(code, !isActive);
-            if (res.ok) router.refresh();
-            else setError(res.error ?? "Gagal");
+            if (!res.ok) setError(res.error ?? "Gagal");
           })
         }
       >

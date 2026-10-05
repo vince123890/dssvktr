@@ -26,8 +26,7 @@ export function TierScopeBar({
   const run = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
     startTransition(async () => {
       const r = await fn();
-      if (r.ok) router.refresh();
-      else setError(r.error ?? "Gagal");
+      setError(r.ok ? null : r.error ?? "Gagal");
     });
 
   return (

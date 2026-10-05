@@ -40,7 +40,8 @@ async function guarded(fn: (ctx: { supabase: Awaited<ReturnType<typeof createCli
       action: "SETTINGS_CHANGE",
       reason: summary,
     });
-    revalidatePath("/settings");
+    // Layout scope: also refreshes /settings/workflow/* in the same response.
+    revalidatePath("/settings", "layout");
     return { ok: true };
   } catch (e) {
     if (isNextControlFlowError(e)) throw e;

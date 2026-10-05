@@ -52,12 +52,12 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
   const me = await requireMenu("quotations");
   const supabase = await createClient();
 
-  await expireStaleQuotations(supabase, me.id);
+  const [, validatorRoles] = await Promise.all([expireStaleQuotations(supabase, me.id), loadValidatorVisibleRoles(supabase)]);
 
   const { data: row } = await supabase.from("pricing_proposal").select("*").eq("id", id).maybeSingle();
   if (!row) notFound();
   const proposal = row as PricingProposal;
-  if (!canViewQuotation(me, proposal, await loadValidatorVisibleRoles(supabase))) notFound();
+  if (!canViewQuotation(me, proposal, validatorRoles)) notFound();
 
   const [lines, { instance, steps }, tierRows, ladder, settings, currentRate, items] = await Promise.all([
     loadLines(supabase, id),
@@ -148,9 +148,11 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
     ? await Promise.all(
         lines.map(async (l) => {
           if (!l.cost_structure_version_id) return null;
-          const vLines = await loadVersionLines(supabase, l.cost_structure_version_id);
+          const [vLines, { data: v }] = await Promise.all([
+            loadVersionLines(supabase, l.cost_structure_version_id),
+            supabase.from("cost_structure_version").select("version_no").eq("id", l.cost_structure_version_id).maybeSingle(),
+          ]);
           const cs = evaluateVersion(items, vLines, Number(l.locked_fx_rate ?? 0));
-          const { data: v } = await supabase.from("cost_structure_version").select("version_no").eq("id", l.cost_structure_version_id).maybeSingle();
           return { lineId: l.id, cs, vLines, versionNo: v?.version_no as number | undefined };
         })
       )
