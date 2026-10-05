@@ -17,6 +17,11 @@ export interface AppSettings {
   issuerAddress: string[];
   documentDisclaimer: string;
   defaultSpecialNotes: string[];
+  /** Static qualifier lists for the Workflow Template Catalog (v4.1). */
+  qualifierSegments: string[];
+  qualifierIndustries: string[];
+  qualifierRelationships: string[];
+  customerBlacklist: string[];
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -31,6 +36,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   issuerAddress: [],
   documentDisclaimer: "",
   defaultSpecialNotes: [],
+  qualifierSegments: ["B2G", "B2B", "B2C"],
+  qualifierIndustries: ["Pertambangan", "Perkebunan", "On-road Logistics", "Express Logistics", "Municipality", "Konstruksi", "Lainnya"],
+  qualifierRelationships: ["Reguler", "Relasi khusus"],
+  customerBlacklist: [],
 };
 
 export const SETTING_KEYS: Record<keyof AppSettings, string> = {
@@ -45,6 +54,10 @@ export const SETTING_KEYS: Record<keyof AppSettings, string> = {
   issuerAddress: "issuer_address",
   documentDisclaimer: "document_disclaimer",
   defaultSpecialNotes: "default_special_notes",
+  qualifierSegments: "qualifier_segments",
+  qualifierIndustries: "qualifier_industries",
+  qualifierRelationships: "qualifier_relationships",
+  customerBlacklist: "customer_blacklist",
 };
 
 export async function loadSettings(

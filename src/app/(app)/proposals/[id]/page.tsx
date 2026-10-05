@@ -63,13 +63,13 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
     loadLines(supabase, id),
     loadCurrentInstance(supabase, proposal),
     loadTierRound(supabase, proposal),
-    loadLadder(supabase, proposal.business_line),
+    loadLadder(supabase, proposal.business_line, proposal.workflow_template_code),
     loadSettings(supabase),
     resolveExchangeRate(supabase),
     loadCostItems(supabase),
   ]);
 
-  const [{ data: productRows }, { data: project }, { data: roleRows }, { data: siblings }, { data: rateConfig }] =
+  const [{ data: productRows }, { data: project }, { data: roleRows }, { data: siblings }, { data: rateConfig }, { data: templateRow }] =
     await Promise.all([
       supabase.from("product_master_data").select("*").in("id", lines.map((l) => l.product_id).concat(["00000000-0000-0000-0000-000000000000"])),
       supabase.from("project_identifier").select("*").eq("id", proposal.project_identifier_id).maybeSingle(),
@@ -80,6 +80,9 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
         .eq("project_identifier_id", proposal.project_identifier_id)
         .order("created_at"),
       supabase.from("rate_sensitivity_config").select("threshold_pct").eq("is_active", true).limit(1).maybeSingle(),
+      proposal.workflow_definition_id
+        ? supabase.from("workflow_definition").select("name, version, template_code").eq("id", proposal.workflow_definition_id).maybeSingle()
+        : Promise.resolve({ data: null }),
     ]);
 
   const products = new Map(((productRows ?? []) as ProductMasterData[]).map((p) => [p.id, p]));
@@ -375,6 +378,7 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
               <Kv label="e. Rute" value={`${k.route_description ?? ""} (${k.origin ?? "?"} → ${k.destination ?? "?"})`} />
               <Kv label="e. Produksi" value={k.production_value ? `${k.production_value} ${k.production_unit ?? ""} ${PERIOD_LABEL[k.production_period ?? "OTHER"]}` : undefined} />
               <Kv label="f. Likelihood" value={k.likelihood ? LIKELIHOOD_LABEL[k.likelihood] : undefined} />
+              <Kv label="Kualifikasi deal" value={[k.customer_segment, k.industry, k.relationship].filter(Boolean).join(" · ")} />
               <Kv label="g. Gap identified" value={k.gap_identified} />
               <Kv label="h. Informasi lain" value={[k.requested_scheme === "RENTAL" ? "Minta skema Rental" : null, k.other_information].filter(Boolean).join(" · ")} />
             </CardContent>
@@ -389,6 +393,16 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
               <CardTitle>Alur Official Quotation</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-xs">
+              {templateRow && (
+                <div className="rounded-lg bg-slate-50 px-3 py-2">
+                  <div className="text-muted">Workflow Template</div>
+                  <div className="font-semibold">
+                    {templateRow.name} <span className="font-normal text-muted">v{templateRow.version}</span>
+                  </div>
+                  {proposal.workflow_selection_reason && <div className="text-muted">{proposal.workflow_selection_reason}</div>}
+                  {proposal.is_blacklisted && <div className="font-medium text-danger">Customer tercantum di blacklist</div>}
+                </div>
+              )}
               <TimelineRow status={proposal.current_status === "DRAFT" ? "IN_PROGRESS" : "APPROVED"} title="KYC & submit (Salesperson)" detail={nameOf(proposal.created_by)} />
               {steps.map((s) => (
                 <TimelineRow

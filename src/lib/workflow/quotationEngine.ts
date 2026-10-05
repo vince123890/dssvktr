@@ -57,17 +57,30 @@ type Db = SupabaseClient<any>;
 // Loading
 // ---------------------------------------------------------------------
 
-export async function loadLadder(supabase: Db, businessLine: BusinessLine): Promise<MarginTierAuthority[]> {
+/**
+ * Margin-tier ladder for a quotation (Technical Logic §11.1, v4.1): the
+ * Workflow Template's own ladder when it has one ("kalau persentase
+ * berapa negosiasinya siapa yang approve" differs per template), else a
+ * business-line ladder, else the global one.
+ */
+export async function loadLadder(
+  supabase: Db,
+  businessLine: BusinessLine,
+  templateCode?: string | null
+): Promise<MarginTierAuthority[]> {
   const { data } = await supabase
     .from("margin_tier_authority")
     .select("*")
     .eq("is_active", true)
-    .or(`business_line.is.null,business_line.eq.${businessLine}`)
     .order("tier");
   const rows = (data ?? []) as MarginTierAuthority[];
-  // A business-line-specific ladder wins over the generic one.
-  const specific = rows.filter((r) => r.business_line === businessLine);
-  return specific.length > 0 ? specific : rows.filter((r) => r.business_line === null);
+  if (templateCode) {
+    const own = rows.filter((r) => r.workflow_template_code === templateCode);
+    if (own.length > 0) return own;
+  }
+  const shared = rows.filter((r) => !r.workflow_template_code);
+  const specific = shared.filter((r) => r.business_line === businessLine);
+  return specific.length > 0 ? specific : shared.filter((r) => r.business_line === null);
 }
 
 export async function loadBands(supabase: Db): Promise<QuantityBand[]> {
@@ -156,7 +169,7 @@ export async function priceQuotation(
     ctx?.items ? Promise.resolve(ctx.items) : loadCostItems(supabase),
     ctx?.settings ? Promise.resolve(ctx.settings) : loadSettings(supabase),
     loadBands(supabase),
-    loadLadder(supabase, proposal.business_line),
+    loadLadder(supabase, proposal.business_line, proposal.workflow_template_code),
     loadLines(supabase, proposal.id),
   ]);
 
@@ -428,8 +441,10 @@ export async function advanceFrom(
 // Tier routing, decisions, release
 // ---------------------------------------------------------------------
 
-function tierStatus(tier: number): ProposalStatus {
-  return tier === 2 ? "PENDING_OWNER_APPROVAL" : "PENDING_PRICING_COMMITTEE_APPROVAL";
+/** The approval status follows WHO must decide, since template ladders vary (v4.1). */
+function tierStatus(slots: string[]): ProposalStatus {
+  const committee = slots.some((s) => s === "PRICING_COMMITTEE" || s === "role:CCO" || s === "role:CFO");
+  return committee ? "PENDING_PRICING_COMMITTEE_APPROVAL" : "PENDING_OWNER_APPROVAL";
 }
 
 /**
@@ -442,7 +457,7 @@ export async function routeAfterReview(
   proposal: PricingProposal,
   actor: Actor
 ): Promise<{ released: boolean }> {
-  const ladder = await loadLadder(supabase, proposal.business_line);
+  const ladder = await loadLadder(supabase, proposal.business_line, proposal.workflow_template_code);
   const gm = Number(proposal.gm ?? -1);
   const tier = resolveTier(gm * 100, ladder);
   if (!tier) throw new Error("Margin Tier Authority belum dikonfigurasi (CONFIG_ERROR).");
@@ -486,7 +501,7 @@ export async function routeAfterReview(
 
   await supabase
     .from("pricing_proposal")
-    .update({ current_status: tierStatus(tier.tier), tier_round: round, margin_tier: tier.tier })
+    .update({ current_status: tierStatus(tier.decision_slots), tier_round: round, margin_tier: tier.tier })
     .eq("id", proposal.id);
 
   await writeAuditLog(supabase, {
@@ -657,7 +672,7 @@ export async function checkReleaseGate(
     }
   }
 
-  const ladder = await loadLadder(supabase, proposal.business_line);
+  const ladder = await loadLadder(supabase, proposal.business_line, proposal.workflow_template_code);
   const tier = resolveTier(Number(proposal.gm ?? -1) * 100, ladder);
   if (tier && tier.tier > 1) {
     const rows = (await loadTierRound(supabase, proposal)).filter((r) => r.kind === "DECISION");

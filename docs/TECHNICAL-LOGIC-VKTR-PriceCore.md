@@ -100,6 +100,10 @@
 > 25. **Menu & data access per role** (§8.4, §8.5) — matriks menu →
 >     fungsi (`app_setting.menu_access`), menu di luar matriks disembunyikan
 >     dan halamannya 404; quotation dibatasi per baris.
+> 26. **Workflow Template Catalog multi-template** (§2.1, §4.1a, §11.1 —
+>     v4.1) — qualifier statis per template, pemilihan berdasar
+>     prioritas → spesifisitas, tier margin per template, katalog awal 6
+>     template; target ±30 template (transcribe.md).
 
 ---
 
@@ -512,6 +516,25 @@ kemudian.
   Langkah approval tier **tidak** disimpan di template — disisipkan
   dinamis setelah step `REVIEW_AND_ROUTE` dari `margin_tier_authority`
   (§11.2).
+- **Kolom katalog v4.1 (migrasi 0017)** pada `workflow_definition`:
+
+  | Kolom | Keterangan |
+  |---|---|
+  | `template_code` | Kode stabil template; semua versi berbagi kode ini, hanya satu versi `is_active` |
+  | `description`, `priority` | Prioritas lebih tinggi menang saat lebih dari satu template cocok |
+  | `q_segments`, `q_industries`, `q_relationships`, `q_business_lines` | `text[]`; kosong = semua |
+  | `q_min_qty`, `q_max_qty` | Rentang kuantitas total (null = tanpa batas) |
+  | `min_value`, `max_value` | Rentang **estimasi nilai** (harga dasar × qty, excl. VAT) |
+  | `q_blacklist` | `null` semua · `true` hanya customer blacklist · `false` hanya non-blacklist |
+  | `is_fallback` | Template dasar, dipakai bila tidak ada yang cocok; tidak dapat dinonaktifkan |
+
+  `pricing_proposal` menambah `workflow_template_code`,
+  `workflow_selection_reason`, `estimated_value`, `is_blacklisted`;
+  qualifier deal (`customer_segment`, `industry`, `relationship`)
+  disimpan di `kyc` (jsonb). `margin_tier_authority` menambah
+  `workflow_template_code` (tangga tier per template). Daftar nilai
+  qualifier & blacklist: `app_setting` `qualifier_segments`,
+  `qualifier_industries`, `qualifier_relationships`, `customer_blacklist`.
 - Seed "Price Estimate": **tanpa step approval**. Baris `workflow_definition` dengan `workflow_kind = PRICE_ESTIMATE` hanya menyimpan slot yang berhak (`SALESPERSON`, `EXTERNAL_AGENCY`) dan aturan varian yang tampil (§4.9), agar keduanya dapat diatur dari Settings.
 
 **`workflow_instance`** & **`workflow_step_instance`**
@@ -883,62 +906,66 @@ CONFIG_ERROR                        ← tidak ada template/tier yang cocok (§4.
   `tier_approval` versi sebelumnya, dan mengembalikan status ke
   `PENDING_HEAD_OF_SALES_REVIEW`.
 
-### 4.1a Workflow Template Resolution (FR-2.0.1 — baru)
+### 4.1a Workflow Template Resolution (FR-2.0.1 — direvisi v4.1)
 
-Menggantikan pemilihan `workflow_definition` tunggal per `business_line`
-(v2.1) dengan pemilihan dari **katalog** berdasarkan *qualifier*:
+VKTR memperkirakan ±30 variasi workflow (transcribe.md): *qualifier*
+statis, katalog template bertambah. Pemilihan dijalankan saat submit
+(`submitQuotationAction`) oleh fungsi murni
+`src/lib/workflow/templateCatalog.ts`:
 
 ```pseudo
-function resolveWorkflowTemplate(proposal):
-    # Qualifier bersifat statis (jarang berubah); yang bertambah adalah
-    # jumlah baris workflow_definition dalam katalog.
-    candidates = SELECT * FROM workflow_definition
-                 WHERE is_active = true
-                   AND (business_line IS NULL OR business_line = proposal.business_line)
-                   AND (min_value IS NULL OR proposal.transaction_value >= min_value)
-                   AND (max_value IS NULL OR proposal.transaction_value <= max_value)
-                 ORDER BY specificity DESC, version DESC
-                 # specificity: baris dengan qualifier lebih spesifik menang
-                 # atas baris generik (mis. business_line spesifik > NULL)
-
-    if candidates.isEmpty():
-        return CONFIG_ERROR  # gap konfigurasi — alert Admin, bukan default diam-diam (§4.5)
-
-    return candidates.first()  # dikunci sebagai workflow_definition_id pada workflow_instance
+function resolveTemplate(templates, deal):
+    # deal = { segment, industry, relationship, businessLine (KYC),
+    #          quantity = Σ qty line, estimatedValue = Σ list_price_ex_vat × qty
+    #          dari cost structure RELEASED, isBlacklisted = nama ∈ blacklist }
+    for t in templates where t.is_active and kind = OFFICIAL_QUOTATION:
+        checks = qualifier yang terisi pada t (segmen, industri, relasi,
+                 lini bisnis, rentang qty, rentang nilai, blacklist)
+        t.matched     = semua checks terpenuhi
+        t.specificity = jumlah checks
+    candidates = matched and not is_fallback
+                 order by priority desc, specificity desc, version desc
+    if candidates: return candidates[0], "Cocok: <qualifier> (prioritas p)"
+    return fallback ?? CONFIG_ERROR
 ```
 
-- **Basic Workflow saat go-live** (PRD FR-2.0.2) = dua template dari
-  sheet *Basic Workflow*: `PRICE_ESTIMATE` dan `OFFICIAL_QUOTATION —
-  Standard` (seed §2.1). Template asumsi v3.0 (`MARGIN_TIER` dan
-  `BUSINESS_LINE` sebagai dua "basic workflow") **dicabut** — tier kini
-  selalu disisipkan dari `margin_tier_authority` (§4.0), sedangkan varian
-  per segmen ditambahkan sebagai template `OFFICIAL_QUOTATION`
-  tambahan dengan qualifier `business_line`.
-- Admin menambah/mengubah template lewat Settings → Workflow; proposal
-  yang sedang berjalan **tidak terpengaruh** karena `workflow_instance`
-  mengunci `workflow_definition_id` + versi saat instance dibuat.
-- Bila ditemukan >1 kandidat dengan spesifisitas sama, sistem memilih
-  yang paling baru (`version DESC`) dan mencatat *warning* ke Admin.
-- **Validasi saat template disimpan** (menegakkan PRD FR-2.1):
-  step 1 harus `FILL_KYC`; harus ada tepat satu `GENERATE_QUOTATION`
-  dan satu `REVIEW_AND_ROUTE` (terakhir); setiap `performer_functional_role`
-  harus dimiliki ≥ 1 user aktif; `reject_target_step_order` harus
-  menunjuk step sebelumnya; `skip_condition` hanya boleh pada step
-  `VALIDATE`.
+- Hasil disimpan: `workflow_definition_id`, `workflow_template_code`,
+  `workflow_selection_reason`, `estimated_value`, `is_blacklisted`;
+  langkah template **disalin** ke `workflow_step_instance` sehingga
+  perubahan template berikutnya tidak memengaruhi quotation berjalan.
+- **Prioritas** dipakai sebagai kebijakan eksplisit Admin (mis.
+  Blacklist 100 selalu menang atas B2G 10); spesifisitas hanya pemecah
+  seri. Alat **Uji pemilihan template** di Settings menampilkan hasil &
+  alasan untuk atribut apa pun.
+- **Katalog awal (migrasi 0017)**:
+
+| Template (kode) | Qualifier | Prioritas | Langkah setelah KYC | Tier margin |
+|---|---|---|---|---|
+| Official Quotation — Standard (`OQ-STANDARD`) | — (dasar/fallback) | 0 | Validasi Sales Lead* → Generate → Review & Rilis | Global |
+| Official Quotation — Customer Blacklist (`OQ-BLACKLIST`) | Customer di blacklist | 100 | Validasi Sales Lead → **Persetujuan Pricing Committee** → Generate → Review | Khusus: semua tier diputus CCO + CFO |
+| Official Quotation — Relasi Khusus (`OQ-RELASI-KHUSUS`) | Hubungan = Relasi khusus | 20 | Generate → Review (tanpa validasi Sales Lead) | Khusus: GM < 15% langsung CCO + CFO |
+| Official Quotation — Nilai Besar (`OQ-NILAI-BESAR`) | Estimasi nilai ≥ Rp 50 M | 15 | Validasi* → **Persetujuan kelayakan deal (Pricing Committee)** → Generate → Review | Global |
+| Official Quotation — B2G Pemerintah (`OQ-B2G`) | Segmen = B2G | 10 | Validasi* → **Verifikasi dokumen tender (Head of Sales)** → Generate → Review (SLA 48 jam) | Khusus: setiap tier sampai CCO + CFO |
+| Official Quotation — Industri Tambang & Perkebunan (`OQ-INDUSTRI-BERAT`) | Industri = Pertambangan / Perkebunan | 5 | Validasi* → Generate → **Review aplikasi & karoseri (COGS Owner)** → Review | Global |
+
+\* dilewati bila pengaju Sales Lead.
+
+- Validasi template saat disimpan (`saveTemplateAction`): tepat satu
+  `GENERATE_QUOTATION` dan satu `REVIEW_AND_ROUTE` (terakhir); tujuan
+  tolak menunjuk langkah sebelumnya; kondisi lewati hanya pada langkah
+  `VALIDATE`/`APPROVE`; setiap pelaksana dimiliki ≥ 1 user aktif;
+  template non-dasar wajib punya ≥ 1 qualifier. Simpan = versi baru
+  (versi lama dinonaktifkan, tidak diedit).
 
 ```pseudo
 function activateNextStep(instance):
     for step in instance.steps ordered by step_order where status == PENDING:
-        if evaluateSkip(step.skip_condition, instance.proposal):
-            step.status = SKIPPED_NOT_APPLICABLE        # mis. pengaju Sales Lead
-            writeAuditLog('STEP_SKIPPED', step, reason: step.skip_condition)
-            continue
-        step.status = IN_PROGRESS
-        step.sla_due_at = now() + step.sla_hours
-        proposal.current_status = step.proposal_status_on_enter
-        notify(usersWithFunctionalRole(step.performer_functional_role))
+        if evaluateSkip(step.skip_if_initiator_function, initiator) or
+           (revisi tanpa perubahan KYC/varian and step.action_kind == VALIDATE):
+            step.status = SKIPPED_NOT_APPLICABLE; continue
+        step.status = IN_PROGRESS; proposal.current_status = step.status_label
+        if step.action_kind == GENERATE_QUOTATION: price (quantity band); band 1 → auto-selesai
         return
-    # template habis → setelah REVIEW_AND_ROUTE, masuk routing tier (§11.2)
 ```
 
 ### 4.2 Strict Gatekeeping (FR-2.2)
@@ -1548,6 +1575,15 @@ pada POC, penegakan berada di service layer.
 
 ### 11.1 Tier Resolution — dari GM akhir
 
+**Tangga yang dipakai (v4.1)**: tangga milik Workflow Template quotation
+(`margin_tier_authority.workflow_template_code = proposal.workflow_template_code`)
+bila ada; jika tidak, tangga per lini bisnis; jika tidak, tangga global.
+Status persetujuan ditentukan dari slot pemutus: ada slot Pricing
+Committee (CCO/CFO) → `PENDING_PRICING_COMMITTEE_APPROVAL`, selain itu
+`PENDING_OWNER_APPROVAL` — sehingga template yang mewajibkan CCO & CFO
+bahkan di Tier 1 (mis. B2G) tetap berlabel benar.
+
+
 ```pseudo
 function resolveMarginTier(gm, businessLine):
     tiers = SELECT * FROM margin_tier_authority
@@ -1950,7 +1986,7 @@ ada logika ganda antara simulasi dan perhitungan sesungguhnya.
 4. **Threshold eskalasi nilai transaksi** — belum ada angka dari VKTR.
 5. **Sumber & jenis kurs CNY/IDR** (tengah/jual/pajak; ketersediaan API kurs CNY dari BCA).
 6. **Kadar Ni acuan & ambang kesegaran HMA** — urgensi rendah (HPM referensi saja).
-7. **Qualifier Workflow Template tambahan** (blacklist, relasi khusus) — definisi operasional belum ada.
+7. **Qualifier Workflow Template** — v4.1 menyediakan qualifier segmen, industri, relasi, lini bisnis, qty, estimasi nilai, blacklist (daftar dapat diubah di Settings). **Masih perlu VKTR**: definisi operasional "relasi khusus" (siapa yang berhak menandai), sumber resmi daftar blacklist, dan daftar ±30 template beserta langkah & wewenang diskonnya.
 
 ### 14.3 Baru di v4.0
 
@@ -1984,6 +2020,7 @@ ada logika ganda antara simulasi dan perhitungan sesungguhnya.
 | **FR-1.5.4 (preview & cetak)** | `renderQuotationDocument`, `document_render` (§4.12) |
 | **FR-1.6 (PPN)** | `tax_rate` (§2.1), §3.3 B6 |
 | **FR-1.7 (Purchase/Rental)** | `quotation_line_item.scheme` (§2.1), §3.5 |
+| **FR-2.0.1 v4.1 (katalog multi-template, qualifier, tier per template)** | `templateCatalog.ts` (`resolveTemplate`), migrasi 0017, Settings → Workflow (`WorkflowCatalog.tsx`), `saveTemplateAction`, `loadLadder(templateCode)` (§4.1a, §11.1) |
 | FR-2.0, FR-2.0.1, FR-2.0.2, **FR-2.1 (workflow configurable)** | `workflow_definition`, `workflow_step_definition` (§2.1), §4.1, §4.1a |
 | FR-2.2 (gate & release gate, Exclusion At cost) | `canSubmitQuotation`, `canGenerate`, `canReleaseQuotation` (§4.2, §4.2.1) |
 | FR-2.3, FR-2.4 | §4.3, §4.4 |

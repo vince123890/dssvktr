@@ -119,6 +119,10 @@ diatur di aplikasi**, bukan tertanam di kode.
 
 ### Langkah 1b — Workflow, Quantity Band, Tier, PPN
 
+0. **Settings → Workflow** menampilkan **katalog** Workflow Template
+   (Standard + 5 contoh: Blacklist, Relasi Khusus, Nilai Besar, B2G,
+   Industri Tambang & Perkebunan) — VKTR memperkirakan ±30 template;
+   detail di `DEMO-FLOW-OFFICIAL-QUOTATION.md` B6c.
 1. **Settings → Workflow** → buka template **Official Quotation —
    Standard**. Tunjukkan langkahnya:
 

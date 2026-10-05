@@ -280,7 +280,7 @@ export async function seedHistoricalQuotations(supabase: Db, users: Record<strin
   const items = await loadItems(supabase);
   const [{ data: template }, { data: tiers }, { data: bands }, { data: versions }, { data: vat }] = await Promise.all([
     supabase.from("cbs_template").select("id").eq("status", "active").order("version", { ascending: false }).limit(1).single(),
-    supabase.from("margin_tier_authority").select("*").eq("is_active", true).is("business_line", null),
+    supabase.from("margin_tier_authority").select("*").eq("is_active", true).is("business_line", null).is("workflow_template_code", null),
     supabase.from("quantity_band_config").select("*"),
     supabase.from("cost_structure_version").select("*").eq("is_seed", true),
     supabase.from("app_setting").select("value").eq("key", "vat_rate_pct").maybeSingle(),
@@ -367,7 +367,13 @@ export async function seedHistoricalQuotations(supabase: Db, users: Record<strin
           likelihood: h.likelihood,
           gap_identified: "Target elektrifikasi armada & biaya operasional",
           requested_scheme: "PURCHASE",
+          customer_segment: h.businessLine === "B2G_TENDER_BUS" ? "B2G" : "B2B",
+          industry: h.application.startsWith("Box") ? "Express Logistics" : "Konstruksi",
+          relationship: "Reguler",
         },
+        workflow_template_code: "OQ-STANDARD",
+        workflow_selection_reason: "Data historis (seed)",
+        estimated_value: cs.listPriceExVat * h.qty,
         initiator_role_code: "SALES_EXECUTIVE",
         account_person_ids: [salesExec],
         prepared_by: salesOps,

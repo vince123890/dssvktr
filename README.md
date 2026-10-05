@@ -55,7 +55,7 @@ ini sepadan dengan kecepatan setup.
 
 | Modul | Implementasi |
 |---|---|
-| **Settings** (FR-5.6, FR-2.1) | `/settings` — Roles & Users, Scope Authority (M/C/R Regular/Deviation + pemisahan tugas + export CSV), Akses Menu (menu × fungsi; menu di luar role disembunyikan & 404), Workflow (langkah Official Quotation), Tier Margin & Quantity Band, Umum & Dokumen (PPN, masa berlaku, nomor dokumen, teks). `src/lib/rbac.ts` hanya memeriksa **fungsi** role. |
+| **Settings** (FR-5.6, FR-2.1) | `/settings` — Roles & Users, Scope Authority (M/C/R Regular/Deviation + pemisahan tugas + export CSV), Akses Menu (menu × fungsi; menu di luar role disembunyikan & 404), Workflow (**daftar multi-template** + tombol Tambah workflow; klik baris → halaman detail `/settings/workflow/[kode]` berisi qualifier, alur langkah, tier, riwayat versi, pemakaian; Ubah/Duplikat/Aktifkan; uji pemilihan; target ±30 template), Tier Margin & Quantity Band, Umum & Dokumen (PPN, masa berlaku, nomor dokumen, teks). `src/lib/rbac.ts` hanya memeriksa **fungsi** role. |
 | **Cost Structure** (FR-1.1.2) | `/cost-structure` — price book per varian, versi, kurs CNY dikunci, banner rate sensitivity; `/cost-structure/[versionId]` — 4 scope dengan Maker/Checker/Releaser (`src/lib/costStructure.ts`). |
 | **Price Estimate** (Workflow A) | `/price-estimate` — make → model → type → variant, harga excl./incl. VAT, log & audit. |
 | **Official Quotation** (Workflow B) | `/proposals/new` (KYC + multi-varian), `/proposals/[id]` (aksi per role, panel harga Rp/%, timeline, tier approval), engine di `src/lib/workflow/quotationEngine.ts`. |
@@ -109,6 +109,9 @@ jalankan berurutan `npm run migrate -- supabase/migrations/000X_....sql`
 4. `0016_v4_seed_reset.sql` — konfigurasi sesuai attachment (role,
    matriks, tier 15%/10%, band, dua workflow, varian LDT) dan **reset data
    transaksional**.
+5. `0017_workflow_template_catalog.sql` — katalog Workflow Template
+   (qualifier, prioritas, tier per template) + 5 template contoh; aman
+   dijalankan di atas data yang ada (tidak menghapus apa pun).
 
 ### 4.4 Install & Jalankan
 ```bash

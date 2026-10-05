@@ -6,6 +6,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { FUNCTIONAL_ROLES, canManageSettings, legacyRoleFor } from "@/lib/rbac";
 import { SETTING_KEYS, type AppSettings } from "@/lib/settings";
 import { MENUS, type MenuKey } from "@/lib/menuAccess";
+import { loadActiveQuotationTemplates, resolveTemplate, type DealAttributes } from "@/lib/workflow/templateCatalog";
 import { isNextControlFlowError, toActionError, type ActionResult } from "@/lib/actionResult";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -14,6 +15,7 @@ import type {
   FunctionalRole,
   ProposalStatus,
   StepActionKind,
+  MarginTierAuthority,
   WorkflowDefinition,
 
 } from "@/types/database";
@@ -147,73 +149,146 @@ const StepSchema = z.object({
   sla_hours: z.number().int().min(1).max(720),
 });
 
+const TemplateSchema = z.object({
+  name: z.string().trim().min(3, "Nama template wajib diisi"),
+  description: z.string().trim().optional().default(""),
+  priority: z.number().int().min(0).max(1000),
+  q_segments: z.array(z.string()),
+  q_industries: z.array(z.string()),
+  q_relationships: z.array(z.string()),
+  q_business_lines: z.array(z.string()),
+  q_min_qty: z.number().int().min(1).nullable(),
+  q_max_qty: z.number().int().min(1).nullable(),
+  min_value: z.number().min(0),
+  max_value: z.number().min(0).nullable(),
+  q_blacklist: z.boolean().nullable(),
+  steps: z.array(StepSchema).min(2),
+});
+
+export type TemplateInput = z.input<typeof TemplateSchema>;
+
+async function validateSteps(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  parsed: z.infer<typeof StepSchema>[]
+) {
+  const generate = parsed.filter((s) => s.action_kind === "GENERATE_QUOTATION");
+  const review = parsed.filter((s) => s.action_kind === "REVIEW_AND_ROUTE");
+  if (generate.length !== 1) throw new Error("Harus ada tepat satu langkah Generate (Sales Operations).");
+  if (review.length !== 1) throw new Error("Harus ada tepat satu langkah Review & Rilis (Head of Sales).");
+  if (parsed[parsed.length - 1].action_kind !== "REVIEW_AND_ROUTE") {
+    throw new Error("Langkah terakhir harus Review & Rilis — routing tier margin selalu setelahnya.");
+  }
+  parsed.forEach((s, i) => {
+    if (s.reject_to_step_order !== null && s.reject_to_step_order >= i + 1) {
+      throw new Error(`Langkah ${i + 1}: tujuan tolak harus langkah sebelumnya.`);
+    }
+    if (s.skip_if_initiator_function && s.action_kind !== "VALIDATE" && s.action_kind !== "APPROVE") {
+      throw new Error(`Langkah ${i + 1}: kondisi lewati hanya untuk langkah validasi/persetujuan.`);
+    }
+  });
+
+  // Every performer must be held by at least one active user, or the
+  // quotation would stall forever on that step.
+  const { data: roles } = await supabase.from("app_role").select("code, functional_roles, is_active");
+  const { data: users } = await supabase.from("profile").select("app_role_code");
+  for (const s of parsed) {
+    const holderRoles = ((roles ?? []) as AppRole[])
+      .filter((r) => r.is_active && r.functional_roles.includes(s.performer_function))
+      .map((r) => r.code);
+    const hasUser = (users ?? []).some((u: { app_role_code: string | null }) => u.app_role_code && holderRoles.includes(u.app_role_code));
+    if (!hasUser) throw new Error(`Tidak ada user aktif dengan fungsi ${s.performer_function} (langkah "${s.step_name}").`);
+  }
+}
+
+function templateCodeFor(name: string): string {
+  const slug = name
+    .normalize("NFKD")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toUpperCase()
+    .slice(0, 32);
+  return `OQ-${slug || "TEMPLATE"}`;
+}
+
+export interface SaveTemplateResult extends ActionResult {
+  templateCode?: string;
+}
+
 /**
- * Saves the Official Quotation template as a NEW version (the old one is
- * deactivated, not edited) so quotations already in flight keep the
- * steps they started with.
+ * Workflow Template Catalog (PRD FR-2.0.1, v4.1). Saving always creates
+ * a NEW version (the previous one is deactivated, never edited), so a
+ * quotation in flight keeps the steps it started with. `templateCode`
+ * null creates a brand-new template — the catalog grows without code
+ * changes (VKTR expects ~30 templates).
  */
-export async function saveWorkflowStepsAction(
-  definitionId: string,
-  steps: z.input<typeof StepSchema>[]
-): Promise<ActionResult> {
-  return guarded(async ({ supabase }) => {
-    const parsed = z.array(StepSchema).min(2).parse(steps);
-
-    const generate = parsed.filter((s) => s.action_kind === "GENERATE_QUOTATION");
-    const review = parsed.filter((s) => s.action_kind === "REVIEW_AND_ROUTE");
-    if (generate.length !== 1) throw new Error("Harus ada tepat satu langkah Generate (Sales Operations).");
-    if (review.length !== 1) throw new Error("Harus ada tepat satu langkah Review & Rilis (Head of Sales).");
-    if (parsed[parsed.length - 1].action_kind !== "REVIEW_AND_ROUTE") {
-      throw new Error("Langkah terakhir harus Review & Rilis — routing tier margin selalu setelahnya.");
+export async function saveTemplateAction(templateCode: string | null, input: TemplateInput): Promise<SaveTemplateResult> {
+  let savedCode: string | undefined;
+  const result = await guarded(async ({ supabase }) => {
+    const parsed = TemplateSchema.parse(input);
+    await validateSteps(supabase, parsed.steps);
+    if (parsed.q_min_qty !== null && parsed.q_max_qty !== null && parsed.q_min_qty > parsed.q_max_qty) {
+      throw new Error("Qty minimum melebihi qty maksimum.");
     }
-    const genIndex = parsed.findIndex((s) => s.action_kind === "GENERATE_QUOTATION");
-    parsed.forEach((s, i) => {
-      if (s.reject_to_step_order !== null && s.reject_to_step_order >= i + 1) {
-        throw new Error(`Langkah ${i + 1}: tujuan tolak harus langkah sebelumnya.`);
-      }
-      if (s.skip_if_initiator_function && s.action_kind !== "VALIDATE" && s.action_kind !== "APPROVE") {
-        throw new Error(`Langkah ${i + 1}: kondisi lewati hanya untuk langkah validasi/persetujuan.`);
-      }
-      if (s.action_kind === "REVIEW_AND_ROUTE" && i < genIndex) {
-        throw new Error("Review harus setelah Generate.");
-      }
-    });
-
-    // Every performer must be held by at least one active user, or the
-    // quotation would stall forever on that step.
-    const { data: roles } = await supabase.from("app_role").select("code, functional_roles, is_active");
-    const { data: users } = await supabase.from("profile").select("app_role_code");
-    for (const s of parsed) {
-      const holderRoles = ((roles ?? []) as AppRole[])
-        .filter((r) => r.is_active && r.functional_roles.includes(s.performer_function))
-        .map((r) => r.code);
-      const hasUser = (users ?? []).some((u: { app_role_code: string | null }) => u.app_role_code && holderRoles.includes(u.app_role_code));
-      if (!hasUser) throw new Error(`Tidak ada user aktif dengan fungsi ${s.performer_function} (langkah "${s.step_name}").`);
+    if (parsed.max_value !== null && parsed.min_value > parsed.max_value) {
+      throw new Error("Nilai minimum melebihi nilai maksimum.");
     }
 
-    const { data: current } = await supabase.from("workflow_definition").select("*").eq("id", definitionId).single();
-    if (!current) throw new Error("Workflow template tidak ditemukan.");
-    const def = current as WorkflowDefinition;
+    let previous: WorkflowDefinition | null = null;
+    let code = templateCode;
+    if (code) {
+      const { data } = await supabase
+        .from("workflow_definition")
+        .select("*")
+        .eq("template_code", code)
+        .order("version", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      previous = (data as WorkflowDefinition | null) ?? null;
+      if (!previous) throw new Error("Template tidak ditemukan.");
+    } else {
+      code = templateCodeFor(parsed.name);
+      const { data: clash } = await supabase.from("workflow_definition").select("id").eq("template_code", code).limit(1);
+      if (clash && clash.length > 0) code = `${code}-${Date.now().toString(36).toUpperCase()}`;
+    }
+
+    const hasQualifier =
+      parsed.q_segments.length + parsed.q_industries.length + parsed.q_relationships.length + parsed.q_business_lines.length > 0 ||
+      parsed.q_min_qty !== null || parsed.q_max_qty !== null || parsed.min_value > 0 || parsed.max_value !== null ||
+      parsed.q_blacklist !== null;
+    if (!previous?.is_fallback && !hasQualifier) {
+      throw new Error("Template non-dasar wajib memiliki minimal satu qualifier (segmen, industri, relasi, lini bisnis, qty, nilai, atau blacklist).");
+    }
 
     const { data: created, error } = await supabase
       .from("workflow_definition")
       .insert({
-        business_line: def.business_line,
-        name: def.name,
-        qualifier_type: def.qualifier_type,
-        workflow_kind: def.workflow_kind,
-        allowed_functions: def.allowed_functions,
-        min_value: def.min_value,
-        max_value: def.max_value,
-        is_active: true,
-        version: def.version + 1,
+        business_line: previous?.business_line ?? "B2B_COMMERCIAL_FLEET",
+        name: parsed.name,
+        qualifier_type: "GENERIC",
+        workflow_kind: "OFFICIAL_QUOTATION",
+        allowed_functions: previous?.allowed_functions ?? ["SALESPERSON"],
+        min_value: parsed.min_value,
+        max_value: parsed.max_value,
+        is_active: previous ? previous.is_active : true,
+        version: (previous?.version ?? 0) + 1,
+        template_code: code,
+        description: parsed.description || null,
+        priority: parsed.priority,
+        q_segments: parsed.q_segments,
+        q_industries: parsed.q_industries,
+        q_relationships: parsed.q_relationships,
+        q_business_lines: parsed.q_business_lines,
+        q_min_qty: parsed.q_min_qty,
+        q_max_qty: parsed.q_max_qty,
+        q_blacklist: parsed.q_blacklist,
+        is_fallback: previous?.is_fallback ?? false,
       })
       .select("id")
       .single();
     if (error) throw new Error(error.message);
 
     const { error: stepError } = await supabase.from("workflow_step_definition").insert(
-      parsed.map((s, i) => ({
+      parsed.steps.map((s, i) => ({
         workflow_definition_id: created.id,
         step_order: i + 1,
         department_id: null,
@@ -232,8 +307,109 @@ export async function saveWorkflowStepsAction(
       await supabase.from("workflow_definition").delete().eq("id", created.id);
       throw new Error(stepError.message);
     }
-    await supabase.from("workflow_definition").update({ is_active: false }).eq("id", definitionId);
-    return `Workflow "${def.name}" disimpan sebagai v${def.version + 1} (${parsed.length} langkah)`;
+    if (previous) {
+      await supabase
+        .from("workflow_definition")
+        .update({ is_active: false })
+        .eq("template_code", code)
+        .neq("id", created.id);
+    }
+    savedCode = code;
+    return `Workflow template "${parsed.name}" (${code}) disimpan sebagai v${(previous?.version ?? 0) + 1}`;
+  });
+  return { ...result, templateCode: savedCode };
+}
+
+/** Activate / deactivate a template (its latest version). The fallback template cannot be deactivated. */
+export async function setTemplateActiveAction(templateCode: string, active: boolean): Promise<ActionResult> {
+  return guarded(async ({ supabase }) => {
+    const { data } = await supabase
+      .from("workflow_definition")
+      .select("*")
+      .eq("template_code", templateCode)
+      .order("version", { ascending: false })
+      .limit(1)
+      .single();
+    const latest = data as WorkflowDefinition | null;
+    if (!latest) throw new Error("Template tidak ditemukan.");
+    if (latest.is_fallback && !active) throw new Error("Template dasar (fallback) tidak boleh dinonaktifkan.");
+    const { error } = await supabase.from("workflow_definition").update({ is_active: active }).eq("id", latest.id);
+    if (error) throw new Error(error.message);
+    return `Template ${templateCode} ${active ? "diaktifkan" : "dinonaktifkan"}`;
+  });
+}
+
+export interface TemplateTestResult {
+  ok: boolean;
+  error?: string;
+  templateName?: string;
+  reason?: string;
+  rows?: { name: string; matched: boolean; failed: string[]; priority: number }[];
+}
+
+/** "Uji pemilihan template": which template would a deal with these attributes get? */
+export async function testTemplateResolutionAction(attrs: DealAttributes): Promise<TemplateTestResult> {
+  try {
+    const me = await requireProfile();
+    if (!canManageSettings(me)) throw new Error("Hanya System Admin.");
+    const supabase = await createClient();
+    const res = resolveTemplate(await loadActiveQuotationTemplates(supabase), attrs);
+    return {
+      ok: true,
+      templateName: res.template?.name ?? "— tidak ada (CONFIG_ERROR) —",
+      reason: res.reason,
+      rows: res.evaluated
+        .sort((a, b) => b.template.priority - a.template.priority)
+        .map((e) => ({ name: e.template.name, matched: e.matched, failed: e.failed, priority: e.template.priority })),
+    };
+  } catch (e) {
+    if (isNextControlFlowError(e)) throw e;
+    return toActionError(e, "Gagal menguji template.");
+  }
+}
+
+/** Gives a template its own margin-tier ladder, starting from a copy of the global one. */
+export async function createTemplateLadderAction(templateCode: string): Promise<ActionResult> {
+  return guarded(async ({ supabase }) => {
+    const { data: existing } = await supabase
+      .from("margin_tier_authority")
+      .select("id")
+      .eq("workflow_template_code", templateCode)
+      .eq("is_active", true);
+    if (existing && existing.length > 0) throw new Error("Template ini sudah memiliki tier khusus.");
+    const { data: global } = await supabase
+      .from("margin_tier_authority")
+      .select("*")
+      .eq("is_active", true)
+      .is("business_line", null)
+      .is("workflow_template_code", null);
+    const rows = ((global ?? []) as MarginTierAuthority[]).map((t) => ({
+      tier: t.tier,
+      business_line: null,
+      gpm_lower_bound_pct: t.gpm_lower_bound_pct,
+      gpm_upper_bound_pct: t.gpm_upper_bound_pct,
+      required_roles: [],
+      decision_slots: t.decision_slots,
+      cc_slots: t.cc_slots,
+      reject_target: t.reject_target,
+      allow_bod_delegation: false,
+      is_active: true,
+      workflow_template_code: templateCode,
+    }));
+    const { error } = await supabase.from("margin_tier_authority").insert(rows);
+    if (error) throw new Error(error.message);
+    return `Tier khusus dibuat untuk ${templateCode} (salinan global)`;
+  });
+}
+
+export async function deleteTemplateLadderAction(templateCode: string): Promise<ActionResult> {
+  return guarded(async ({ supabase }) => {
+    const { error } = await supabase
+      .from("margin_tier_authority")
+      .update({ is_active: false })
+      .eq("workflow_template_code", templateCode);
+    if (error) throw new Error(error.message);
+    return `Tier khusus ${templateCode} dinonaktifkan — kembali memakai tier global`;
   });
 }
 

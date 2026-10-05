@@ -1,13 +1,13 @@
-import type { ProposalStatus, ScopeStatus, StepStatus } from "@/types/database";
+import type { ProposalStatus, ScopeStatus, StepActionKind, StepStatus } from "@/types/database";
 
 export const STATUS_LABEL: Record<ProposalStatus, string> = {
   DRAFT: "Draft (KYC)",
   PENDING_SALES_LEAD_VALIDATION: "Menunggu Validasi Sales Lead",
   PENDING_SALES_OPERATIONS: "Di Sales Operations",
   PENDING_HEAD_OF_SALES_REVIEW: "Review Head of Sales",
-  PENDING_ADDITIONAL_APPROVAL: "Persetujuan Tambahan",
-  PENDING_OWNER_APPROVAL: "Tier 2 — COGS & Profitability Owner",
-  PENDING_PRICING_COMMITTEE_APPROVAL: "Tier 3 — CCO & CFO",
+  PENDING_ADDITIONAL_APPROVAL: "Persetujuan Tambahan (template)",
+  PENDING_OWNER_APPROVAL: "Approval Tier — COGS & Profitability Owner",
+  PENDING_PRICING_COMMITTEE_APPROVAL: "Approval Tier — Pricing Committee (CCO & CFO)",
   QUOTATION_RELEASED: "Quotation Released",
   EXPIRED: "Kedaluwarsa",
   SUPERSEDED: "Digantikan (Superseded)",
@@ -116,4 +116,12 @@ export const PERIOD_LABEL: Record<string, string> = {
   DAY: "per hari",
   MONTH: "per bulan",
   OTHER: "lainnya",
+};
+
+/** Workflow template step kinds (Settings → Workflow). */
+export const STEP_KIND_LABEL: Record<StepActionKind, string> = {
+  VALIDATE: "Validasi permintaan",
+  APPROVE: "Persetujuan tambahan",
+  GENERATE_QUOTATION: "Generate quotation (quantity band)",
+  REVIEW_AND_ROUTE: "Review & rilis / rute tier",
 };

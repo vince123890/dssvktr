@@ -109,6 +109,15 @@
 >     lewat URL. Data quotation juga dibatasi per baris (Salesperson
 >     hanya melihat quotation miliknya). Matriks diatur di Settings →
 >     Akses Menu.
+> 20. **Workflow Template Catalog benar-benar banyak template** (FR-2.0.1,
+>     v4.1). Demo review: VKTR memperkirakan **±30 variasi workflow**
+>     muncul setelah aplikasi berjalan; *qualifier*-nya statis (segmen
+>     B2G/B2B/B2C, relasi khusus, industri, ambang harga, blacklist),
+>     jumlah template-nya yang terus bertambah, masing-masing dengan
+>     alur approval, rute tolak, dan wewenang diskon sendiri. Settings
+>     kini menyediakan katalog (buat, duplikat, ubah, aktif/nonaktif),
+>     qualifier per template, tier margin khusus per template, dan alat
+>     uji pemilihan template; enam template contoh disediakan.
 
 ### Riwayat Revisi Sebelumnya (ringkas)
 
@@ -584,58 +593,93 @@ Peran berikut mengikuti sheet *Actors* dan *Basic Workflow* pada
     hanya terlibat bila ada penyimpangan cost line (FR-1.1.3) atau bila
     GM jatuh ke tier yang memerlukan persetujuan mereka.
 
-- **FR-2.0.1 Workflow Template Catalog & Assignment**
+- **FR-2.0.1 Workflow Template Catalog & Assignment (direvisi v4.1)**
 
-  Tetap seperti v3.0 — alur disimpan sebagai **katalog template** yang
-  dipilih otomatis berdasarkan *qualifier* (segmen customer, nilai
-  transaksi, dll.), dapat ditambah Admin tanpa rilis ulang, dan setiap
-  quotation mengunci versi template saat dibuat. Penyesuaian v4.0:
-  - Step dapat memiliki **kondisi lewati** berbasis peran pengaju (mis.
-    validasi Sales Lead dilewati bila pengaju adalah Sales Lead).
-  - Step *generate* Sales Operations membaca **quantity band** (FR-2.8)
-    untuk menentukan mode otomatis/manual.
-  - **Routing tier margin (langkah 7) tidak diatur template** — ditentukan
-    matriks tier (Module 6) dari GM akhir, sehingga template tidak dapat
-    melemahkan wewenang margin.
+  > **Dasar (transcribe.md).** *"Ternyata kita menemukan ada 30 variasi
+  > workflow ... di asumsi saya ada 30 workflow standar ... baru habis itu
+  > kita bisa assign untuk deal tipe apa ke workflow yang mana"* dan
+  > *"yang bisa statis justru qualifier-nya"*. Workflow per segmen juga
+  > menentukan *"reject ke mana"* dan *"kalau persentase berapa
+  > negosiasinya siapa yang approve"*.
 
-- **FR-2.0.2 Basic Workflow Saat Go-Live**
+  Alur Official Quotation disimpan sebagai **katalog Workflow Template**
+  yang terus bertambah (target awal ±30), bukan satu alur:
 
-  Katalog berisi minimal dua workflow dasar dari VKTR: **Price
-  Estimate** (FR-2.0 A) dan **Official Quotation** (FR-2.0 B). Template
-  asumsi v3.0 ("Margin-Tier" dan "Segmen Customer") **dicabut** sebagai
-  template dasar — tier margin kini melekat pada langkah 7 semua
-  Official Quotation, sedangkan varian per segmen (mis. B2G dengan
-  dokumentasi tambahan) dapat ditambah kemudian lewat FR-2.0.1.
+  - **Qualifier statis** — atribut deal yang dicatat Salesperson saat
+    KYC dan dihitung sistem saat submit:
 
-- **FR-2.1 No-Code/Low-Code Workflow Configurator (Settings → Workflow)**
-  - Admin membentuk dan mengubah alur (sekuensial maupun **paralel**)
-    untuk setiap Workflow Template dalam katalog **lewat UI aplikasi**.
-  - Kedua Basic Workflow (FR-2.0) tampil sebagai template yang dapat
-    diubah, bukan alur *hardcode*. Setiap langkah dikonfigurasi dengan:
-    nama langkah, **role pelaksana** (dari Role Settings, FR-5.6), jenis
-    aksi (isi KYC / validasi / *generate* / review / approval),
-    **kondisi lewati** (mis. "lewati bila pengaju = Sales Lead"), tujuan
-    bila ditolak (mis. "kembali ke Salesperson" / "kembali ke Sales
-    Operations"), SLA (jam), dan penerima tembusan (cc).
-  - Mendukung *parallel group* (AND-join).
-  - Pengaturan terkait yang juga dapat diubah dari UI: **quantity band**
-    (batas & mode otomatis/manual/diskon *default*, FR-2.8) dan **tier
-    margin** (ambang, role approver, role tembusan, tujuan bila ditolak —
-    Module 6). Keduanya tetap terpisah dari template agar template tidak
-    dapat melemahkan wewenang margin.
-  - Setiap perubahan konfigurasi membuat **versi baru**, tercatat di
-    audit trail; quotation berjalan tetap memakai versi yang dikuncinya.
-  - Validasi saat simpan: setiap langkah punya role yang memiliki
-    minimal satu user aktif; tidak ada langkah tanpa tujuan tolak; urutan
-    tidak membentuk siklus.
-  - Eskalasi berbasis nilai transaksi dapat dikonfigurasi; eskalasi
-    berbasis margin tetap milik matriks tier (Module 6).
+    | Qualifier | Sumber | Contoh nilai (daftar diatur di Settings → Umum) |
+    |---|---|---|
+    | Segmen customer | KYC (wajib) | B2G, B2B, B2C |
+    | Industri / bidang usaha | KYC (wajib) | Pertambangan, Perkebunan, On-road Logistics, Express Logistics, Municipality, Konstruksi, Lainnya |
+    | Hubungan pelanggan | KYC (wajib) | Reguler, Relasi khusus |
+    | Lini bisnis | Form quotation | B2G/Pemerintah, B2B Commercial Fleet, Charging Infrastructure |
+    | Kuantitas | Varian & qty (KYC b) | rentang min–maks |
+    | Estimasi nilai | Sistem: harga dasar cost structure RELEASED × qty (excl. VAT) | rentang Rp |
+    | Blacklist | Sistem: nama perusahaan dicocokkan ke daftar blacklist | ya / tidak / semua |
 
-  > **Status aplikasi saat ini.** Halaman Admin POC sudah dapat
-  > membuat Workflow Template baru (langkah per departemen), namun belum
-  > mendukung kondisi lewati, tujuan tolak per langkah, tembusan, edit
-  > quantity band, maupun edit tier margin (tier masih tampil
-  > *read-only*).
+  - **Setiap template** memiliki: nama, deskripsi, qualifier (kosong =
+    semua), prioritas, langkah approval (pelaksana, kondisi lewati,
+    tujuan tolak, SLA), dan **opsional tier margin sendiri** (wewenang
+    diskon per template; tanpa itu memakai tier global).
+  - **Pemilihan otomatis saat submit** — template aktif yang **seluruh**
+    qualifier-nya cocok; bila lebih dari satu: **prioritas tertinggi**,
+    lalu **paling spesifik** (jumlah qualifier), lalu versi terbaru.
+    Tidak ada yang cocok → **template dasar** (fallback). Pengaju tidak
+    memilih alur sendiri. Template terpilih dan alasannya tercatat di
+    quotation dan audit trail.
+  - **Versi terkunci** — setiap simpan membuat versi baru; quotation
+    yang sedang berjalan memakai langkah dari versi saat ia disubmit.
+  - Langkah dapat memiliki **kondisi lewati** berbasis fungsi pengaju,
+    langkah *generate* membaca **quantity band** (FR-2.8), dan **routing
+    tier margin selalu ditambahkan setelah langkah Review** — template
+    dapat memperketat wewenang (tier khusus) tetapi tidak dapat
+    menghapus routing margin.
+
+- **FR-2.0.2 Basic Workflow & Katalog Awal Saat Go-Live**
+
+  Dua workflow dasar dari sheet *Basic Workflow*: **Price Estimate**
+  (FR-2.0 A, tanpa approval) dan **Official Quotation — Standard**
+  (FR-2.0 B, template dasar). Katalog awal berisi lima template contoh
+  yang mewakili setiap sumbu qualifier dari demo review — titik awal,
+  bukan daftar final; VKTR menambah sisanya lewat Settings:
+
+| Template (kode) | Qualifier | Prioritas | Langkah setelah KYC | Tier margin |
+|---|---|---|---|---|
+| Official Quotation — Standard (`OQ-STANDARD`) | — (dasar/fallback) | 0 | Validasi Sales Lead* → Generate → Review & Rilis | Global |
+| Official Quotation — Customer Blacklist (`OQ-BLACKLIST`) | Customer di blacklist | 100 | Validasi Sales Lead → **Persetujuan Pricing Committee** → Generate → Review | Khusus: semua tier diputus CCO + CFO |
+| Official Quotation — Relasi Khusus (`OQ-RELASI-KHUSUS`) | Hubungan = Relasi khusus | 20 | Generate → Review (tanpa validasi Sales Lead) | Khusus: GM < 15% langsung CCO + CFO |
+| Official Quotation — Nilai Besar (`OQ-NILAI-BESAR`) | Estimasi nilai ≥ Rp 50 M | 15 | Validasi* → **Persetujuan kelayakan deal (Pricing Committee)** → Generate → Review | Global |
+| Official Quotation — B2G Pemerintah (`OQ-B2G`) | Segmen = B2G | 10 | Validasi* → **Verifikasi dokumen tender (Head of Sales)** → Generate → Review (SLA 48 jam) | Khusus: setiap tier sampai CCO + CFO |
+| Official Quotation — Industri Tambang & Perkebunan (`OQ-INDUSTRI-BERAT`) | Industri = Pertambangan / Perkebunan | 5 | Validasi* → Generate → **Review aplikasi & karoseri (COGS Owner)** → Review | Global |
+
+\* dilewati bila pengaju Sales Lead.
+
+- **FR-2.1 No-Code Workflow Configurator (Settings → Workflow)**
+  - **Daftar workflow** (`/settings?tab=workflow`): tabel bernomor seluruh
+    template (qualifier, jumlah langkah, prioritas, tier, status) dengan
+    tombol **Tambah workflow**; klik baris membuka halaman detail.
+  - **Halaman detail** (`/settings/workflow/[kode]`): kapan dipakai
+    (qualifier), tier margin yang berlaku (khusus atau global), alur
+    langkah lengkap (KYC → langkah template → tier), riwayat versi, dan
+    quotation yang memakainya; tombol **Ubah**, **Duplikat**,
+    **Aktifkan/Nonaktifkan** (template dasar tidak dapat dinonaktifkan).
+  - **Editor template** (`/settings/workflow/new`, `…/[kode]/edit`): qualifier (pilihan dari daftar statis, rentang
+    qty & nilai, blacklist), prioritas, dan langkah — nama, jenis aksi
+    (validasi / persetujuan tambahan / generate / review & rute), fungsi
+    pelaksana (FR-5.6), kondisi lewati, tujuan bila ditolak, SLA.
+  - **Uji pemilihan template**: masukkan atribut deal → tampil template
+    yang akan terpilih beserta alasan, dan template mana yang tidak
+    cocok serta sebabnya.
+  - **Tier margin per template** (Settings → Tier Margin → pilih
+    template): buat tier khusus (salinan global) atau kembali ke global.
+  - Validasi saat simpan: tepat satu langkah Generate dan satu Review
+    (Review terakhir); tujuan tolak harus langkah sebelumnya; setiap
+    pelaksana dimiliki minimal satu user aktif; template non-dasar wajib
+    memiliki minimal satu qualifier.
+  - Setiap perubahan membuat **versi baru** dan tercatat di audit trail.
+  - Daftar nilai qualifier (segmen, industri, relasi) dan blacklist
+    customer diatur di **Settings → Umum & Dokumen**.
 
 - **FR-2.2 Strict Gatekeeping & Release Gate**
   - Quotation hanya dapat di-*generate* dari varian dengan cost
@@ -933,6 +977,11 @@ Peran berikut mengikuti sheet *Actors* dan *Basic Workflow* pada
   - Sistem menghitung GM akhir dan menentukan tier secara otomatis —
     tidak ada pihak yang memilih approver sendiri.
   - Tier 2 & 3 adalah **AND-join**: satu persetujuan tidak cukup.
+  - **Tier per Workflow Template (v4.1)**: template dapat memiliki tangga
+    tier sendiri (mis. B2G — setiap tier sampai CCO & CFO; Relasi Khusus
+    — GM < 15% langsung CCO & CFO). Tanpa tangga khusus, berlaku tier
+    global. Status persetujuan mengikuti siapa pemutusnya (Owner atau
+    Pricing Committee), bukan nomor tier.
   - Perubahan diskon atau cost line setelah routing **membatalkan
     persetujuan yang sudah ada** dan memicu evaluasi tier ulang.
 
@@ -978,6 +1027,7 @@ Peran berikut mengikuti sheet *Actors* dan *Basic Workflow* pada
   | f | *Likelihood* | **Ya** | Skala 5: High (5), Medium to High (4), Medium (3), Medium to Low (2), Low (1) |
   | g | *Gap identified* | **Ya** | Kesenjangan kebutuhan pelanggan yang teridentifikasi |
   | h | Informasi lain | Tidak | Termasuk skema yang diminta (Purchase/Rental) & metode pembayaran bila diketahui |
+| — | **Kualifikasi deal**: segmen customer, industri/bidang usaha, hubungan pelanggan (v4.1) | **Ya** | Menentukan Workflow Template (FR-2.0.1); daftar pilihan diatur di Settings |
 
 - **FR-7.2 Review & Verifikasi** — Salesperson meninjau seluruh data di
   layar dan dapat merevisi sebelum submit (langkah 3).
@@ -1109,7 +1159,7 @@ Pembaruan v4.0 ditandai **baru/direvisi**:
 | Dynamic Pricing | Formula Engine (**GM setelah diskon, excl. VAT — direvisi**), Multi-Currency (kurs dikunci per versi cost structure), **Multi-line item (baru)**, **Skema Purchase/Rental (baru)**, Project Identifier, Export PDF |
 | Price Estimate | **Pilih varian, harga excl./incl. VAT, log estimasi (baru)** |
 | Customer Qualification (KYC) | **Formulir KYC 8 field, review, qualification gate, penggunaan ulang (baru — sebelumnya Out of Scope)** |
-| Official Quotation Workflow | Workflow Template Catalog (**step dengan kondisi lewati — direvisi**), **Validasi Sales Lead (baru)**, **Generate Sales Operations per quantity band (baru)**, **Review Head of Sales + detail cost structure (baru)**, Release Gate (**termasuk Exclusion — At cost — direvisi**), Rejection → Sales Operations (**direvisi**), Duplicate/Fraud Guard, **Masa berlaku & penomoran (baru)**, **Penerimaan pelanggan (baru)** |
+| Official Quotation Workflow | **Workflow Template Catalog multi-template: qualifier statis, prioritas, editor, duplikat, aktif/nonaktif, uji pemilihan, tier per template (v4.1)**, Workflow Template Catalog (**step dengan kondisi lewati — direvisi**), **Validasi Sales Lead (baru)**, **Generate Sales Operations per quantity band (baru)**, **Review Head of Sales + detail cost structure (baru)**, Release Gate (**termasuk Exclusion — At cost — direvisi**), Rejection → Sales Operations (**direvisi**), Duplicate/Fraud Guard, **Masa berlaku & penomoran (baru)**, **Penerimaan pelanggan (baru)** |
 | Discount & Margin-Tier Approval | Penetapan diskon Sales Operations/Head of Sales (Rp/%), **Tier routing 15%/10% (direvisi)**, **Approval COGS+Profitability Owner / CCO+CFO + tembusan (direvisi)**, Margin impact, **Negosiasi pasca-rilis via revisi (direvisi)** |
 | Document Output | **Template "Cost Estimate": nomor, rilis/kedaluwarsa, To, Sales/Account Person, Prepared By, tabel item, Inclusions/Exclusions, Special Notes, blok penerimaan, halaman spesifikasi (direvisi dari placeholder)**, **Preview di layar, Print, Download PDF, watermark DRAFT, cetak ulang identik dari snapshot, Cost Structure Sheet internal terpisah (baru)** |
 | State Tracking & Observability | Kanban+Table per Project Identifier (**status baru**), **antrean Maker–Checker–Releaser (baru)**, SLA Timer & notifikasi, Immutable Audit Trail |
@@ -1155,6 +1205,8 @@ Pembaruan v4.0 ditandai **baru/direvisi**:
 | Akurasi data biaya vs ERP | Selisih < 1% |
 | Perubahan role/wewenang/workflow yang membutuhkan rilis ulang aplikasi | **0** — seluruhnya lewat Settings (FR-5.6, FR-2.1) |
 | Halaman di luar matriks menu yang dapat dibuka suatu role (termasuk lewat URL langsung) | **0** — dijawab 404 (FR-5.7) |
+| Varian workflow baru yang membutuhkan perubahan kode | **0** — ditambah sebagai template di katalog (FR-2.0.1) |
+| Quotation yang alurnya dipilih manual oleh pengaju | **0** — template dipilih sistem dari qualifier |
 | Quotation milik Salesperson lain yang terlihat oleh Salesperson | **0 insiden** — FR-5.7 |
 | Dokumen pelanggan tercetak memuat cost structure, atau versi draft tercetak tanpa watermark | **0 insiden** — FR-1.5.4 |
 
@@ -1181,6 +1233,12 @@ Ringkasan yang memengaruhi PRD:
 7. **Pemegang peran Product Owner** — tidak ada di sheet *Actors*.
 8. **Siapa di antara COGS Owner** yang menyetujui Tier 2 (salah satu
    atau keduanya).
+9. **Daftar ±30 Workflow Template** yang dimaksud demo review — beserta
+   qualifier, langkah, dan wewenang diskon masing-masing. Katalog awal
+   berisi 6 template contoh (FR-2.0.2); sisanya diisi VKTR lewat Settings.
+10. **Definisi operasional qualifier** "relasi khusus" (siapa yang
+    berhak menandai) dan sumber daftar blacklist (saat ini dikelola
+    manual di Settings).
 
 ---
 
