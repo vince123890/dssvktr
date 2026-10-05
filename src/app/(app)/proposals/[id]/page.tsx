@@ -238,7 +238,7 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
       )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
+        <div className="min-w-0 space-y-6 lg:col-span-2">
           {showEditor && (
             <PricingEditor
               proposalId={proposal.id}
@@ -271,51 +271,51 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
                 </span>
               )}
             </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-sm">
+            <CardContent className="overflow-x-auto p-0">
+              <table className="w-full min-w-[720px] text-sm">
                 <thead>
-                  <tr className="border-b border-card-border bg-slate-50 text-left text-xs text-muted">
-                    <th className="px-5 py-2.5 font-medium">Varian</th>
-                    <th className="px-5 py-2.5 font-medium">Qty</th>
-                    <th className="px-5 py-2.5 font-medium">Skema</th>
-                    {seesCost && <th className="px-5 py-2.5 font-medium text-right">Harga dasar</th>}
-                    {seesCost && <th className="px-5 py-2.5 font-medium text-right">Diskon</th>}
-                    <th className="px-5 py-2.5 font-medium text-right">Harga / unit incl. VAT</th>
-                    <th className="px-5 py-2.5 font-medium text-right">Total incl. VAT</th>
-                    {seesCost && <th className="px-5 py-2.5 font-medium text-right">GM</th>}
+                  <tr className="border-b border-card-border bg-slate-50 text-left text-xs text-muted [&>th]:whitespace-nowrap">
+                    <th className="min-w-[180px] px-4 py-2.5 font-medium">Varian</th>
+                    <th className="px-4 py-2.5 font-medium">Qty</th>
+                    <th className="px-4 py-2.5 font-medium">Skema</th>
+                    {seesCost && <th className="px-4 py-2.5 font-medium text-right">Harga dasar</th>}
+                    {seesCost && <th className="px-4 py-2.5 font-medium text-right">Diskon</th>}
+                    <th className="px-4 py-2.5 font-medium text-right">Harga / unit incl. VAT</th>
+                    <th className="px-4 py-2.5 font-medium text-right">Total incl. VAT</th>
+                    {seesCost && <th className="px-4 py-2.5 font-medium text-right">GM</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {lines.map((l) => {
                     const showPrice = seesCost || released;
                     return (
-                      <tr key={l.id} className="border-b border-card-border last:border-0">
-                        <td className="px-5 py-2.5 font-medium">{products.get(l.product_id)?.name}</td>
-                        <td className="px-5 py-2.5">{l.quantity}</td>
-                        <td className="px-5 py-2.5 text-xs">
+                      <tr key={l.id} className="border-b border-card-border align-top last:border-0 [&>td:not(:first-child)]:whitespace-nowrap">
+                        <td className="px-4 py-2.5 font-medium">{products.get(l.product_id)?.name}</td>
+                        <td className="px-4 py-2.5">{l.quantity}</td>
+                        <td className="px-4 py-2.5 text-xs">
                           {l.scheme === "RENTAL" ? `Rental ${l.rental_tenor_months ?? "-"} bln` : "Purchase"}
                         </td>
-                        {seesCost && <td className="px-5 py-2.5 text-right text-xs">{formatIDR(Number(l.list_price_ex_vat))}</td>}
+                        {seesCost && <td className="px-4 py-2.5 text-right text-xs">{formatIDR(Number(l.list_price_ex_vat))}</td>}
                         {seesCost && (
-                          <td className="px-5 py-2.5 text-right text-xs">
+                          <td className="px-4 py-2.5 text-right text-xs">
                             {formatIDR(Number(l.discount_amount))}
                             <div className="text-[10px] text-muted">{Number(l.discount_pct).toFixed(3)}%</div>
                           </td>
                         )}
-                        <td className="px-5 py-2.5 text-right">{showPrice && pricedYet ? formatIDR(Number(l.net_price_incl_vat)) : "—"}</td>
-                        <td className="px-5 py-2.5 text-right">{showPrice && pricedYet ? formatIDR(Number(l.line_total_incl_vat)) : "—"}</td>
-                        {seesCost && <td className="px-5 py-2.5 text-right font-medium">{l.gm != null ? `${(Number(l.gm) * 100).toFixed(2)}%` : "—"}</td>}
+                        <td className="px-4 py-2.5 text-right">{showPrice && pricedYet ? formatIDR(Number(l.net_price_incl_vat)) : "—"}</td>
+                        <td className="px-4 py-2.5 text-right">{showPrice && pricedYet ? formatIDR(Number(l.line_total_incl_vat)) : "—"}</td>
+                        {seesCost && <td className="px-4 py-2.5 text-right font-medium">{l.gm != null ? `${(Number(l.gm) * 100).toFixed(2)}%` : "—"}</td>}
                       </tr>
                     );
                   })}
                 </tbody>
                 {(seesCost || released) && pricedYet && (
                   <tfoot>
-                    <tr className="bg-slate-50 text-xs">
-                      <td className="px-5 py-2.5 font-medium" colSpan={seesCost ? 6 : 4}>
+                    <tr className="bg-slate-50 text-xs [&>td]:whitespace-nowrap">
+                      <td className="px-4 py-2.5 font-medium" colSpan={seesCost ? 6 : 4}>
                         Total excl. VAT {formatIDR(Number(proposal.total_ex_vat))} · PPN {proposal.vat_rate_pct ?? settings.vatRatePct}%
                       </td>
-                      <td className="px-5 py-2.5 text-right font-semibold">{formatIDR(Number(proposal.total_incl_vat))}</td>
+                      <td className="px-4 py-2.5 text-right font-semibold">{formatIDR(Number(proposal.total_incl_vat))}</td>
                       {seesCost && <td />}
                     </tr>
                   </tfoot>
@@ -387,7 +387,7 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
           </Card>
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <ActionPanel proposalId={proposal.id} caps={caps} />
 
           <Card>
