@@ -2020,7 +2020,7 @@ ada logika ganda antara simulasi dan perhitungan sesungguhnya.
 | **FR-1.5.4 (preview & cetak)** | `renderQuotationDocument`, `document_render` (§4.12) |
 | **FR-1.6 (PPN)** | `tax_rate` (§2.1), §3.3 B6 |
 | **FR-1.7 (Purchase/Rental)** | `quotation_line_item.scheme` (§2.1), §3.5 |
-| **FR-2.0.1 v4.1 (katalog multi-template, qualifier, tier per template)** | `templateCatalog.ts` (`resolveTemplate`), migrasi 0017, Settings → Workflow (`WorkflowCatalog.tsx`), `saveTemplateAction`, `loadLadder(templateCode)` (§4.1a, §11.1) |
+| **FR-2.0.1 v4.1 (katalog multi-template, qualifier, tier per template)** | `templateCatalog.ts` (`resolveTemplate`), migrasi 0017, Settings → Workflow (daftar `WorkflowCatalog.tsx`; detail/tambah/ubah `settings/workflow/[code]`, `new`, `[code]/edit`; `loadTemplateBundle`, `describeQualifiers`), `saveTemplateAction`, `loadLadder(templateCode)` (§4.1a, §11.1) |
 | FR-2.0, FR-2.0.1, FR-2.0.2, **FR-2.1 (workflow configurable)** | `workflow_definition`, `workflow_step_definition` (§2.1), §4.1, §4.1a |
 | FR-2.2 (gate & release gate, Exclusion At cost) | `canSubmitQuotation`, `canGenerate`, `canReleaseQuotation` (§4.2, §4.2.1) |
 | FR-2.3, FR-2.4 | §4.3, §4.4 |

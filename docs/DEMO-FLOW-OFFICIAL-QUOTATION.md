@@ -290,11 +290,13 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
 
 ## B7 — (Opsional) Role & workflow diatur di aplikasi
 
-1. **admin@vktr.demo** → **Settings → Workflow**: langkah *Validasi Sales
-   Lead → Generate Official Quotation → Review & Rilis* tampil sebagai
-   baris yang dapat diubah (pelaksana, kondisi lewati, tujuan tolak, SLA).
-   Ubah SLA langkah 2 ke `8` → **Simpan sebagai versi baru** (quotation
-   yang sedang berjalan tetap memakai versi lamanya).
+1. **admin@vktr.demo** → **Settings → Workflow** → klik baris
+   *Official Quotation — Standard* → halaman detail menampilkan alur
+   *Validasi Sales Lead → Generate Official Quotation → Review & Rilis*
+   (pelaksana, kondisi lewati, tujuan tolak, SLA). Klik **Ubah** → SLA
+   langkah 2 ke `8` → **Simpan sebagai versi baru** → kembali ke detail;
+   *Riwayat versi* bertambah satu (quotation yang sedang berjalan tetap
+   memakai versi lamanya).
 2. **Settings → Tier Margin & Quantity Band**: ambang 15% / 10%, pemutus
    tiap tier, tembusan, dan band 1 / 2–5 / 6–9 / 10+ beserta diskon
    default — semuanya dapat diedit.

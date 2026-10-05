@@ -119,12 +119,13 @@ diatur di aplikasi**, bukan tertanam di kode.
 
 ### Langkah 1b — Workflow, Quantity Band, Tier, PPN
 
-0. **Settings → Workflow** menampilkan **katalog** Workflow Template
-   (Standard + 5 contoh: Blacklist, Relasi Khusus, Nilai Besar, B2G,
-   Industri Tambang & Perkebunan) — VKTR memperkirakan ±30 template;
-   detail di `DEMO-FLOW-OFFICIAL-QUOTATION.md` B6c.
-1. **Settings → Workflow** → buka template **Official Quotation —
-   Standard**. Tunjukkan langkahnya:
+0. **Settings → Workflow** menampilkan **daftar bernomor** Workflow
+   Template (Standard + 5 contoh: Blacklist, Relasi Khusus, Nilai Besar,
+   B2G, Industri Tambang & Perkebunan) dengan tombol **Tambah workflow**
+   — VKTR memperkirakan ±30 template; detail di
+   `DEMO-FLOW-OFFICIAL-QUOTATION.md` B6c.
+1. **Settings → Workflow** → klik baris **Official Quotation —
+   Standard** → halaman detail. Tunjukkan langkahnya:
 
    | # | Langkah | Pelaksana | Kondisi lewati | Bila ditolak | SLA |
    |---|---|---|---|---|---|
@@ -133,11 +134,13 @@ diatur di aplikasi**, bukan tertanam di kode.
    | 3 | Generate Official Quotation | Sales Operations | – | – | 24 jam |
    | 4 | Review & rilis/rute | Head of Sales | – | Kembali ke langkah 3 | 24 jam |
 
-2. Ubah SLA langkah 3 dari 24 menjadi **8 jam** → **Simpan**. Tunjukkan
-   bahwa versi template naik dan perubahan tercatat di audit trail;
-   quotation yang sedang berjalan tetap memakai versi lama.
-3. Buka template **Price Estimate** — tanpa langkah approval; hanya
-   mengatur siapa yang boleh (Salesperson, Authorized Agency).
+2. Klik **Ubah** → SLA langkah 3 dari 24 menjadi **8 jam** → **Simpan
+   sebagai versi baru**. Kembali di halaman detail, *Riwayat versi*
+   bertambah dan perubahan tercatat di audit trail; quotation yang sedang
+   berjalan tetap memakai versi lama.
+3. **Price Estimate** tidak punya langkah approval sehingga tidak muncul
+   di daftar workflow; siapa yang boleh memakainya (Salesperson,
+   Authorized Agency) diatur di **Settings → Akses Menu**.
 4. **Settings → Tier Margin & Quantity Band** — tabel
    di §0 tampil dan **dapat diedit**. Tekankan: tier sengaja **terpisah
    dari template**, sehingga template baru tidak dapat menghilangkan
