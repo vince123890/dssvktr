@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { requireMenu } from "@/lib/menuAccess";
-import { canSeeCostStructure } from "@/lib/rbac";
+import { canSeeCostStructure, hasAnyFunction } from "@/lib/rbac";
 import { evaluateVersion, loadCostItems, loadVersionLines } from "@/lib/costStructure";
 import { resolveExchangeRate } from "@/lib/pricing/currency";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { formatDate, formatIDR } from "@/lib/utils";
 import Link from "next/link";
 import { NewVersionButton } from "./NewVersionButton";
+import { DiscardDraftButton } from "./DiscardDraftButton";
 import type { CostStructureVersion, ProductMasterData } from "@/types/database";
 import { AlertTriangle } from "lucide-react";
 
@@ -67,9 +68,12 @@ export default async function CostStructurePage() {
                 <CardDescription>{product.document_description ?? product.code}</CardDescription>
               </div>
               {draft ? (
-                <Link href={`/cost-structure/${draft.id}`} className="text-xs font-medium text-primary hover:underline">
-                  Lanjutkan draft v{draft.version_no} →
-                </Link>
+                <div className="flex flex-col items-end gap-1.5">
+                  <Link href={`/cost-structure/${draft.id}`} className="text-xs font-medium text-primary hover:underline">
+                    Lanjutkan draft v{draft.version_no} →
+                  </Link>
+                  {hasAnyFunction(me, ["COGS_OWNER", "PROFITABILITY_OWNER", "SALES_PRICING_OWNER", "PRICING_COMMITTEE", "SYSTEM_ADMIN"]) && <DiscardDraftButton versionId={draft.id} versionNo={draft.version_no} />}
+                </div>
               ) : (
                 <NewVersionButton productId={product.id} />
               )}
@@ -92,8 +96,8 @@ export default async function CostStructurePage() {
                       <th className="py-2 font-medium">Status</th>
                       <th className="py-2 font-medium">Kurs terkunci</th>
                       <th className="py-2 font-medium text-right">Harga dasar excl. VAT</th>
-                      <th className="py-2 font-medium text-right">GM standar</th>
-                      <th className="py-2 font-medium">Dirilis</th>
+                      <th className="py-2 pl-6 font-medium text-right">GM standar</th>
+                      <th className="py-2 pl-8 font-medium">Dirilis</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -108,8 +112,8 @@ export default async function CostStructurePage() {
                           <td className="py-2"><Badge tone={STATUS_TONE[v.status]}>{v.status}</Badge></td>
                           <td className="py-2 text-xs">{Number(v.locked_fx_rate).toLocaleString("id-ID")}</td>
                           <td className="py-2 text-right text-xs">{s ? formatIDR(s.list) : "—"}</td>
-                          <td className="py-2 text-right text-xs">{s ? `${(s.gm * 100).toFixed(2)}%` : "—"}</td>
-                          <td className="py-2 text-xs text-muted">{v.released_at ? formatDate(v.released_at) : "—"}</td>
+                          <td className="py-2 pl-6 text-right text-xs">{s ? `${(s.gm * 100).toFixed(2)}%` : "—"}</td>
+                          <td className="py-2 pl-8 text-xs text-muted">{v.released_at ? formatDate(v.released_at) : "—"}</td>
                         </tr>
                       );
                     })}

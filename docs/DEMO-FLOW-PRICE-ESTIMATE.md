@@ -117,8 +117,9 @@ tanpa ubah kode (PRD FR-2.1).
 > Quotation, agar angka di dokumen itu tetap cocok.
 
 1. Login **procurement@vktr.demo** → **Cost Structure** → kartu *LDT 4x2
-   SWB Dumper 90 kWh* → **Versi baru**, alasan `Harga aksesori naik` →
-   **Buat**.
+   SWB Dumper 90 kWh* → klik **v1** untuk melihat detailnya dulu → tombol
+   **Buat perubahan (v2)** di kanan atas, alasan `Harga aksesori naik` →
+   **Buat**. (Alternatif: tombol **Versi baru** langsung di kartu.)
 2. Versi v2 (Draft) terbuka. Keempat scope disalin berstatus **Released**
    dari v1 karena kurs tidak berubah. Pada kartu **COGS** klik **Buka
    untuk perubahan**.
@@ -131,6 +132,13 @@ tanpa ubah kode (PRD FR-2.1).
    Keempat scope Released → v2 **RELEASED**, v1 **RETIRED**.
 6. Login **agency@vktr.demo** → Price Estimate SWB kini **Rp 830.700.000**
    excl. VAT / **Rp 922.077.000** incl. VAT, basis *cost structure v2*.
+
+> **Bila perubahan tidak jadi** (sebelum v2 RELEASED): di kartu varian
+> atau di halaman v2 klik **Batalkan draft v2** → isi alasan →
+> **Batalkan draft**. Draft beserta isiannya dihapus, **v1 tetap
+> berlaku**, tombol *Versi baru* muncul lagi, dan Audit Trail mencatat
+> pembatalannya. Membuka v1 lama (RETIRED) menampilkan tautan *Lihat
+> versi berlaku*.
 
 **Yang dibuktikan:** harga estimasi selalu berasal dari cost structure
 yang sudah dirilis pemilik scope-nya (PRD FR-1.1.2); tidak ada angka yang

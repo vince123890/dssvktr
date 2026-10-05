@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireMenu } from "@/lib/menuAccess";
-import { canSeeCostStructure } from "@/lib/rbac";
+import { canSeeCostStructure, hasAnyFunction } from "@/lib/rbac";
 import {
   canPerformScopeAction,
   evaluateVersion,
@@ -16,6 +16,8 @@ import { formatIDR } from "@/lib/utils";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ScopeCard, type ScopeItemView } from "./ScopeCard";
+import { DiscardDraftButton } from "../DiscardDraftButton";
+import { NewVersionButton } from "../NewVersionButton";
 import type {
   CostStructureScopeState,
   CostStructureVersion,
@@ -33,13 +35,22 @@ export default async function CostStructureVersionPage({ params }: { params: Pro
   if (!vRow) notFound();
   const version = vRow as CostStructureVersion;
 
-  const [items, lines, settings, { data: product }, { data: stateRows }] = await Promise.all([
+  const [items, lines, settings, { data: product }, { data: stateRows }, { data: siblingRows }] = await Promise.all([
     loadCostItems(supabase),
     loadVersionLines(supabase, versionId),
     loadSettings(supabase),
     supabase.from("product_master_data").select("*").eq("id", version.product_id).single(),
     supabase.from("cost_structure_scope_state").select("*").eq("version_id", versionId),
+    supabase
+      .from("cost_structure_version")
+      .select("id, version_no, status")
+      .eq("product_id", version.product_id)
+      .in("status", ["DRAFT", "RELEASED"]),
   ]);
+  const siblings = (siblingRows ?? []) as Pick<CostStructureVersion, "id" | "version_no" | "status">[];
+  const openDraft = siblings.find((s) => s.status === "DRAFT" && s.id !== version.id) ?? null;
+  const current = siblings.find((s) => s.status === "RELEASED") ?? null;
+  const isOwner = hasAnyFunction(me, ["COGS_OWNER", "PROFITABILITY_OWNER", "SALES_PRICING_OWNER", "PRICING_COMMITTEE", "SYSTEM_ADMIN"]);
   const states = (stateRows ?? []) as CostStructureScopeState[];
   const cs = evaluateVersion(items, lines, Number(version.locked_fx_rate));
   const scenario = versionScenario(cs, settings.deviationGmThresholdPct);
@@ -99,7 +110,27 @@ export default async function CostStructureVersionPage({ params }: { params: Pro
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/cost-structure" className="text-xs text-primary hover:underline">← Cost Structure</Link>
+        <div className="flex items-center justify-between gap-4">
+          <Link href="/cost-structure" className="text-xs text-primary hover:underline">← Cost Structure</Link>
+          {/* View the detail first, then change from here: a released version opens a new draft (FR-1.4). */}
+          {editableVersion && isOwner && (
+            <DiscardDraftButton versionId={version.id} versionNo={version.version_no} redirectTo="/cost-structure" />
+          )}
+          {version.status === "RELEASED" && isOwner && (
+            openDraft ? (
+              <Link href={`/cost-structure/${openDraft.id}`} className="text-xs font-medium text-primary hover:underline">
+                Lanjutkan draft v{openDraft.version_no} →
+              </Link>
+            ) : (
+              <NewVersionButton productId={version.product_id} label={`Buat perubahan (v${version.version_no + 1})`} />
+            )
+          )}
+          {version.status === "RETIRED" && current && (
+            <Link href={`/cost-structure/${current.id}`} className="text-xs font-medium text-primary hover:underline">
+              Lihat versi berlaku v{current.version_no} →
+            </Link>
+          )}
+        </div>
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <h1 className="text-xl font-semibold">{p.name} — v{version.version_no}</h1>
           <Badge tone={version.status === "RELEASED" ? "success" : version.status === "DRAFT" ? "info" : "default"}>{version.status}</Badge>

@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 import { createCostStructureVersionAction } from "./actions";
 
-export function NewVersionButton({ productId }: { productId: string }) {
+export function NewVersionButton({ productId, label = "Versi baru" }: { productId: string; label?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -16,7 +16,7 @@ export function NewVersionButton({ productId }: { productId: string }) {
   if (!open) {
     return (
       <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
-        <Plus size={13} /> Versi baru
+        <Plus size={13} /> {label}
       </Button>
     );
   }

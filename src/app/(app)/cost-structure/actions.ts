@@ -169,6 +169,48 @@ async function currentScenario(
   return { scenario: versionScenario(result, settings.deviationGmThresholdPct), result, items };
 }
 
+/**
+ * Cancel a DRAFT version that will not go ahead. Prices only ever read
+ * RELEASED versions, so a draft has no quotation or estimate pointing at
+ * it; its lines and scope states go with it (on delete cascade). The
+ * released version stays in force and a new draft can be started.
+ */
+export async function discardCostStructureVersionAction(versionId: string, reason: string): Promise<ActionResult> {
+  try {
+    const actor = await requireProfile();
+    if (!hasAnyFunction(actor, ["COGS_OWNER", "PROFITABILITY_OWNER", "SALES_PRICING_OWNER", "PRICING_COMMITTEE", "SYSTEM_ADMIN"])) {
+      throw new Error("Hanya pemilik scope yang dapat membatalkan draft cost structure.");
+    }
+    if (!reason.trim()) throw new Error("Alasan pembatalan wajib diisi.");
+    const supabase = await createClient();
+    const { data: version } = await supabase
+      .from("cost_structure_version")
+      .select("id, product_id, version_no, status")
+      .eq("id", versionId)
+      .maybeSingle();
+    if (!version) throw new Error("Versi tidak ditemukan.");
+    if (version.status !== "DRAFT") throw new Error("Hanya versi DRAFT yang dapat dibatalkan.");
+
+    const { error } = await supabase.from("cost_structure_version").delete().eq("id", versionId).eq("status", "DRAFT");
+    if (error) throw new Error(error.message);
+
+    await writeAuditLog(supabase, {
+      entityType: "cost_structure_version",
+      entityId: versionId,
+      actorId: actor.id,
+      action: "UPDATE",
+      fieldChanges: [{ field: "status", old: "DRAFT", new: "DIBATALKAN" }],
+      reason: `Draft v${version.version_no} dibatalkan: ${reason.trim()}`,
+    });
+
+    revalidatePath("/cost-structure", "layout");
+    return { ok: true };
+  } catch (e) {
+    if (isNextControlFlowError(e)) throw e;
+    return toActionError(e, "Gagal membatalkan draft.");
+  }
+}
+
 export async function saveScopeValuesAction(
   versionId: string,
   scope: CostScope,

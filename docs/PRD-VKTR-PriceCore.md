@@ -283,6 +283,13 @@ Peran berikut mengikuti sheet *Actors* dan *Basic Workflow* pada
   Estimate dan Official Quotation hanya setelah **keempat scope-nya
   berstatus `RELEASED`**.
 
+  Alur pengguna: buka detail versi yang berlaku → **Buat perubahan
+  (v*n*+1)** membuat draft (scope yang tidak berubah disalin berstatus
+  `RELEASED`); draft dapat dilanjutkan kapan saja atau **dibatalkan**
+  oleh pemilik scope dengan alasan wajib — draft dihapus, versi
+  `RELEASED` tetap berlaku, dan pembatalan tercatat di audit trail.
+  Satu varian hanya memiliki satu draft terbuka pada satu waktu.
+
   - Setiap scope pada satu versi melewati tiga tahap berurutan:
     **Maker** (mengisi/mengubah nilai) → **Checker** (memeriksa, dapat
     mengembalikan ke Maker) → **Releaser** (merilis nilai scope
