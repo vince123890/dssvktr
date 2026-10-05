@@ -167,10 +167,10 @@ export function PricingEditor({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full min-w-[900px] text-xs">
             <thead>
               <tr className="border-b border-card-border text-left text-muted">
-                <th className="py-2 pr-2 font-medium">Varian</th>
+                <th className="w-[28%] min-w-[260px] py-2 pr-2 font-medium">Varian</th>
                 <th className="py-2 pr-2 font-medium">Qty · Band</th>
                 <th className="py-2 pr-2 font-medium">Harga dasar excl. VAT</th>
                 <th className="py-2 pr-2 font-medium">Diskon</th>

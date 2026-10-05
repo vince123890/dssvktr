@@ -272,10 +272,10 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
               )}
             </CardHeader>
             <CardContent className="overflow-x-auto p-0">
-              <table className="w-full min-w-[720px] text-sm">
+              <table className="w-full min-w-[880px] text-sm">
                 <thead>
                   <tr className="border-b border-card-border bg-slate-50 text-left text-xs text-muted [&>th]:whitespace-nowrap">
-                    <th className="min-w-[180px] px-4 py-2.5 font-medium">Varian</th>
+                    <th className="w-[34%] min-w-[280px] px-4 py-2.5 font-medium">Varian</th>
                     <th className="px-4 py-2.5 font-medium">Qty</th>
                     <th className="px-4 py-2.5 font-medium">Skema</th>
                     {seesCost && <th className="px-4 py-2.5 font-medium text-right">Harga dasar</th>}
