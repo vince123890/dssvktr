@@ -6,14 +6,29 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { createProductAction, updateProductAction } from "./actions";
+import { PRODUCT_BASE, productHref } from "./productGroups";
 
 /**
  * FR-1.5.1 — a product VARIANT (make → model → type → variant) with the
  * attributes the Cost Estimate prints: document description, loco,
  * build type, inclusions/exclusions and specification pages.
- * Without `product` it adds a variant; with it, it edits that variant.
+ * A "product" is a make + model; it exists through its first variant.
+ * Without `product` it adds a variant (under `preset` when given); with
+ * it, it edits that variant.
  */
-export function ProductForm({ product }: { product?: ProductMasterData }) {
+export function ProductForm({
+  product,
+  preset,
+  models = [],
+  cancelHref,
+}: {
+  product?: ProductMasterData;
+  /** Make/model of the product a new variant is added to. */
+  preset?: { make: string; model: string };
+  /** Existing models, suggested so variants group under the same product. */
+  models?: string[];
+  cancelHref?: string;
+}) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
@@ -30,8 +45,12 @@ export function ProductForm({ product }: { product?: ProductMasterData }) {
         startTransition(async () => {
           const result = p ? await updateProductAction(p.id, formData) : await createProductAction(formData);
           if (!result.ok) setError(result.error ?? "Gagal menyimpan produk");
-          else if (p) router.push(`/master-data/product?saved=${encodeURIComponent(p.code)}`);
-          else formRef.current?.reset();
+          else {
+            // Back to the product's detail page, where the variant now appears.
+            const make = String(formData.get("make") || "VKTR");
+            const model = String(formData.get("model") || formData.get("name"));
+            router.push(`${productHref(make, model)}?saved=${encodeURIComponent(p?.code ?? String(formData.get("code")))}`);
+          }
         });
       }}
       className="grid grid-cols-2 gap-3 lg:grid-cols-4"
@@ -47,8 +66,11 @@ export function ProductForm({ product }: { product?: ProductMasterData }) {
         />
       </Field>
       <Field label="Nama varian *" className="lg:col-span-3"><input name="name" required defaultValue={p?.name} placeholder="VKTR Light Duty Truck 4x2 SWB Dumper 90 kWh" className="pc-input" /></Field>
-      <Field label="Make"><input name="make" defaultValue={p ? p.make ?? "" : "VKTR"} className="pc-input" /></Field>
-      <Field label="Model"><input name="model" defaultValue={p?.model ?? ""} placeholder="Light Duty Truck" className="pc-input" /></Field>
+      <Field label="Make (produk)"><input name="make" defaultValue={p ? p.make ?? "" : preset?.make ?? "VKTR"} className="pc-input" /></Field>
+      <Field label="Model (produk) *">
+        <input name="model" required list="pmd-models" defaultValue={p?.model ?? preset?.model ?? ""} placeholder="Light Duty Truck / Bus / ..." className="pc-input" />
+        <datalist id="pmd-models">{models.map((m) => <option key={m} value={m} />)}</datalist>
+      </Field>
       <Field label="Type"><input name="variant_type" defaultValue={p?.variant_type ?? ""} placeholder="4x2 Short Wheelbase" className="pc-input" /></Field>
       <Field label="Variant"><input name="variant" defaultValue={p?.variant ?? ""} placeholder="Dumper, Battery 90 kWh" className="pc-input" /></Field>
       <Field label="Wheelbase"><input name="wheelbase" defaultValue={p?.wheelbase ?? ""} placeholder="Short Wheelbase" className="pc-input" /></Field>
@@ -88,7 +110,7 @@ export function ProductForm({ product }: { product?: ProductMasterData }) {
       )}
       {error && <p className="col-span-2 text-xs text-danger lg:col-span-4">{error}</p>}
       <div className="col-span-2 flex items-center justify-end gap-3 lg:col-span-4">
-        {editing && <Link href="/master-data/product" className="text-xs text-muted hover:underline">Batal</Link>}
+        <Link href={cancelHref ?? PRODUCT_BASE} className="text-xs text-muted hover:underline">Batal</Link>
         <Button type="submit" loading={isPending} size="sm">
           {isPending ? "Menyimpan..." : editing ? "Simpan Perubahan" : "Tambah Varian"}
         </Button>

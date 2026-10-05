@@ -1,126 +1,104 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireMenu } from "@/lib/menuAccess";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
-import Link from "next/link";
+import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import Link from "next/link";
 import { canManageProductMasterData } from "@/lib/rbac";
 import type { ProductMasterData } from "@/types/database";
-import { ProductForm } from "./ProductForm";
-import { ProductStatusButton } from "./ProductStatusButton";
+import { Plus } from "lucide-react";
+import { PRODUCT_BASE, groupProducts, productHref } from "./productGroups";
 
-export default async function ProductMasterDataPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ edit?: string; saved?: string }>;
-}) {
-  const { edit, saved } = await searchParams;
+export default async function ProductListPage() {
   const profile = await requireMenu("product");
   const supabase = await createClient();
 
-  const { data: products } = await supabase
-    .from("product_master_data")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  const items = (products ?? []) as ProductMasterData[];
+  const [{ data: rows }, { data: released }] = await Promise.all([
+    supabase.from("product_master_data").select("*").order("created_at", { ascending: true }),
+    supabase.from("cost_structure_version").select("product_id").eq("status", "RELEASED"),
+  ]);
+  const products = groupProducts((rows ?? []) as ProductMasterData[]);
+  const quotable = new Set(((released ?? []) as { product_id: string }[]).map((r) => r.product_id));
   const canEdit = canManageProductMasterData(profile);
-  const editing = canEdit && edit ? items.find((p) => p.id === edit) ?? null : null;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Product Master Data</h1>
-        <p className="text-sm text-muted mt-1">
-          Spesifikasi, varian sasis/karoseri, gambar, dan brosur produk
-          (FR-1.5) — dikelola Product Owner, terpisah dari struktur biaya.
-          Konten ini mengalir ke dokumen quotation (FR-1.5.2/FR-1.5.3), bukan
-          menjadi cost item.
-        </p>
-        {!canEdit && (
-          <p className="text-xs text-warning bg-warning-bg inline-block rounded-lg px-3 py-1.5 mt-2">
-            Anda login sebagai role non-Product Owner — halaman ini read-only.
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold">Product Master Data</h1>
+          <p className="mt-1 max-w-3xl text-sm text-muted">
+            Produk (make · model) dan variannya — spesifikasi, gambar, dan brosur (FR-1.5), dikelola Product Owner,
+            terpisah dari struktur biaya. Varian adalah unit yang dikutip; harganya berasal dari Cost Structure.
           </p>
+          {!canEdit && (
+            <p className="mt-2 inline-block rounded-lg bg-warning-bg px-3 py-1.5 text-xs text-warning">
+              Anda login sebagai role non-Product Owner — halaman ini read-only.
+            </p>
+          )}
+        </div>
+        {canEdit && (
+          <Link href={`${PRODUCT_BASE}/new`}>
+            <Button size="sm"><Plus size={13} /> Tambah Produk</Button>
+          </Link>
         )}
       </div>
 
-      {saved && !editing && (
-        <p className="rounded-lg bg-success-bg px-3 py-2 text-xs text-success">Perubahan varian {saved} tersimpan dan tercatat di Audit Trail.</p>
-      )}
-
-      {editing ? (
-        <Card className="ring-2 ring-primary/30">
-          <CardHeader>
-            <div>
-              <CardTitle>Ubah Varian — {editing.name}</CardTitle>
-              <CardDescription>Kode varian tetap; setiap field yang berubah tercatat di Audit Trail.</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ProductForm product={editing} />
-          </CardContent>
-        </Card>
-      ) : (
-        canEdit && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Tambah Varian Baru</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ProductForm />
-            </CardContent>
-          </Card>
-        )
-      )}
-
       <Card>
         <CardHeader>
-          <CardTitle>Katalog Produk</CardTitle>
+          <div>
+            <CardTitle>Daftar Produk ({products.length})</CardTitle>
+            <CardDescription>Klik produk untuk melihat detail dan variannya, atau menambah varian.</CardDescription>
+          </div>
         </CardHeader>
-        <CardContent className="p-0">
-          <table className="w-full text-sm">
+        <CardContent className="overflow-x-auto p-0">
+          <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-card-border bg-slate-50 text-left text-xs text-muted">
-                <th className="px-5 py-2.5 font-medium">Code</th>
-                <th className="px-5 py-2.5 font-medium">Name</th>
-                <th className="px-5 py-2.5 font-medium">Model · Type · Variant</th>
-                <th className="px-5 py-2.5 font-medium">Build · Loco</th>
-                <th className="px-5 py-2.5 font-medium">Status</th>
-                {canEdit && <th className="px-5 py-2.5 font-medium" />}
+                <th className="w-8 px-5 py-2.5 font-medium">#</th>
+                <th className="px-5 py-2.5 font-medium">Produk</th>
+                <th className="px-5 py-2.5 font-medium">Varian</th>
+                <th className="px-5 py-2.5 font-medium">Aktif</th>
+                <th className="px-5 py-2.5 font-medium">Siap dikutip</th>
+                <th className="px-5 py-2.5" />
               </tr>
             </thead>
             <tbody>
-              {items.map((p) => (
-                <tr key={p.id} className={`border-b border-card-border last:border-0 ${editing?.id === p.id ? "bg-blue-50/60" : ""}`}>
-                  <td className="px-5 py-2.5 font-mono text-xs text-muted">{p.code}</td>
-                  <td className="px-5 py-2.5 font-medium">{p.name}</td>
-                  <td className="px-5 py-2.5 text-muted">{[p.model, p.variant_type, p.variant].filter(Boolean).join(" · ") || p.chassis_variant || "—"}</td>
-                  <td className="px-5 py-2.5 text-muted">{[p.build_type, p.loco && `loco ${p.loco}`].filter(Boolean).join(" · ") || "—"}</td>
-                  <td className="px-5 py-2.5">
-                    <Badge tone={p.status === "ACTIVE" ? "success" : "default"}>
-                      {p.status}
-                    </Badge>
-                  </td>
-                  {canEdit && (
-                    <td className="whitespace-nowrap px-5 py-2.5 text-right">
-                      <Link href={`/master-data/product?edit=${p.id}`} className="mr-4 text-xs font-medium text-primary hover:underline">
-                        Ubah
-                      </Link>
-                      <ProductStatusButton id={p.id} status={p.status} />
+              {products.map((g, i) => {
+                const active = g.variants.filter((v) => v.status === "ACTIVE");
+                const ready = active.filter((v) => quotable.has(v.id)).length;
+                const href = productHref(g.make, g.model);
+                return (
+                  <tr key={href} className="border-b border-card-border align-top last:border-0 hover:bg-blue-50/40">
+                    <td className="px-5 py-3 text-muted">{i + 1}</td>
+                    <td className="px-5 py-3">
+                      <Link href={href} className="font-medium text-primary hover:underline">{g.make} {g.model}</Link>
                     </td>
-                  )}
-                </tr>
-              ))}
-              {items.length === 0 && (
+                    <td className="px-5 py-3 text-xs text-muted">
+                      {g.variants.map((v) => <div key={v.id}>{[v.variant_type, v.variant].filter(Boolean).join(" · ") || v.name}</div>)}
+                    </td>
+                    <td className="px-5 py-3">{active.length} / {g.variants.length}</td>
+                    <td className="px-5 py-3">
+                      <Badge tone={ready === active.length && ready > 0 ? "success" : "warning"}>{ready} / {active.length}</Badge>
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-3 text-right">
+                      <Link href={href} className="text-xs font-medium text-primary hover:underline">Detail →</Link>
+                    </td>
+                  </tr>
+                );
+              })}
+              {products.length === 0 && (
                 <tr>
-                  <td colSpan={canEdit ? 6 : 5} className="px-5 py-6 text-center text-muted">
-                    Belum ada produk terdaftar.
-                  </td>
+                  <td colSpan={6} className="px-5 py-8 text-center text-muted">Belum ada produk terdaftar.</td>
                 </tr>
               )}
             </tbody>
           </table>
         </CardContent>
       </Card>
+      <p className="text-xs text-muted">
+        <strong>Siap dikutip</strong> = varian aktif yang cost structure-nya sudah RELEASED oleh pemilik scope (menu Cost
+        Structure); hanya varian ini yang muncul di Price Estimate dan Official Quotation.
+      </p>
     </div>
   );
 }

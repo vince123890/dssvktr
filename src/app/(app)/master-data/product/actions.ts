@@ -102,7 +102,7 @@ export async function createProductAction(formData: FormData): Promise<ActionRes
       ],
     });
 
-    revalidatePath("/master-data/product");
+    revalidatePath("/master-data/product", "layout");
     return { ok: true };
   } catch (e) {
     if (isNextControlFlowError(e)) throw e;
@@ -149,7 +149,7 @@ export async function updateProductAction(id: string, formData: FormData): Promi
       fieldChanges,
     });
 
-    revalidatePath("/master-data/product");
+    revalidatePath("/master-data/product", "layout");
     return { ok: true };
   } catch (e) {
     if (isNextControlFlowError(e)) throw e;
@@ -179,5 +179,5 @@ export async function toggleProductStatusAction(id: string, nextStatus: "ACTIVE"
     fieldChanges: [{ field: "status", old: null, new: nextStatus }],
   });
 
-  revalidatePath("/master-data/product");
+  revalidatePath("/master-data/product", "layout");
 }

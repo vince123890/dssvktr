@@ -434,6 +434,12 @@ Peran berikut mengikuti sheet *Actors* dan *Basic Workflow* pada
     Status `ACTIVE`/`DISCONTINUED` (soft-disable) agar quotation lama
     tetap merujuk data yang berlaku saat itu.
 
+    **Layar**: *Daftar Produk* (produk = make + model; jumlah varian,
+    varian aktif, dan yang *siap dikutip* = cost structure RELEASED) →
+    klik → *Detail Produk* (daftar varian dengan status cost structure,
+    **Tambah Varian**) · **Tambah Produk** untuk model baru beserta varian
+    pertamanya.
+
     **Siklus hidup varian** (Product Owner / System Admin, menu Product
     Master Data): **Tambah** → **Ubah** (tombol *Ubah* per baris; kode
     varian tetap karena cost structure & quotation merujuk ke baris yang

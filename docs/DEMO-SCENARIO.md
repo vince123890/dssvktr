@@ -156,8 +156,11 @@ diatur di aplikasi**, bukan tertanam di kode.
 
 ## 2. Product Owner menyiapkan varian
 
-1. Login sebagai **product@vktr.demo** → **Product Master Data → Varian
-   Baru**.
+1. Login sebagai **product@vktr.demo** → **Product Master Data**. Layar
+   menampilkan **Daftar Produk** (make · model) beserta jumlah varian dan
+   berapa yang *siap dikutip*. Klik **VKTR Light Duty Truck** → halaman
+   detail produk → **Tambah Varian** (Make & Model sudah terisi). Untuk
+   produk yang belum ada (mis. Bus), pakai **Tambah Produk** di daftar.
 2. Isi:
    - Make/Model: `VKTR Light Duty Truck`; Type: `4x2 Short Wheelbase`;
      Variant: `Dumper, Battery 90 kWh`
@@ -175,8 +178,9 @@ diatur di aplikasi**, bukan tertanam di kode.
 **Perhatikan:** varian belum muncul di pilihan Price Estimate maupun
 Official Quotation — cost structure-nya belum dirilis.
 
-4. *(Ubah varian)* Di **Katalog Produk**, klik **Ubah** pada varian SWB
-   → form terbuka terisi data varian (kode tidak dapat diubah). Ganti
+4. *(Ubah varian)* Di detail produk **VKTR Light Duty Truck**, klik
+   **Ubah** pada varian SWB → form terbuka terisi data varian (kode tidak
+   dapat diubah). Kolom *Cost structure* menunjukkan versi yang berlaku. Ganti
    Inclusions *default* — mis. tambah `Driver training 1 day` →
    **Simpan Perubahan**. Login **admin@vktr.demo** → **Audit Trail**:
    tercatat `UPDATE` pada *product_master_data* dengan nilai lama & baru.
