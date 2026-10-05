@@ -256,6 +256,14 @@ workflow**; klik satu baris → halaman detail `/settings/workflow/[kode]`
 Ubah / Duplikat / Aktifkan-Nonaktifkan; kartu uji pemilihan di bawah
 daftar. Tier per template di **Settings → Tier Margin**.
 
+**Lini bisnis ≠ kualifikasi deal.** *Lini bisnis* (B2G / Pemerintah, B2B
+Commercial Fleet, Charging Infrastructure) dicatat di quotation dan bisa
+dijadikan qualifier, tetapi keenam workflow awal dipilih dari
+**kualifikasi deal** (segmen, industri, hubungan), estimasi nilai, dan
+blacklist. Isian lini bisnis & kualifikasi tiap skenario ada di
+`DEMO-FLOW-OFFICIAL-QUOTATION.md` §0 langkah 4; satu deal contoh per
+workflow (6 deal) di **B8**.
+
 ## 5. Project Identifier — Revisi & Negosiasi Setelah Rilis
 
 ```mermaid

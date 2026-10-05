@@ -2,8 +2,9 @@
 
 Skrip demo langkah demi langkah untuk **Workflow B** pada sheet *Basic
 Workflow* (`docs/BTEL - Cost and Roles and Flow.xlsx`), sesuai build
-v4.0 aplikasi. Dokumen keluaran mengikuti contoh *Cost Estimate — PT
-Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
+v4.1 aplikasi (termasuk Workflow Template Catalog). Dokumen keluaran
+mengikuti contoh *Cost Estimate — PT Siborong Nusa Gemilang*. Durasi ± 35
+menit untuk B1–B6; B6c, B7, dan B8 opsional (B8 ± 25 menit).
 
 | Langkah di sheet | Yang terjadi di aplikasi | Demo |
 |---|---|---|
@@ -17,6 +18,7 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
 | 7a. GM ≥ 15% → dirilis | *Accept* → langsung **Quotation Released** | B1, B2 |
 | 7b. GM 10–15% → COGS & Profitability Owner; tolak → Sales Operations | Status *Tier 2*; dua persetujuan wajib | B3, B4 |
 | 7c. GM < 10% → CCO & CFO, cc COGS & Profitability Owner; tolak → Sales Operations | Status *Tier 3*; tembusan tampil; penolakan kembali ke Sales Operations | B3 |
+| *(v4.1)* Jenis deal menentukan alur | **Kualifikasi deal** (segmen, industri, hubungan) + estimasi nilai + blacklist memilih 1 dari 6 Workflow Template secara otomatis saat submit | B6c, B8 |
 
 ---
 
@@ -44,6 +46,30 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
    PPN 11%): harga dasar excl. VAT **Rp 829.550.000**, GM standar
    **17,79%**. Diskon yang membuat GM tepat 15% = 3,264%; tepat 10% =
    8,598%.
+4. **Lini bisnis vs Kualifikasi deal.** Form Official Quotation memiliki
+   dua isian yang berbeda fungsi:
+
+   | Isian | Pilihan | Fungsi |
+   |---|---|---|
+   | **Lini bisnis** (kanan atas form) | B2G / Pemerintah · B2B Commercial Fleet · Charging Infrastructure | Lini usaha VKTR untuk deal ini; dicatat di quotation dan **dapat** dijadikan syarat workflow (qualifier *Lini bisnis* di Settings → Workflow). Keenam workflow awal belum memakainya sebagai syarat. |
+   | **Kualifikasi deal** (kartu di bawah KYC) | Segmen B2G / B2B / B2C · Industri · Hubungan Reguler / Relasi khusus | **Penentu Workflow Template** bersama estimasi nilai (harga × qty) dan blacklist customer. |
+
+   Pilih keduanya konsisten: Segmen **B2G** → Lini bisnis **B2G /
+   Pemerintah**; Segmen **B2B** → Lini bisnis **B2B Commercial Fleet**.
+   Isian per skenario:
+
+   | Skenario | Lini bisnis | Segmen · Industri · Hubungan | Qty | Workflow terpilih |
+   |---|---|---|---|---|
+   | B1 Tirta Hijau | B2B Commercial Fleet | B2B · Konstruksi · Reguler | 1 | Standard |
+   | B2 Bumi Karya | B2B Commercial Fleet | B2B · Konstruksi · Reguler | 4 | Standard |
+   | B3/B4 Siborong | B2B Commercial Fleet | B2B · Konstruksi · Reguler | 40 | Standard |
+   | B6c Dinas LH Bekasi | B2G / Pemerintah | B2G · Municipality · Reguler | 2 | B2G Pemerintah |
+   | B8 (enam deal) | lihat B8 | lihat B8 | 1 / 61 | satu deal per workflow |
+
+   > B3 sengaja memakai industri **Konstruksi**. Bila dipilih
+   > *Pertambangan* atau *Perkebunan*, deal masuk workflow *Industri
+   > Tambang & Perkebunan* (ada langkah review COGS Owner) dan alur B3 di
+   > bawah tidak lagi sama.
 
 ---
 
@@ -65,6 +91,7 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
    | e. Produksi | `6` `trip` per hari |
    | f. Likelihood | 4 — Medium to High |
    | g. Gap identified | `Armada diesel tidak memenuhi target emisi proyek` |
+   | Lini bisnis | **B2B Commercial Fleet** |
    | Kualifikasi deal | Segmen `B2B` · Industri `Konstruksi` · Hubungan `Reguler` |
    | b. Varian & qty | LDT 4x2 SWB Dumper 90 kWh × **1** |
 
@@ -73,7 +100,9 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
 4. Halaman quotation terbuka sebagai **Draft (KYC)**. Tinjau KYC di layar.
    Perhatikan: **tidak ada harga maupun cost structure** yang tampil bagi
    Salesperson. Klik **Submit Official Quotation**.
-5. Status: **Menunggu Validasi Sales Lead**.
+5. Status: **Menunggu Validasi Sales Lead**. Panel alur menampilkan
+   **Workflow Template: Official Quotation — Standard** dengan alasan
+   *"Tidak ada template spesifik yang cocok — memakai template dasar"*.
 
 **Sales Lead — validasi (langkah 4a)**
 
@@ -117,8 +146,9 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
 
 1. Login **sales.lead@vktr.demo** → Official Quotation baru:
    `PT Bumi Karya Konstruksi`, alamat bebas, proyek baru `Material Proyek
-   Karawang`, KYC wajib lengkap, varian SWB Dumper × **4** → simpan →
-   **Submit**.
+   Karawang`, KYC wajib lengkap, Lini bisnis **B2B Commercial Fleet**,
+   Kualifikasi `B2B` · `Konstruksi` · `Reguler` (→ workflow Standard),
+   varian SWB Dumper × **4** → simpan → **Submit**.
 2. **Perhatikan:** status langsung **Di Sales Operations**; di timeline,
    *Validasi Sales Lead* berstatus **Dilewati** (pengaju punya fungsi
    validator — kondisi lewati diatur di Settings → Workflow).
@@ -142,6 +172,7 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
    | c | Proyek baru · `Armada Dumper 5 Tahun` |
    | d–g | `Dumper` / `Material agregat`; `Site → stockpile`, `Site`, `Stockpile`; `10 trip per hari`; Likelihood 3; gap `Kebutuhan armada listrik jangka panjang` |
    | h | Skema diminta: **Rental** |
+   | Lini bisnis | **B2B Commercial Fleet** |
    | Kualifikasi | `B2B` · `Konstruksi` · `Reguler` (→ template Standard) |
    | b | LDT 4x2 SWB Dumper 90 kWh × **40** |
 
@@ -201,8 +232,8 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
 
 1. **sales.exec@vktr.demo** → quotation Siborong (Released) → panel *Aksi
    Anda* → alasan `Pelanggan minta tambahan diskon 1%` → **Buat Revisi**.
-2. Quotation baru (Draft) terbuka dengan KYC & varian yang sama →
-   **Submit**. Karena KYC tidak berubah, **validasi Sales Lead dilewati**
+2. Quotation baru (Draft) terbuka dengan KYC, lini bisnis, kualifikasi
+   deal & varian yang sama (workflow tetap Standard) → **Submit**. Karena KYC tidak berubah, **validasi Sales Lead dilewati**
    dan quotation langsung ke Sales Operations.
 3. **salesops@vktr.demo** → diskon awal terbawa 4% → ubah ke `5` → GM
    **13,44%**, Tier 2 → Simpan → Teruskan.
@@ -250,8 +281,9 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
    *B2G Pemerintah*; ubah Hubungan ke `Relasi khusus` → terpilih *Relasi
    Khusus* (prioritas 20 > 10); centang Blacklist → *Customer Blacklist*.
 3. **sales.exec@vktr.demo** → Official Quotation baru `Dinas Lingkungan
-   Hidup Kota Bekasi`, Segmen **B2G**, Industri `Municipality`, 2 unit SWB
-   → Submit. Panel alur menampilkan **Workflow Template: Official
+   Hidup Kota Bekasi`, KYC lengkap, Lini bisnis **B2G / Pemerintah**,
+   Kualifikasi Segmen **B2G** · Industri `Municipality` · Hubungan
+   `Reguler`, 2 unit SWB → Submit. Panel alur menampilkan **Workflow Template: Official
    Quotation — B2G Pemerintah** + alasan. Setelah validasi Sales Lead,
    langkah *Verifikasi dokumen tender (Head of Sales)* muncul sebelum
    Sales Operations; saat Head of Sales Accept (GM 16,10%, Tier 1), quotation
@@ -308,6 +340,49 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
    dapat dipilih di tabel User dan ikut menjadi pemutus Tier 2 — tanpa
    ubah kode.
 
+## B8 — Enam workflow, enam deal (satu deal per Workflow Template)
+
+Tujuan: membuktikan bahwa **jenis deal** menentukan alur, sesuai enam
+workflow di Settings → Workflow. Semua deal memakai varian **LDT 4x2 SWB
+Dumper 90 kWh**, diajukan oleh **sales.exec@vktr.demo** (kecuali disebut
+lain), KYC b–g boleh diisi singkat seperti B1. Customer dibuat berbeda
+agar tidak terkena batas quotation harian (B6).
+
+**Isian per deal**
+
+| # | a. Nama perusahaan | Lini bisnis | Segmen · Industri · Hubungan | Qty | Workflow yang harus terpilih | Alasan pemilihan |
+|---|---|---|---|---|---|---|
+| 1 | `PT Sinar Kargo Kota` | B2B Commercial Fleet | B2B · On-road Logistics · Reguler | 1 | **Standard** | tidak ada template spesifik yang cocok → template dasar |
+| 2 | `Dinas Perhubungan Kota Depok` | B2G / Pemerintah | B2G · Municipality · Reguler | 1 | **B2G Pemerintah** | segmen B2G (prioritas 10) |
+| 3 | `PT Mitra Setia Abadi` | B2B Commercial Fleet | B2B · Konstruksi · **Relasi khusus** | 1 | **Relasi Khusus** | relasi khusus (prioritas 20) |
+| 4 | `PT Tambang Batu Sumatera` | B2B Commercial Fleet | B2B · **Pertambangan** · Reguler | 1 | **Industri Tambang & Perkebunan** | industri Pertambangan (prioritas 5) |
+| 5 | `PT Armada Nasional Raya` | B2B Commercial Fleet | B2B · On-road Logistics · Reguler | **61** | **Nilai Besar (≥ Rp 50 M)** | estimasi 61 × Rp 829.550.000 = Rp 50,6 M (prioritas 15) |
+| 6 | `PT Contoh Blacklist Abadi` | B2B Commercial Fleet | B2B · Konstruksi · Reguler | 1 | **Customer Blacklist** | nama ada di blacklist (Settings → Umum), prioritas 100 |
+
+Setelah **Submit**, cek kartu *Workflow Template* di halaman quotation:
+nama workflow dan alasannya harus sama dengan tabel. Lalu jalankan:
+
+| # | Alur setelah submit (akun yang bertindak) | Yang membedakan dari Standard |
+|---|---|---|
+| 1 | **sales.lead@** Validasi → generate otomatis (1 unit) → **headsales@** Accept → GM 17,79% Tier 1 → **Released** | — (pembanding) |
+| 2 | **sales.lead@** Validasi → **headsales@** *Verifikasi dokumen tender* → generate otomatis → **headsales@** Accept → Tier 1 khusus B2G → **cco@** + **cfo@** Approve → Released | Langkah tambahan verifikasi tender; Tier 1 pun harus disetujui Pricing Committee |
+| 3 | Validasi Sales Lead **tidak ada** → generate otomatis → **headsales@** Accept → Tier 1 → Released. *Opsional:* di panel harga Head of Sales ubah diskon ke `4`% (GM 14,34%, Tier 2) → Accept → status **Pricing Committee (CCO & CFO)**, bukan COGS & Profitability Owner | Tanpa validasi Sales Lead; GM < 15% langsung ke CCO & CFO |
+| 4 | **sales.lead@** Validasi → generate otomatis → **procurement@** (atau **headproc@**) *Review aplikasi & karoseri* → **headsales@** Accept → Tier 1 → Released | Langkah tambahan review COGS Owner sebelum Head of Sales |
+| 5 | **sales.lead@** Validasi → **cco@** (atau **cfo@**) *Persetujuan kelayakan deal* → **salesops@** susun harga manual (band 10+), mis. diskon `2`% → Teruskan → **headsales@** Accept → GM 16,10% Tier 1 → Released | Pricing Committee menyetujui kelayakan deal **sebelum** harga disusun |
+| 6 | **sales.lead@** Validasi → **cco@** (atau **cfo@**) *Persetujuan customer blacklist* → generate otomatis → **headsales@** Accept → Tier 1 khusus blacklist → **cco@** + **cfo@** Approve → Released | Ada persetujuan Pricing Committee di awal **dan** di tier; quotation menandai *customer blacklist* |
+
+Variasi singkat yang menarik ditunjukkan:
+
+- Ajukan deal #6 dari **sales.lead@vktr.demo** (nama customer sama,
+  setelah deal #6 pertama selesai atau dengan varian lain): langkah
+  validasi **tidak** dilewati — Sales Lead harus memvalidasi secara
+  eksplisit — karena workflow Blacklist tidak punya kondisi lewati,
+  berbeda dari B2.
+- Deal #5 dengan **60** unit (Rp 49,8 M) → kembali ke **Standard**:
+  ambang nilai bekerja.
+- **Settings → Workflow** → klik workflow mana pun → kartu *Pemakaian*
+  kini menampilkan deal B8 yang memakainya.
+
 ---
 
 ## Ringkasan yang harus terlihat
@@ -328,3 +403,4 @@ Siborong Nusa Gemilang*. Durasi ± 35 menit untuk B1–B6; B7 opsional.
 | Role & workflow dapat diatur di Settings | B7 |
 | Menu di luar role tersembunyi & 404; quotation dibatasi per baris | B6b |
 | Workflow Template Catalog: pemilihan otomatis, alur & tier per template, template baru tanpa kode | B6c |
+| Lini bisnis & kualifikasi deal diisi per skenario; tiap workflow (6) punya deal contoh dan alurnya terbukti berbeda | §0 langkah 4, B8 |

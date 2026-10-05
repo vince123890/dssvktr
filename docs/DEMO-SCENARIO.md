@@ -290,6 +290,8 @@ tugas).
    | f. Likelihood | 4 — Medium to High |
    | g. Gap identified | Armada diesel tidak memenuhi target emisi proyek |
    | h. Informasi lain | Skema Purchase |
+   | Lini bisnis | B2B Commercial Fleet |
+   | Kualifikasi deal | Segmen B2B · Industri Konstruksi · Hubungan Reguler → workflow **Standard** |
 
 3. Coba **Submit** dengan field g kosong → ditolak *"KYC belum lengkap:
    Gap identified"*. Lengkapi, tinjau di layar, **Submit**.
@@ -342,7 +344,9 @@ tugas).
 ## 6. Official Quotation B — 4 unit, otomatis + opsi manual (Sales Lead)
 
 1. Login sebagai **sales.lead@vktr.demo**, buat Official Quotation:
-   `PT Bumi Karya Konstruksi`, varian yang sama × **4**, KYC lengkap.
+   `PT Bumi Karya Konstruksi`, varian yang sama × **4**, KYC lengkap,
+   Lini bisnis B2B Commercial Fleet, Kualifikasi B2B · Konstruksi ·
+   Reguler (→ workflow Standard).
    **Submit**.
 2. **Perhatikan:** langkah validasi Sales Lead **dilewati**
    (`SKIPPED_NOT_APPLICABLE`) karena pengaju adalah Sales Lead —
@@ -376,6 +380,8 @@ Nusa Gemilang**.
    | c | Proyek baru |
    | d–g | *(ilustratif)* Dumper / material agregat; rute site–stockpile, 10 trip/hari; Likelihood 3; gap: kebutuhan armada listrik 5 tahun |
    | h | Pelanggan meminta skema **Rental 5 tahun** |
+   | Lini bisnis | B2B Commercial Fleet |
+   | Kualifikasi deal | B2B · Konstruksi · Reguler → workflow **Standard** (jangan pilih Pertambangan/Perkebunan — itu masuk workflow Industri Tambang & Perkebunan) |
 
 2. **sales.lead@vktr.demo** → **Validate**.
 

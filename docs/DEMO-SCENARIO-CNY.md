@@ -95,7 +95,10 @@ dihitung.
 1. **sales.lead@vktr.demo** membuat Official Quotation: PT Nusantara
    Kargo Elektrik, varian MWB Box × **12**, KYC lengkap (aplikasi box
    logistik, rute gudang Cikarang → hub Jakarta, 2 siklus/hari,
-   Likelihood 4). Submit → validasi dilewati (pengaju Sales Lead).
+   Likelihood 4), Lini bisnis **B2B Commercial Fleet**, Kualifikasi deal
+   B2B · `On-road Logistics` · `Reguler` (→ workflow **Standard**;
+   estimasi 12 × Rp 918.675.000 ≈ Rp 11 M, di bawah ambang Nilai Besar).
+   Submit → validasi dilewati (pengaju Sales Lead).
 2. **salesops@vktr.demo** (manual, band ≥ 10) → diskon **2%**
    (Rp 18.373.500/unit): harga bersih Rp 900.301.500/unit, GM
    **15,63%**, tier **1**. Teruskan.
