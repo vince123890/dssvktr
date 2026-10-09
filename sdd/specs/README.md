@@ -19,7 +19,7 @@ Dibaca dari kode per 2026-10-09 (branch `main`, commit dd6bb93). Spec ini mendes
 ## Celah lintas-capability (kandidat change berikutnya)
 Urut prioritas yang saya usulkan; tiap butir layak menjadi satu change SDD tersendiri lewat wawancara intent.
 
-1. **Tidak ada tes otomatis.** Mulai dari unit test fungsi murni: `src/lib/pricing/quotation.ts`, `resolveTemplate`, `canPerformScopeAction`, `checkReleaseGate`. Contoh angka sudah ada di spec pricing-engine.
+1. ~~Tidak ada tes otomatis.~~ **Sebagian selesai** (2026-10-09, change unit-tests-pure-logic): 72 unit test untuk fungsi murni. Masih terbuka: tes engine/aksi yang menulis DB (`checkReleaseGate`, `routeAfterReview`, `releaseQuotation`, aksi cost structure).
 2. **Tidak ada transaksi.** Alur multi-langkah (submit, advance, release, simpan template/band/matriks scope, buat versi cost structure) berupa rangkaian update; kegagalan di tengah meninggalkan state parsial. Pertimbangkan fungsi Postgres/RPC.
 3. **Penomoran "tertinggi + 1" tanpa kunci** (proposal, dokumen) rawan bentrok pada rilis serentak.
 4. **Audit tidak menggagalkan aksi** bila gagal tulis, dan semua pengguna login dapat membaca audit lewat API (RLS read terbuka).

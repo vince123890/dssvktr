@@ -18,12 +18,12 @@ Next.js 16.2 (App Router, Server Actions) · React 19.2 · TypeScript · Tailwin
 - Role dan wewenang adalah **data** (`app_role`, `scope_authority`), bukan kode. Kode hanya memeriksa *fungsi* role lewat `src/lib/rbac.ts`.
 - Satu set fungsi murni di `src/lib/pricing/quotation.ts` untuk semua jalur kalkulasi; jangan menduplikasi logika margin.
 - Server action mengembalikan `ActionResult` (`src/lib/actionResult.ts`), dan setiap perubahan data bisnis menulis audit log (`writeAuditLog`).
-- Perintah: dev `npm run dev` · build `npm run build` · lint `npm run lint` · migrasi `npm run migrate -- <file.sql>` · seed `npm run seed:demo` · reset demo `npm run reset:demo`. Belum ada test runner di `package.json`.
+- Perintah: dev `npm run dev` · build `npm run build` · lint `npm run lint` · migrasi `npm run migrate -- <file.sql>` · seed `npm run seed:demo` · reset demo `npm run reset:demo`. test `npm test` (vitest run).
 
 ## Kekritisan & Verifikasi
 - Default kekritisan: menengah. Tinggi untuk kalkulasi harga/margin, tier approval, dan wewenang (uang dan kontrol akses).
 - Area kritis: `src/lib/pricing/*`, `src/lib/workflow/quotationEngine.ts`, `src/lib/costStructure.ts`, `src/lib/rbac.ts`, `src/lib/menuAccess.ts`, RLS di migrasi.
-- Lapisan tes: belum ada tes otomatis. Verifikasi saat ini lewat skenario demo di `docs/DEMO-*.md` dan akun seed. Change berikutnya sebaiknya menambah unit test untuk fungsi murni `src/lib/pricing` dan `src/lib/workflow`.
+- Lapisan tes: unit test Vitest berdampingan (`src/**/*.test.ts`) untuk fungsi murni dan logika dengan fake DB (`src/test/fakeDb.ts`). Belum ada tes untuk server action, engine yang menulis DB, RLS, UI. Verifikasi tambahan lewat skenario demo `docs/DEMO-*.md`.
 
 ## Batasan Non-Fungsional
 - Audit trail append-only (RLS). Menu di luar wewenang role disembunyikan di sidebar dan 404 lewat URL.
