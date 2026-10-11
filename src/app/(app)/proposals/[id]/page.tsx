@@ -17,10 +17,17 @@ import {
 import {
   FUNCTIONAL_ROLE_LABEL,
   actorFillsSlot,
+  canAttachSignedDocument,
+  canCancelFinalApproval,
+  canEditRevisionDiscount,
+  canOverrideExpired,
+  canRecordWinLossOutcome,
   canSeeCostStructure,
   hasFunction,
   slotLabel,
 } from "@/lib/rbac";
+import { signedUrl } from "@/lib/files";
+import { AGE_STATE_LABEL, AGE_STATE_TONE, ageConfigFrom, daysBetween, quotationAgeState } from "@/lib/lifecycle";
 import {
   activeStep,
   actorCanActOnStep,
@@ -37,6 +44,7 @@ import { loadSettings } from "@/lib/settings";
 import { formatDate, formatIDR, timeAgo } from "@/lib/utils";
 import { ActionPanel, type ActionCapabilities } from "./ActionPanel";
 import { PricingEditor, type EditableLine } from "./PricingEditor";
+import { RevisionDiscountPanel } from "./RevisionDiscountPanel";
 import type {
   AppRole,
   PricingProposal,
@@ -108,7 +116,9 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
 
   const waitingFor = step?.performer_function
     ? FUNCTIONAL_ROLE_LABEL[step.performer_function]
-    : tierPending
+    : proposal.current_status === "PENDING_SIGNED_DOCUMENT"
+      ? "dokumen bertanda tangan Head of Sales (dilampirkan Salesperson)"
+      : tierPending
       ? decisionRows.filter((t) => t.decision === null).map((t) => slotLabel(t.slot, roles)).join(" + ")
       : null;
 
@@ -123,10 +133,20 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
       decisionRows.length > 0 &&
       decisionRows.every((t) => t.decision === "APPROVE") &&
       hasFunction(me, "SALES_RELEASER"),
+    canAttachSigned: proposal.current_status === "PENDING_SIGNED_DOCUMENT" && canAttachSignedDocument(me, proposal),
+    canCancelApproval: proposal.current_status === "PENDING_SIGNED_DOCUMENT" && canCancelFinalApproval(me),
     canRecordOutcome:
       proposal.current_status === "QUOTATION_RELEASED" &&
       proposal.outcome === "PENDING" &&
-      (hasFunction(me, "SALESPERSON") || hasFunction(me, "SALES_RELEASER")),
+      canRecordWinLossOutcome(me),
+    adminExpired:
+      canOverrideExpired(me) && proposal.outcome !== "WON"
+        ? proposal.current_status === "QUOTATION_RELEASED"
+          ? "EXPIRE"
+          : proposal.current_status === "EXPIRED"
+            ? "CLEAR"
+            : null
+        : null,
     canRevise:
       (proposal.current_status === "QUOTATION_RELEASED" || proposal.current_status === "EXPIRED") &&
       !successor &&
@@ -141,7 +161,9 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
       const locked = Number(l.locked_fx_rate ?? 0);
       return locked > 0 && (Math.abs(Number(currentRate.rate) - locked) / locked) * 100 > threshold;
     });
-  const inFlight = !["DRAFT", "QUOTATION_RELEASED", "EXPIRED", "SUPERSEDED", "REJECTED"].includes(proposal.current_status);
+  const inFlight = !["DRAFT", "PENDING_SIGNED_DOCUMENT", "QUOTATION_RELEASED", "EXPIRED", "SUPERSEDED", "REJECTED"].includes(
+    proposal.current_status
+  );
 
   // Detail cost structure (sheet step 6b — highly confidential) per line.
   const breakdowns = seesCost
@@ -183,7 +205,22 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
     myStep && (myStep.action_kind === "GENERATE_QUOTATION" || myStep.action_kind === "REVIEW_AND_ROUTE");
   const pricedYet = lines.some((l) => l.cost_structure_version_id);
   const released = ["QUOTATION_RELEASED", "EXPIRED", "SUPERSEDED"].includes(proposal.current_status);
+  // Once the Head of Sales has approved, the document is final and the owner needs the price to get it signed.
+  const priceVisible = released || proposal.current_status === "PENDING_SIGNED_DOCUMENT";
+  const forSigning = proposal.current_status === "PENDING_SIGNED_DOCUMENT";
   const k = proposal.kyc;
+
+  // v5.0 — age badge (from the release date), signed document / PO links, Won project, discount on a draft revision.
+  const ageState = quotationAgeState(proposal, new Date(), ageConfigFrom(settings));
+  const ageDays = proposal.released_at ? daysBetween(proposal.released_at, new Date()) : null;
+  const [signedLink, poLink, { data: wonProject }] = await Promise.all([
+    signedUrl(supabase, proposal.signed_document_path),
+    signedUrl(supabase, proposal.po_document_path),
+    proposal.outcome === "WON"
+      ? supabase.from("project").select("id").eq("proposal_id", proposal.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const revisionDiscount = canEditRevisionDiscount(me, proposal);
   const proj = project as ProjectIdentifier | null;
 
   return (
@@ -194,6 +231,12 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
             <span className="font-mono text-xs text-muted">{proposal.proposal_number}</span>
             <Badge tone={STATUS_TONE[proposal.current_status]}>{STATUS_LABEL[proposal.current_status]}</Badge>
             {proposal.outcome !== "PENDING" && <Badge tone={proposal.outcome === "WON" ? "success" : "danger"}>{proposal.outcome}</Badge>}
+            {ageState !== "NONE" && ageState !== "WON" && ageState !== "LOST" && (
+              <Badge tone={AGE_STATE_TONE[ageState]}>
+                {AGE_STATE_LABEL[ageState]}
+                {ageDays !== null && ageState !== "EXPIRED" ? ` · ${ageDays} hari sejak rilis` : ""}
+              </Badge>
+            )}
             {seesCost && proposal.margin_tier && <Badge tone={proposal.margin_tier === 1 ? "success" : proposal.margin_tier === 2 ? "warning" : "danger"}>Tier {proposal.margin_tier}</Badge>}
           </div>
           <h1 className="mt-1 text-xl font-semibold">{proposal.title}</h1>
@@ -214,7 +257,7 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
           {pricedYet && (
             <Link href={`/print/proposals/${proposal.id}`} target="_blank">
               <span className="inline-flex h-9 items-center gap-2 rounded-lg border border-card-border bg-white px-4 text-sm font-medium shadow-sm hover:bg-slate-50">
-                <FileText size={15} /> {released ? "Preview / Print Cost Estimate" : "Preview Dokumen (Draft)"}
+                <FileText size={15} /> {released ? "Preview / Print Cost Estimate" : forSigning ? "Cetak untuk ditandatangani" : "Preview Dokumen (Draft)"}
               </span>
             </Link>
           )}
@@ -253,6 +296,21 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
             />
           )}
 
+          {revisionDiscount && (
+            <RevisionDiscountPanel
+              proposalId={proposal.id}
+              lines={lines.map((l) => ({
+                id: l.id,
+                productName: products.get(l.product_id)?.name ?? "—",
+                quantity: l.quantity,
+                discountMode: l.discount_input_mode,
+                discountAmount: Number(l.discount_amount),
+                discountPct: Number(l.discount_pct),
+                netPriceInclVat: l.cost_structure_version_id ? Number(l.net_price_incl_vat) : null,
+              }))}
+            />
+          )}
+
           <Card>
             <CardHeader>
               <div>
@@ -260,9 +318,9 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
                 <CardDescription>
                   {seesCost
                     ? "Harga dihitung dari cost structure RELEASED yang dikunci per varian."
-                    : released
+                    : priceVisible
                       ? "Harga yang dirilis ke Anda."
-                      : "Harga akan tampil setelah quotation dirilis."}
+                      : "Harga akan tampil setelah quotation disetujui Head of Sales."}
                 </CardDescription>
               </div>
               {seesCost && proposal.gm != null && pricedYet && (
@@ -287,7 +345,7 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
                 </thead>
                 <tbody>
                   {lines.map((l) => {
-                    const showPrice = seesCost || released;
+                    const showPrice = seesCost || priceVisible;
                     return (
                       <tr key={l.id} className="border-b border-card-border align-top last:border-0 [&>td:not(:first-child)]:whitespace-nowrap">
                         <td className="px-4 py-2.5 font-medium">{products.get(l.product_id)?.name}</td>
@@ -309,7 +367,7 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
                     );
                   })}
                 </tbody>
-                {(seesCost || released) && pricedYet && (
+                {(seesCost || priceVisible) && pricedYet && (
                   <tfoot>
                     <tr className="bg-slate-50 text-xs [&>td]:whitespace-nowrap">
                       <td className="px-4 py-2.5 font-medium" colSpan={seesCost ? 6 : 4}>
@@ -366,6 +424,76 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
                 </details>
               ) : null
             )}
+
+          {(forSigning || proposal.signed_document_path || proposal.outcome !== "PENDING" || proposal.current_status === "EXPIRED") && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Dokumen &amp; Hasil</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs md:grid-cols-2">
+                {forSigning && (
+                  <div className="md:col-span-2 rounded-lg border border-warning/30 bg-warning-bg px-3 py-2 text-warning">
+                    Disetujui final sebagai <span className="font-mono">{proposal.document_number}</span>. Quotation belum
+                    dinyatakan Released sampai dokumen yang ditandatangani Head of Sales dilampirkan oleh Salesperson.
+                  </div>
+                )}
+                {proposal.document_date && <Kv label="Tanggal dokumen" value={formatDate(proposal.document_date)} />}
+                {proposal.valid_until && <Kv label="Berlaku s.d." value={formatDate(proposal.valid_until)} />}
+                {proposal.signed_document_path && (
+                  <div>
+                    <div className="text-muted">Dokumen bertanda tangan</div>
+                    <div className="font-medium">
+                      {signedLink ? (
+                        <a className="text-primary underline" href={signedLink} target="_blank" rel="noreferrer">
+                          Buka lampiran
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                      {proposal.signed_document_uploaded_at && (
+                        <span className="ml-2 font-normal text-muted">
+                          {nameOf(proposal.signed_document_uploaded_by)} · {formatDate(proposal.signed_document_uploaded_at)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {proposal.outcome === "WON" && (
+                  <>
+                    <Kv label="Nomor PO" value={proposal.po_number} />
+                    <Kv label="PO diterima" value={proposal.po_received_at ? formatDate(proposal.po_received_at) : undefined} />
+                    <div>
+                      <div className="text-muted">Bukti PO</div>
+                      <div className="font-medium">
+                        {poLink ? (
+                          <a className="text-primary underline" href={poLink} target="_blank" rel="noreferrer">
+                            Buka bukti PO
+                          </a>
+                        ) : (
+                          "—"
+                        )}
+                      </div>
+                    </div>
+                    {wonProject && (
+                      <div>
+                        <div className="text-muted">Project</div>
+                        <Link className="font-medium text-primary underline" href={`/projects/${wonProject.id}`}>
+                          Buka project
+                        </Link>
+                      </div>
+                    )}
+                  </>
+                )}
+                {proposal.outcome === "LOST" && <Kv label="Alasan Lost" value={proposal.outcome_reason} />}
+                {proposal.expired_override_at && (
+                  <Kv
+                    label="Override Admin (Expired)"
+                    value={`${nameOf(proposal.expired_override_by)} · ${formatDate(proposal.expired_override_at)} — ${proposal.expired_override_reason ?? ""}`}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
@@ -437,6 +565,13 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
                     <p className="text-muted">Tembusan (cc): {ccRows.map((t) => slotLabel(t.slot, roles)).join(", ")}</p>
                   )}
                 </div>
+              )}
+              {forSigning && (
+                <TimelineRow
+                  status="IN_PROGRESS"
+                  title="Menunggu dokumen bertanda tangan"
+                  detail={`${proposal.document_number ?? ""} · dilampirkan oleh Salesperson`}
+                />
               )}
               {released && proposal.released_at && (
                 <TimelineRow status="APPROVED" title="Quotation Released" detail={`${proposal.document_number} · ${formatDate(proposal.released_at)}`} />

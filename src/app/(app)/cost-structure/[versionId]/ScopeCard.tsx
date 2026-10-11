@@ -8,6 +8,7 @@ import { formatIDR } from "@/lib/utils";
 import { useState, useTransition } from "react";
 import type { CostScope, CostStructureScopeState } from "@/types/database";
 import { saveScopeValuesAction, scopeTransitionAction, type ScopeTransition } from "../actions";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 export interface ScopeItemView {
   id: string;
@@ -85,7 +86,8 @@ export function ScopeCard({
         <Badge tone={SCOPE_STATUS_TONE[status]}>{SCOPE_STATUS_LABEL[status]}</Badge>
       </CardHeader>
       <CardContent className="space-y-3">
-        <table className="w-full text-xs">
+        <TableScroll>
+        <table className="w-full text-xs min-w-[440px]">
           <tbody>
             {items.map((i) => (
               <tr key={i.id} className="border-b border-card-border last:border-0">
@@ -138,6 +140,7 @@ export function ScopeCard({
             ))}
           </tbody>
         </table>
+        </TableScroll>
 
         <div className="grid grid-cols-3 gap-2 text-[11px] text-muted">
           <div>Maker: <span className="text-foreground">{people.maker ?? "—"}</span></div>

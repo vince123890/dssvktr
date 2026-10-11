@@ -110,7 +110,7 @@ export default async function CostStructureVersionPage({ params }: { params: Pro
   return (
     <div className="space-y-6">
       <div>
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <Link href="/cost-structure" className="text-xs text-primary hover:underline">← Cost Structure</Link>
           {/* View the detail first, then change from here: a released version opens a new draft (FR-1.4). */}
           {editableVersion && isOwner && (

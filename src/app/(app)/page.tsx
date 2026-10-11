@@ -4,7 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { formatCompactIDR, timeAgo } from "@/lib/utils";
 import { IN_FLIGHT_STATUSES, STATUS_LABEL, STATUS_TONE } from "@/lib/workflow/labels";
-import { actorFillsSlot, functionsOf, roleLabel } from "@/lib/rbac";
+import { actorFillsSlot, canAttachSignedDocument, functionsOf, hasFunction, roleLabel } from "@/lib/rbac";
+import { loadSettings } from "@/lib/settings";
+import { ageConfigFrom, quotationAgeState } from "@/lib/lifecycle";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { expireStaleQuotations } from "@/lib/workflow/quotationEngine";
 import type { PricingProposal, TierApproval, WorkflowStepInstance } from "@/types/database";
 import Link from "next/link";
@@ -22,7 +25,7 @@ export default async function OverviewPage() {
     supabase.from("workflow_step_instance").select("id").eq("status", "IN_PROGRESS").lt("sla_due_at", new Date().toISOString()),
   ]);
 
-  const validatorRoles = await loadValidatorVisibleRoles(supabase);
+  const [validatorRoles, settings] = await Promise.all([loadValidatorVisibleRoles(supabase), loadSettings(supabase)]);
   const proposals = ((proposalsData ?? []) as PricingProposal[]).filter((p) => canViewQuotation(profile, p, validatorRoles));
   const byVersion = new Map(proposals.map((p) => [p.current_version_id, p]));
   const inFlight = proposals.filter((p) => IN_FLIGHT_STATUSES.includes(p.current_status));
@@ -46,8 +49,20 @@ export default async function OverviewPage() {
       myQueue.set(p.id, { proposal: p, what: `Persetujuan Tier ${t.tier}` });
     }
   }
+  const now = new Date();
+  const ageCfg = ageConfigFrom(settings);
   for (const p of proposals) {
     if (p.current_status === "DRAFT" && p.created_by === profile.id) myQueue.set(p.id, { proposal: p, what: "Draft — lengkapi & submit" });
+    // v5.0: the Head of Sales has approved; the Salesperson attaches the signed document (PRD FR-2.11).
+    if (p.current_status === "PENDING_SIGNED_DOCUMENT" && canAttachSignedDocument(profile, p) && !hasFunction(profile, "SYSTEM_ADMIN")) {
+      myQueue.set(p.id, { proposal: p, what: "Lampirkan dokumen bertanda tangan Head of Sales" });
+    }
+    // v5.0: follow-up list for the Salesperson who owns it (yellow = follow up, red = make a new quotation).
+    if (hasFunction(profile, "SALESPERSON") && (p.created_by === profile.id || (p.account_person_ids ?? []).includes(profile.id))) {
+      const age = quotationAgeState(p, now, ageCfg);
+      if (age === "YELLOW") myQueue.set(p.id, { proposal: p, what: "Follow up pelanggan (kuning)" });
+      if (age === "RED") myQueue.set(p.id, { proposal: p, what: "Lewat batas — buat quotation baru atau nyatakan hasil (merah)" });
+    }
   }
 
   const tierPending = proposals.filter((p) => p.current_status === "PENDING_OWNER_APPROVAL" || p.current_status === "PENDING_PRICING_COMMITTEE_APPROVAL");
@@ -76,7 +91,8 @@ export default async function OverviewPage() {
             <Badge tone={myQueue.size ? "warning" : "success"}>{myQueue.size}</Badge>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
+            <TableScroll>
+            <table className="w-full min-w-[560px] text-sm">
               <tbody>
                 {[...myQueue.values()].map(({ proposal: p, what }) => (
                   <tr key={p.id} className="border-b border-card-border last:border-0">
@@ -94,6 +110,7 @@ export default async function OverviewPage() {
                 )}
               </tbody>
             </table>
+            </TableScroll>
           </CardContent>
         </Card>
 
@@ -101,6 +118,8 @@ export default async function OverviewPage() {
           <CardHeader><CardTitle>Quick Links</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             <QuickLink href="/price-estimate" label="Price Estimate per unit" />
+            {myFns.some((f) => ["SALESPERSON", "SALES_OPERATIONS", "SALES_RELEASER", "SYSTEM_ADMIN"].includes(f)) && <QuickLink href="/dashboard" label="Dashboard" />}
+            {myFns.some((f) => ["SALESPERSON", "SALES_OPERATIONS", "SALES_RELEASER", "SYSTEM_ADMIN"].includes(f)) && <QuickLink href="/projects" label="Projects" />}
             {myFns.includes("SALESPERSON") && <QuickLink href="/proposals/new" label="Official Quotation baru (KYC)" />}
             <QuickLink href="/lifecycle" label="Kanban approval" />
             {myFns.some((f) => ["COGS_OWNER", "PROFITABILITY_OWNER", "SALES_PRICING_OWNER", "PRICING_COMMITTEE", "SYSTEM_ADMIN"].includes(f)) && (
@@ -118,7 +137,8 @@ export default async function OverviewPage() {
           <Link href="/lifecycle" className="flex items-center gap-1 text-xs text-primary hover:underline">Lihat semua <ArrowRight size={12} /></Link>
         </CardHeader>
         <CardContent className="p-0">
-          <table className="w-full text-sm">
+          <TableScroll>
+          <table className="w-full min-w-[520px] text-sm">
             <tbody>
               {proposals.slice(0, 8).map((p) => (
                 <tr key={p.id} className="border-b border-card-border last:border-0">
@@ -132,6 +152,7 @@ export default async function OverviewPage() {
               ))}
             </tbody>
           </table>
+          </TableScroll>
         </CardContent>
       </Card>
     </div>

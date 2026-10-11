@@ -24,7 +24,7 @@ export function NewVersionButton({ productId, label = "Versi baru" }: { productI
   return (
     <div className="flex flex-col items-end gap-1">
       <div className="flex gap-2">
-        <input className="pc-input w-64" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Alasan (mis. kurs baru, harga FOB baru)" />
+        <input className="pc-input w-full sm:w-64" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Alasan (mis. kurs baru, harga FOB baru)" />
         <Button
           size="sm"
           loading={isPending}

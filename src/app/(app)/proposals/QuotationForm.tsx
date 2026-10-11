@@ -159,7 +159,7 @@ export function QuotationForm({
           <Field label="e. Tujuan *">
             <input className="pc-input" value={kyc.destination ?? ""} onChange={(e) => set("destination", e.target.value)} />
           </Field>
-          <div className="grid grid-cols-3 gap-2 md:col-span-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 md:col-span-2">
             <Field label="e. Produksi *">
               <input className="pc-input" type="number" min={0} value={kyc.production_value ?? ""} onChange={(e) => set("production_value", Number(e.target.value))} />
             </Field>

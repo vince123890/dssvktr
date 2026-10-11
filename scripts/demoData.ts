@@ -30,6 +30,10 @@ export const DEMO_USERS = [
   { email: "cfo@vktr.demo", full_name: "Linda Wijaya", app_role_code: "CFO", role: "BOD", department_code: "BOD" },
   { email: "product@vktr.demo", full_name: "Rangga Prasetya", app_role_code: "PRODUCT_OWNER", role: "PRODUCT_OWNER", department_code: "PRODUCT" },
   { email: "admin@vktr.demo", full_name: "Dewi Anggraini", app_role_code: "SYSTEM_ADMIN", role: "SYSTEM_ADMIN", department_code: "ADMIN" },
+  // v5.0 (meeting "VKTR Req 2"): payment status, project progress, executive dashboard.
+  { email: "finance@vktr.demo", full_name: "Maya Puspita", app_role_code: "FINANCE", role: "SALES_OFFICER", department_code: "ADMIN" },
+  { email: "projectteam@vktr.demo", full_name: "Eko Prasetyo", app_role_code: "PROJECT_TEAM", role: "SALES_OFFICER", department_code: "ADMIN" },
+  { email: "chief@vktr.demo", full_name: "Hartono Wibisono", app_role_code: "EXECUTIVE", role: "SALES_OFFICER", department_code: "ADMIN" },
 ] as const;
 
 /** v1–v3 demo accounts whose roles no longer exist in the Actors sheet. */
@@ -42,7 +46,6 @@ export const RETIRED_DEMO_EMAILS = [
   "bod2@vktr.demo",
   "bod@vktr.demo",
   "engineering@vktr.demo",
-  "finance@vktr.demo",
   "clevel@vktr.demo",
 ];
 
@@ -387,6 +390,7 @@ export async function seedHistoricalQuotations(supabase: Db, users: Record<strin
         transaction_value: line.lineTotalExVat,
         vat_rate_pct: vatPct,
         document_number: `${String(docSeq).padStart(4, "0")}/L/VKTR/PUR-EFS/${monthKey}`,
+        document_date: releasedAt.toISOString().slice(0, 10),
         released_at: releasedAt.toISOString(),
         valid_until: validUntil.toISOString().slice(0, 10),
         inclusions: ["Onsite training during initial deployment, 2 week", "Online training refreshment 1x (first year)", "On-call technical support"],
@@ -433,6 +437,36 @@ export async function seedHistoricalQuotations(supabase: Db, users: Record<strin
       gm: line.gm,
     });
 
+    // v5.0: a Won quotation is a Project (PO received, a down payment in, production under way).
+    if (h.outcome === "WON") {
+      const poReceived = new Date(releasedAt.getTime() + 5 * 86400_000).toISOString().slice(0, 10);
+      const { data: proj } = await supabase
+        .from("project")
+        .insert({
+          proposal_id: proposal.id,
+          project_identifier_id: project?.id,
+          customer_name: h.company,
+          po_number: `PO/${yyyy}/${String(seq).padStart(3, "0")}`,
+          po_received_at: poReceived,
+          contract_value_ex_vat: line.lineTotalExVat,
+          current_status: "Proses produksi",
+          current_progress_pct: 20,
+          created_by: salesExec,
+        })
+        .select("id")
+        .single();
+      if (proj) {
+        await supabase.from("project_payment_term").insert([
+          { project_id: proj.id, term_no: 1, label: "DP", planned_pct: 30, status: "RECEIVED", received_amount: Math.round(line.lineTotalExVat * 0.3), received_at: poReceived, created_by: salesExec, updated_by: users["finance@vktr.demo"] ?? null },
+          { project_id: proj.id, term_no: 2, label: "Pelunasan", planned_pct: 70, status: "PENDING", created_by: salesExec },
+        ]);
+        await supabase.from("project_progress_entry").insert([
+          { project_id: proj.id, entry_date: poReceived, status_label: "PO diterima", progress_pct: 5, created_by: users["projectteam@vktr.demo"] ?? null },
+          { project_id: proj.id, entry_date: new Date().toISOString().slice(0, 10), status_label: "Proses produksi", progress_pct: 20, note: "Produksi unit pertama berjalan.", created_by: users["projectteam@vktr.demo"] ?? null },
+        ]);
+      }
+    }
+
     console.log(`  + ${h.title} — ${h.outcome}, GM ${(gm * 100).toFixed(2)}% (Tier ${tier?.tier})`);
     seq++;
   }
@@ -440,6 +474,21 @@ export async function seedHistoricalQuotations(supabase: Db, users: Record<strin
 
 /** Deletes every quotation (seeded or not) and its dependants, oldest links first. */
 export async function wipeQuotations(supabase: Db): Promise<void> {
+  // v5.0: projects (and their terms / progress, by cascade) point at quotations, and the
+  // uploaded signed documents / PO / transfer proofs live in the private bucket.
+  const [{ data: projects }, { data: terms }, { data: signed }] = await Promise.all([
+    supabase.from("project").select("id, po_document_path"),
+    supabase.from("project_payment_term").select("proof_path"),
+    supabase.from("pricing_proposal").select("signed_document_path, po_document_path"),
+  ]);
+  const files = [
+    ...(projects ?? []).map((r: { po_document_path: string | null }) => r.po_document_path),
+    ...(terms ?? []).map((r: { proof_path: string | null }) => r.proof_path),
+    ...(signed ?? []).flatMap((r: { signed_document_path: string | null; po_document_path: string | null }) => [r.signed_document_path, r.po_document_path]),
+  ].filter((x): x is string => Boolean(x));
+  if (files.length) await supabase.storage.from("quotation-files").remove([...new Set(files)]);
+  if ((projects ?? []).length) await supabase.from("project").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+
   const { data: proposals } = await supabase.from("pricing_proposal").select("id");
   const ids = (proposals ?? []).map((p: { id: string }) => p.id);
   if (ids.length) {

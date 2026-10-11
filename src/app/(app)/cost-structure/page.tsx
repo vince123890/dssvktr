@@ -12,6 +12,7 @@ import { NewVersionButton } from "./NewVersionButton";
 import { DiscardDraftButton } from "./DiscardDraftButton";
 import type { CostStructureVersion, ProductMasterData } from "@/types/database";
 import { AlertTriangle } from "lucide-react";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 const STATUS_TONE = { DRAFT: "info", RELEASED: "success", RETIRED: "default" } as const;
 
@@ -89,7 +90,8 @@ export default async function CostStructurePage() {
               )}
               {vs.length === 0 && <p className="text-xs text-muted">Belum ada cost structure — varian ini belum dapat dikutip.</p>}
               {vs.length > 0 && (
-                <table className="w-full text-sm">
+                <TableScroll>
+                <table className="w-full text-sm min-w-[520px]">
                   <thead>
                     <tr className="border-b border-card-border text-left text-xs text-muted">
                       <th className="py-2 font-medium">Versi</th>
@@ -119,6 +121,7 @@ export default async function CostStructurePage() {
                     })}
                   </tbody>
                 </table>
+                </TableScroll>
               )}
             </CardContent>
           </Card>

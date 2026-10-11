@@ -33,8 +33,11 @@ export default async function CostEstimateDocumentPage({ params }: { params: Pro
   if (!canViewQuotation(me, p, await loadValidatorVisibleRoles(supabase))) notFound();
 
   const released = ["QUOTATION_RELEASED", "EXPIRED", "SUPERSEDED"].includes(p.current_status);
-  // Salesperson sees the document only once released; drafts are for pricing roles (FR-1.5.4, FR-5.7).
-  if (isExternal(me) || (!released && !canSeeCostStructure(me))) notFound();
+  // v5.0: after the Head of Sales approves, the document (already numbered and dated) is
+  // printed for signature; the Salesperson needs it to get it signed and attach it (FR-2.11).
+  const forSigning = p.current_status === "PENDING_SIGNED_DOCUMENT";
+  // Salesperson sees the document once released or while it awaits signature; drafts are for pricing roles (FR-1.5.4, FR-5.7).
+  if (isExternal(me) || (!released && !forSigning && !canSeeCostStructure(me))) notFound();
 
   const [settings, lines] = await Promise.all([loadSettings(supabase), loadLines(supabase, id)]);
   const personIds = [...new Set([...(p.account_person_ids ?? []), p.created_by, p.prepared_by].filter(Boolean) as string[])];
@@ -52,7 +55,7 @@ export default async function CostEstimateDocumentPage({ params }: { params: Pro
       ? "SUPERSEDED"
       : p.current_status === "EXPIRED"
         ? "EXPIRED"
-        : released
+        : released || forSigning
           ? null
           : "DRAFT — NOT FOR CUSTOMER";
   const isRental = lines.some((l) => l.scheme === "RENTAL");
@@ -83,7 +86,13 @@ export default async function CostEstimateDocumentPage({ params }: { params: Pro
         proposalId={p.id}
         kind="PRINT"
         backHref={`/proposals/${p.id}`}
-        note={watermark ? `Watermark: ${watermark}` : "Dokumen resmi — siap dikirim ke pelanggan"}
+        note={
+          watermark
+            ? `Watermark: ${watermark}`
+            : forSigning
+              ? "Untuk ditandatangani Head of Sales — resmi dan siap dikirim setelah lampiran bertanda tangan diunggah"
+              : "Dokumen resmi — siap dikirim ke pelanggan"
+        }
       />
 
       <article className="relative mx-auto my-6 w-[210mm] bg-white px-[14mm] py-[12mm] text-[11px] leading-snug text-slate-900 shadow print:my-0 print:w-auto print:px-0 print:py-0 print:shadow-none">
@@ -114,7 +123,7 @@ export default async function CostEstimateDocumentPage({ params }: { params: Pro
           <table className="self-start text-[11px]">
             <tbody>
               <tr><td className="pr-3 text-slate-500">Number</td><td className="font-mono font-semibold">{p.document_number ?? `DRAFT-${p.proposal_number}`}</td></tr>
-              <tr><td className="pr-3 text-slate-500">Release Date</td><td>{p.released_at ? longDate(p.released_at) : "—"}</td></tr>
+              <tr><td className="pr-3 text-slate-500">Release Date</td><td>{p.document_date ?? p.released_at ? longDate((p.document_date ?? p.released_at) as string) : "—"}</td></tr>
               <tr><td className="pr-3 text-slate-500">Expiry Date</td><td>{p.valid_until ? longDate(p.valid_until) : "—"}</td></tr>
             </tbody>
           </table>

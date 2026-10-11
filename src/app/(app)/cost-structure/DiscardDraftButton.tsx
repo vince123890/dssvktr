@@ -25,7 +25,7 @@ export function DiscardDraftButton({ versionId, versionNo, redirectTo }: { versi
     <div className="flex flex-col items-end gap-1">
       <div className="flex flex-wrap items-center justify-end gap-2">
         <input
-          className="pc-input w-64"
+          className="pc-input w-full sm:w-64"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="Alasan (mis. kenaikan harga batal)"

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { formatDate } from "@/lib/utils";
 import type { AuditLogEntry, Profile } from "@/types/database";
 import { ScrollText } from "lucide-react";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 const ACTION_TONE: Record<string, "default" | "success" | "warning" | "danger" | "info"> = {
   CREATE: "info",
@@ -93,7 +94,8 @@ export default async function AuditLogPage({
       </form>
 
       <Card className="p-0">
-        <table className="w-full text-sm">
+        <TableScroll>
+        <table className="w-full text-sm min-w-[760px]">
           <thead>
             <tr className="border-b border-card-border bg-slate-50 text-left text-xs text-muted">
               <th className="px-5 py-3 font-medium">Waktu</th>
@@ -147,6 +149,7 @@ export default async function AuditLogPage({
             )}
           </tbody>
         </table>
+        </TableScroll>
       </Card>
     </div>
   );

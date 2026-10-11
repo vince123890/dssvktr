@@ -49,11 +49,11 @@ export function LifecycleView({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={businessLineFilter}
             onChange={(e) => setBusinessLineFilter(e.target.value)}
-            className="rounded-lg border border-card-border px-3 py-1.5 text-xs bg-white"
+            className="min-h-10 rounded-lg border border-card-border bg-white px-3 py-1.5 text-xs lg:min-h-0"
           >
             <option value="ALL">Semua Lini Bisnis</option>
             {businessLines.map((bl) => (
@@ -66,7 +66,7 @@ export function LifecycleView({
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-lg border border-card-border px-3 py-1.5 text-xs bg-white"
+              className="min-h-10 rounded-lg border border-card-border bg-white px-3 py-1.5 text-xs lg:min-h-0"
             >
               <option value="ALL">Semua Status</option>
               {Object.entries(STATUS_LABEL).map(([key, label]) => (
@@ -81,7 +81,7 @@ export function LifecycleView({
         <div className="flex rounded-lg border border-card-border bg-white p-0.5">
           <button
             onClick={() => setView("kanban")}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium ${
+            className={`flex min-h-10 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium lg:min-h-0 ${
               view === "kanban" ? "bg-primary text-white" : "text-muted"
             }`}
           >
@@ -89,7 +89,7 @@ export function LifecycleView({
           </button>
           <button
             onClick={() => setView("table")}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium ${
+            className={`flex min-h-10 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium lg:min-h-0 ${
               view === "table" ? "bg-primary text-white" : "text-muted"
             }`}
           >
@@ -99,9 +99,10 @@ export function LifecycleView({
       </div>
 
       {view === "kanban" ? (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-4 xl:grid-cols-7">
+        // Phones: columns scroll sideways and snap; from md they form a grid (PRD FR-5.8).
+        <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0 2xl:grid-cols-8">
           {filteredColumns.map((col) => (
-            <div key={col.status} className="space-y-2">
+            <div key={col.status} className="min-w-[78vw] shrink-0 snap-start space-y-2 sm:min-w-[300px] md:min-w-0">
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-semibold text-muted">{col.label}</span>
                 <Badge>{col.items.length}</Badge>
@@ -129,7 +130,7 @@ export function LifecycleView({
         </div>
       ) : (
         <Card className="p-0 overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-card-border bg-slate-50 text-left text-xs text-muted">
                 <th className="px-5 py-3 font-medium">Proposal #</th>

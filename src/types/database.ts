@@ -54,6 +54,8 @@ export type ProposalStatus =
   | "PENDING_ADDITIONAL_APPROVAL"
   | "PENDING_OWNER_APPROVAL"
   | "PENDING_PRICING_COMMITTEE_APPROVAL"
+  /** v5.0 — approved by Head of Sales, waiting for the signed document (Technical Logic §4.17). */
+  | "PENDING_SIGNED_DOCUMENT"
   | "EXPIRED"
   /** v3.0 statuses — still in the Postgres enum, no longer produced. */
   | "PENDING_COGS_VALIDATION"
@@ -164,6 +166,12 @@ export type FunctionalRole =
   | "PRICING_COMMITTEE"
   | "PRODUCT_OWNER"
   | "EXTERNAL_AGENCY"
+  /** v5.0 — updates payment status per term on a Won project. */
+  | "FINANCE"
+  /** v5.0 — fills project progress. */
+  | "PROJECT_TEAM"
+  /** v5.0 — read-only executive dashboard and projects (Chief / Direksi). */
+  | "EXECUTIVE"
   | "SYSTEM_ADMIN";
 
 export interface AppRole {
@@ -491,6 +499,21 @@ export interface PricingProposal {
   special_notes: string[];
   tier_round: number;
   accepted_document_url: string | null;
+  /** v5.0 — document date, set at final approval; valid_until counts from it. */
+  document_date: string | null;
+  /** v5.0 — storage path of the document signed by the Head of Sales (attached by the Salesperson). */
+  signed_document_path: string | null;
+  signed_document_uploaded_by: string | null;
+  signed_document_uploaded_at: string | null;
+  outcome_at: string | null;
+  outcome_by: string | null;
+  outcome_reason: string | null;
+  po_number: string | null;
+  po_document_path: string | null;
+  po_received_at: string | null;
+  expired_override_by: string | null;
+  expired_override_at: string | null;
+  expired_override_reason: string | null;
   is_seed: boolean;
   /** v4.1 — template the resolver picked at submit, and why. */
   workflow_template_code: string | null;
@@ -790,4 +813,55 @@ export interface CostItemStat {
   mean_value: number;
   stddev_value: number;
   updated_at: string;
+}
+
+// ---------------------------------------------------------------------
+// v5.0 — Project, payment terms, progress (PRD Module 9)
+// ---------------------------------------------------------------------
+
+export interface Project {
+  id: string;
+  proposal_id: string;
+  project_identifier_id: string | null;
+  customer_name: string | null;
+  po_number: string | null;
+  po_received_at: string | null;
+  po_document_path: string | null;
+  contract_value_ex_vat: number;
+  current_status: string | null;
+  current_progress_pct: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type PaymentTermStatus = "PENDING" | "RECEIVED";
+
+export interface ProjectPaymentTerm {
+  id: string;
+  project_id: string;
+  term_no: number;
+  label: string;
+  planned_pct: number | null;
+  planned_amount: number | null;
+  due_date: string | null;
+  status: PaymentTermStatus;
+  received_amount: number | null;
+  received_at: string | null;
+  proof_path: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectProgressEntry {
+  id: string;
+  project_id: string;
+  entry_date: string;
+  status_label: string;
+  progress_pct: number;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
 }

@@ -104,7 +104,7 @@ export function PriceEstimateClient({ products, external }: { products: Estimate
               <div>
                 <div className="text-xs text-muted">b. Estimasi harga per unit</div>
                 {result?.ok ? (
-                  <div className="mt-1 grid grid-cols-2 gap-3">
+                  <div className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="rounded-lg border border-card-border p-3">
                       <div className="text-[11px] text-muted">excl. VAT</div>
                       <div className="text-lg font-semibold">{formatIDR(result.priceExVat ?? 0)}</div>

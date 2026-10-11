@@ -141,7 +141,7 @@ export default async function WorkflowDetailPage({
           </div>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
-          <table className="w-full text-xs">
+          <table className="w-full text-xs min-w-[640px]">
             <thead>
               <tr className="border-b border-card-border bg-slate-50 text-left text-muted">
                 <th className="w-8 px-4 py-2 font-medium">#</th>

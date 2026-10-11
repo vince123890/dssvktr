@@ -12,11 +12,14 @@ export default async function AppLayout({
   const [profile, access] = await Promise.all([requireProfile(), getMenuAccess()]);
   const menus = allowedMenus(profile, access);
 
+  // PRD FR-5.8 (v5.0): below `lg` the page scrolls as a normal document
+  // under a sticky top bar and the sidebar is a drawer; from `lg` it is
+  // the fixed column beside the content.
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
+    <div className="min-h-screen w-full bg-background lg:flex">
       <Sidebar profile={profile} menus={menus} />
-      <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-7xl px-6 py-6 lg:px-8 lg:py-8">
+      <main className="min-w-0 flex-1">
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
           {children}
         </div>
       </main>

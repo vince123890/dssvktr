@@ -3,19 +3,30 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
-import { hasFunction } from "@/lib/rbac";
+import {
+  canAttachSignedDocument,
+  canCancelFinalApproval,
+  canEditRevisionDiscount,
+  canOverrideExpired,
+  canRecordWinLossOutcome,
+  hasFunction,
+} from "@/lib/rbac";
 import { generateProposalNumber } from "@/lib/workflow/proposalNumber";
 import { canViewQuotation, loadValidatorVisibleRoles } from "@/lib/menuAccess";
+import { buildStoragePath, removeFile, uploadFile, validateUpload } from "@/lib/files";
 import {
   activeStep,
   actorCanActOnStep,
   advanceFrom,
+  approveFinal,
+  attachSignedDocument,
+  cancelFinalApproval,
   decideTier,
   loadCurrentInstance,
   loadLines,
   loadRole,
+  overrideExpired,
   priceQuotation,
-  releaseQuotation,
   returnToSalesOperations,
   routeAfterReview,
   type LineEdit,
@@ -481,44 +492,222 @@ export async function tierDecisionAction(
   });
 }
 
-/** Manual release fallback — used only if a tier round completed but release failed (e.g. kurs basi). */
+/**
+ * Manual fallback — used only if a tier round completed but the final
+ * approval failed (e.g. kurs basi). Head of Sales retries it.
+ */
 export async function retryReleaseAction(proposalId: string): Promise<ActionResult> {
-  return run(proposalId, "Gagal merilis quotation.", async ({ supabase, actor, proposal }) => {
-    if (!hasFunction(actor, "SALES_RELEASER")) throw new Error("Hanya Head of Sales yang dapat merilis.");
-    await releaseQuotation(supabase, proposal, actor);
+  return run(proposalId, "Gagal menyetujui final quotation.", async ({ supabase, actor, proposal }) => {
+    if (!hasFunction(actor, "SALES_RELEASER")) throw new Error("Hanya Head of Sales yang dapat menyetujui final.");
+    await approveFinal(supabase, proposal, actor);
   });
 }
 
 // ---------------------------------------------------------------------
-// After release: outcome, revision, printing
+// v5.0 — signed document → Released (PRD FR-2.11)
 // ---------------------------------------------------------------------
 
-export async function recordOutcomeAction(
+/** Head of Sales withdraws the final approval before the signed document is attached. */
+export async function cancelFinalApprovalAction(proposalId: string, reason: string): Promise<ActionResult> {
+  return run(proposalId, "Gagal membatalkan approval final.", async ({ supabase, actor, proposal }) => {
+    if (!canCancelFinalApproval(actor)) throw new Error("Hanya Head of Sales yang dapat membatalkan approval final.");
+    await cancelFinalApproval(supabase, proposal, actor, reason);
+  });
+}
+
+/** The Salesperson attaches the document signed by the Head of Sales; that releases the quotation. */
+export async function attachSignedDocumentAction(proposalId: string, formData: FormData): Promise<ActionResult> {
+  return run(proposalId, "Gagal melampirkan dokumen bertanda tangan.", async ({ supabase, actor, proposal }) => {
+    if (proposal.current_status !== "PENDING_SIGNED_DOCUMENT") {
+      throw new Error("Quotation tidak sedang menunggu dokumen bertanda tangan.");
+    }
+    if (!canAttachSignedDocument(actor, proposal)) {
+      throw new Error("Hanya Salesperson pemilik quotation yang dapat melampirkan dokumen bertanda tangan.");
+    }
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) throw new Error("Lampirkan dokumen bertanda tangan Head of Sales.");
+    const invalid = validateUpload(file);
+    if (invalid) throw new Error(invalid);
+
+    const path = buildStoragePath("signed", proposal.id, file.name);
+    await uploadFile(supabase, path, file);
+    try {
+      await attachSignedDocument(supabase, proposal, actor, path);
+    } catch (e) {
+      await removeFile(supabase, path);
+      throw e;
+    }
+  });
+}
+
+// ---------------------------------------------------------------------
+// v5.0 — discount entered by the Salesperson on a draft revision (PRD FR-6.0)
+// ---------------------------------------------------------------------
+
+/**
+ * Only on a draft *revision*; the original draft stays at the standard
+ * price. The discount is priced against the latest RELEASED cost
+ * structure and still goes through the margin-tier routing on submit.
+ * GM / tier / cost are deliberately NOT returned to the Salesperson.
+ */
+export async function saveRevisionDiscountAction(
   proposalId: string,
-  outcome: "WON" | "LOST",
-  note: string,
-  acceptedDocumentUrl: string
+  lines: Record<string, LineEdit>
 ): Promise<ActionResult> {
-  return run(proposalId, "Gagal mencatat hasil.", async ({ supabase, actor, proposal }) => {
-    if (!hasFunction(actor, "SALESPERSON") && !hasFunction(actor, "SALES_RELEASER") && !hasFunction(actor, "SYSTEM_ADMIN")) {
-      throw new Error("Hanya Salesperson / Head of Sales yang dapat mencatat hasil.");
+  return run(proposalId, "Gagal menyimpan diskon revisi.", async ({ supabase, actor, proposal }) => {
+    if (!canEditRevisionDiscount(actor, proposal)) {
+      throw new Error("Diskon hanya dapat diisi Salesperson pada draft revisi miliknya.");
     }
-    if (proposal.current_status !== "QUOTATION_RELEASED") {
-      throw new Error("Hasil hanya dicatat untuk quotation yang masih berlaku (Released).");
+    for (const edit of Object.values(lines)) {
+      if (edit.discountValue !== undefined && (edit.discountValue < 0 || Number.isNaN(edit.discountValue))) {
+        throw new Error("Nilai diskon tidak valid.");
+      }
+      if (edit.discountMode === "PERCENTAGE" && (edit.discountValue ?? 0) > 100) {
+        throw new Error("Diskon persen tidak boleh lebih dari 100.");
+      }
     }
-    await supabase
-      .from("pricing_proposal")
-      .update({ outcome, accepted_document_url: acceptedDocumentUrl.trim() || null })
-      .eq("id", proposalId);
+    // Salesperson edits only the discount; scheme / rental fields stay as they are.
+    const discountOnly: Record<string, LineEdit> = {};
+    for (const [id, e] of Object.entries(lines)) {
+      discountOnly[id] = { discountMode: e.discountMode, discountValue: e.discountValue };
+    }
+    await priceQuotation(supabase, proposal, {
+      refreshVersions: true,
+      applyBandDefaults: false,
+      edits: discountOnly,
+      discountSource: "SALESPERSON_REVISION",
+    });
     await writeAuditLog(supabase, {
       entityType: "pricing_proposal",
       entityId: proposalId,
       proposalId,
       actorId: actor.id,
       action: "UPDATE",
-      reason: note || (outcome === "WON" ? "Pelanggan menandatangani penerimaan" : "Pelanggan menolak"),
-      fieldChanges: [{ field: "outcome", old: proposal.outcome, new: outcome }],
+      reason: "Salesperson mengisi diskon negosiasi pada draft revisi.",
+      fieldChanges: Object.entries(discountOnly).map(([lineId, e]) => ({
+        field: `discount_${lineId.slice(0, 8)}`,
+        old: null,
+        new: `${e.discountValue ?? "-"} ${e.discountMode ?? ""}`.trim(),
+      })),
     });
+  });
+}
+
+// ---------------------------------------------------------------------
+// After release: outcome, Expired override, revision, printing
+// ---------------------------------------------------------------------
+
+/** Won requires the customer's PO; it creates the Project (PRD FR-9.1). */
+export async function markWonAction(proposalId: string, formData: FormData): Promise<ActionResult> {
+  return run(proposalId, "Gagal mencatat Won.", async ({ supabase, actor, proposal }) => {
+    if (!canRecordWinLossOutcome(actor)) {
+      throw new Error("Hanya Salesperson / Head of Sales yang dapat mencatat hasil.");
+    }
+    if (proposal.current_status !== "QUOTATION_RELEASED") {
+      throw new Error("Hasil hanya dicatat untuk quotation yang masih berlaku (Released).");
+    }
+    if (proposal.outcome !== "PENDING") throw new Error("Hasil quotation ini sudah dicatat.");
+
+    const poNumber = String(formData.get("po_number") ?? "").trim();
+    const receivedRaw = String(formData.get("po_received_at") ?? "").trim();
+    const file = formData.get("po_file");
+    if (!(file instanceof File) || file.size === 0) throw new Error("Bukti PO wajib diunggah.");
+    const invalid = validateUpload(file);
+    if (invalid) throw new Error(invalid);
+    if (!poNumber) throw new Error("Nomor PO wajib diisi.");
+    const receivedAt = /^\d{4}-\d{2}-\d{2}$/.test(receivedRaw) ? receivedRaw : new Date().toISOString().slice(0, 10);
+
+    const path = buildStoragePath("po", proposal.id, file.name);
+    await uploadFile(supabase, path, file);
+    const now = new Date().toISOString();
+    try {
+      const { error: updateError } = await supabase
+        .from("pricing_proposal")
+        .update({
+          outcome: "WON",
+          outcome_at: now,
+          outcome_by: actor.id,
+          po_number: poNumber,
+          po_document_path: path,
+          po_received_at: receivedAt,
+        })
+        .eq("id", proposalId)
+        .eq("outcome", "PENDING");
+      if (updateError) throw new Error(updateError.message);
+
+      const { error: projectError } = await supabase.from("project").upsert(
+        {
+          proposal_id: proposal.id,
+          project_identifier_id: proposal.project_identifier_id,
+          customer_name: proposal.customer_name ?? proposal.kyc.company_name,
+          po_number: poNumber,
+          po_received_at: receivedAt,
+          po_document_path: path,
+          contract_value_ex_vat: proposal.total_ex_vat,
+          created_by: actor.id,
+        },
+        { onConflict: "proposal_id", ignoreDuplicates: true }
+      );
+      if (projectError) throw new Error(projectError.message);
+    } catch (e) {
+      await removeFile(supabase, path);
+      throw e;
+    }
+
+    await writeAuditLog(supabase, {
+      entityType: "pricing_proposal",
+      entityId: proposalId,
+      proposalId,
+      actorId: actor.id,
+      action: "UPDATE",
+      reason: `Won — PO ${poNumber} diterima ${receivedAt}; project dibuat.`,
+      fieldChanges: [{ field: "outcome", old: proposal.outcome, new: "WON" }],
+    });
+    revalidatePath("/projects");
+    revalidatePath("/dashboard");
+  });
+}
+
+export async function markLostAction(proposalId: string, reason: string): Promise<ActionResult> {
+  return run(proposalId, "Gagal mencatat Lost.", async ({ supabase, actor, proposal }) => {
+    if (!canRecordWinLossOutcome(actor)) {
+      throw new Error("Hanya Salesperson / Head of Sales yang dapat mencatat hasil.");
+    }
+    if (proposal.current_status !== "QUOTATION_RELEASED") {
+      throw new Error("Hasil hanya dicatat untuk quotation yang masih berlaku (Released).");
+    }
+    if (proposal.outcome !== "PENDING") throw new Error("Hasil quotation ini sudah dicatat.");
+    if (!reason.trim()) throw new Error("Alasan Lost wajib diisi.");
+    const { error } = await supabase
+      .from("pricing_proposal")
+      .update({ outcome: "LOST", outcome_at: new Date().toISOString(), outcome_by: actor.id, outcome_reason: reason.trim() })
+      .eq("id", proposalId)
+      .eq("outcome", "PENDING");
+    if (error) throw new Error(error.message);
+    await writeAuditLog(supabase, {
+      entityType: "pricing_proposal",
+      entityId: proposalId,
+      proposalId,
+      actorId: actor.id,
+      action: "UPDATE",
+      reason: `Lost — ${reason.trim()}`,
+      fieldChanges: [{ field: "outcome", old: proposal.outcome, new: "LOST" }],
+    });
+    revalidatePath("/dashboard");
+  });
+}
+
+/** Admin may declare Expired early or undo a wrong Expired (PRD FR-2.9, v5.0). */
+export async function adminExpiredOverrideAction(
+  proposalId: string,
+  mode: "EXPIRE" | "CLEAR",
+  reason: string,
+  newValidUntil: string
+): Promise<ActionResult> {
+  return run(proposalId, "Gagal mengubah status Expired.", async ({ supabase, actor, proposal }) => {
+    if (!canOverrideExpired(actor)) throw new Error("Hanya Admin yang dapat mengubah status Expired.");
+    await overrideExpired(supabase, proposal, actor, mode, reason, newValidUntil || undefined);
+    revalidatePath("/dashboard");
   });
 }
 

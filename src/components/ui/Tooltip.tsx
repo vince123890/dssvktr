@@ -22,7 +22,7 @@ export function Tooltip({
       {children}
       <span
         role="tooltip"
-        className="pointer-events-none absolute bottom-full right-0 z-20 mb-2 w-64 -translate-y-0.5 rounded-lg border border-card-border bg-white p-2.5 text-[11px] leading-relaxed text-foreground opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100"
+        className="pointer-events-none absolute bottom-full right-0 z-20 mb-2 w-64 max-w-[80vw] -translate-y-0.5 rounded-lg border border-card-border bg-white p-2.5 text-[11px] leading-relaxed text-foreground opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100"
       >
         {content}
       </span>

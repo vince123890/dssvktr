@@ -45,7 +45,9 @@ type Db = SupabaseClient<any>;
  * Sheet "Basic Workflow" B, as a state machine:
  *   DRAFT (KYC) → [validation, skipped for a Sales Lead] → Sales
  *   Operations generate (quantity band) → Head of Sales review →
- *   margin-tier routing (15% / 10%) → release.
+ *   margin-tier routing (15% / 10%) → final approval → (v5.0) the
+ *   Salesperson attaches the document signed by the Head of Sales →
+ *   release.
  *
  * The steps before routing come from the configurable Workflow
  * Template; the tier approvals are appended from margin_tier_authority
@@ -149,7 +151,7 @@ export interface PriceOptions {
   /** Apply the quantity band's default discount to lines not yet edited by hand. */
   applyBandDefaults: boolean;
   edits?: Record<string, LineEdit>;
-  discountSource?: "SALES_OPS_MANUAL" | "HEAD_OF_SALES_REVISE";
+  discountSource?: "SALES_OPS_MANUAL" | "HEAD_OF_SALES_REVISE" | "SALESPERSON_REVISION";
 }
 
 export interface PriceSummary {
@@ -475,7 +477,7 @@ export async function routeAfterReview(
     tier.decision_slots.every((slot) => actorFillsSlot(actor, slot));
 
   if (selfReleasing) {
-    await releaseQuotation(supabase, proposal, actor);
+    await approveFinal(supabase, proposal, actor);
     return { released: true };
   }
 
@@ -622,7 +624,7 @@ export async function decideTier(
   const stillPending = decisions.filter((r) => r.id !== mine.id && r.decision !== "APPROVE");
   if (stillPending.length > 0) return { released: false, rejected: false };
 
-  await releaseQuotation(supabase, proposal, actor);
+  await approveFinal(supabase, proposal, actor);
   return { released: true, rejected: false };
 }
 
@@ -716,13 +718,21 @@ export async function nextDocumentNumber(
     .replace("{YYYY}", yyyy);
 }
 
-export async function releaseQuotation(
+/**
+ * Final approval (PRD FR-2.11, Technical Logic §4.17, v5.0). Everything
+ * the old "release" did EXCEPT marking the quotation Released: the Release
+ * Gate runs, the document number / date / validity are fixed (so the
+ * document the Head of Sales signs is complete), and the quotation moves
+ * to PENDING_SIGNED_DOCUMENT. It becomes QUOTATION_RELEASED only when the
+ * Salesperson attaches the signed document (`attachSignedDocument`).
+ */
+export async function approveFinal(
   supabase: Db,
   proposal: PricingProposal,
   actor: Actor
 ): Promise<void> {
   const gate = await checkReleaseGate(supabase, proposal);
-  if (!gate.ok) throw new Error(`Quotation belum dapat dirilis — ${gate.reason}`);
+  if (!gate.ok) throw new Error(`Quotation belum dapat disetujui final — ${gate.reason}`);
 
   const settings = await loadSettings(supabase);
   const lines = await loadLines(supabase, proposal.id);
@@ -748,10 +758,100 @@ export async function releaseQuotation(
   await supabase
     .from("pricing_proposal")
     .update({
-      current_status: "QUOTATION_RELEASED",
+      current_status: "PENDING_SIGNED_DOCUMENT",
       document_number: documentNumber,
-      released_at: now.toISOString(),
+      document_date: now.toISOString().slice(0, 10),
       valid_until: validUntil.toISOString().slice(0, 10),
+    })
+    .eq("id", proposal.id);
+
+  await writeAuditLog(supabase, {
+    entityType: "pricing_proposal",
+    entityId: proposal.id,
+    proposalId: proposal.id,
+    actorId: actor.id,
+    action: "APPROVE",
+    reason: `Disetujui final sebagai ${documentNumber} (berlaku s.d. ${validUntil.toISOString().slice(0, 10)}) — menunggu dokumen bertanda tangan Head of Sales.`,
+    fieldChanges: [{ field: "current_status", old: proposal.current_status, new: "PENDING_SIGNED_DOCUMENT" }],
+  });
+}
+
+/**
+ * Cancels a final approval before the signed document has been attached
+ * (PRD FR-2.11): the price turned out wrong, or the customer changed
+ * their mind. The quotation goes back to the Head of Sales review with
+ * the review step reopened, the current tier round is voided (a fresh
+ * round is created when it is accepted again) and the document number /
+ * date / validity are cleared — a new number is issued on the next final
+ * approval. The old number is kept in the audit trail.
+ */
+export async function cancelFinalApproval(
+  supabase: Db,
+  proposal: PricingProposal,
+  actor: Actor,
+  reason: string
+): Promise<void> {
+  if (proposal.current_status !== "PENDING_SIGNED_DOCUMENT") {
+    throw new Error("Approval final hanya dapat dibatalkan sebelum dokumen bertanda tangan dilampirkan.");
+  }
+  if (!reason.trim()) throw new Error("Isi alasan pembatalan approval.");
+
+  const { instance, steps } = await loadCurrentInstance(supabase, proposal);
+  const review = [...steps].reverse().find((s) => s.action_kind === "REVIEW_AND_ROUTE");
+  if (!instance || !review) throw new Error("Workflow tidak memiliki langkah review Head of Sales.");
+
+  await Promise.all([
+    supabase.from("workflow_instance").update({ status: "RUNNING" }).eq("id", instance.id),
+    setStep(supabase, review, { ...openPatch(review), decision_note: `Approval final dibatalkan: ${reason.trim()}` }),
+    supabase.from("tier_approval").update({ is_void: true }).eq("proposal_id", proposal.id).eq("is_void", false),
+  ]);
+  const { error } = await supabase
+    .from("pricing_proposal")
+    .update({
+      current_status: review.status_label ?? "PENDING_HEAD_OF_SALES_REVIEW",
+      current_step_order: review.step_order,
+      document_number: null,
+      document_date: null,
+      valid_until: null,
+    })
+    .eq("id", proposal.id);
+  if (error) throw new Error(error.message);
+
+  await writeAuditLog(supabase, {
+    entityType: "pricing_proposal",
+    entityId: proposal.id,
+    proposalId: proposal.id,
+    actorId: actor.id,
+    action: "UPDATE",
+    reason: `Approval final dibatalkan (dokumen ${proposal.document_number ?? "-"}): ${reason.trim()}`,
+    fieldChanges: [{ field: "current_status", old: "PENDING_SIGNED_DOCUMENT", new: review.status_label ?? "PENDING_HEAD_OF_SALES_REVIEW" }],
+  });
+}
+
+/**
+ * The Salesperson attaches the document signed by the Head of Sales:
+ * that is the moment the quotation is Released (`released_at` — the basis
+ * of the yellow / red age badge) and the quotation it revises becomes
+ * SUPERSEDED. `path` is the already-uploaded storage object.
+ */
+export async function attachSignedDocument(
+  supabase: Db,
+  proposal: PricingProposal,
+  actor: Actor,
+  path: string
+): Promise<void> {
+  if (proposal.current_status !== "PENDING_SIGNED_DOCUMENT") {
+    throw new Error("Lampiran hanya diunggah untuk quotation yang menunggu dokumen bertanda tangan.");
+  }
+  const now = new Date().toISOString();
+  await supabase
+    .from("pricing_proposal")
+    .update({
+      current_status: "QUOTATION_RELEASED",
+      released_at: now,
+      signed_document_path: path,
+      signed_document_uploaded_by: actor.id,
+      signed_document_uploaded_at: now,
     })
     .eq("id", proposal.id);
 
@@ -766,7 +866,7 @@ export async function releaseQuotation(
       proposalId: proposal.supersedes_proposal_id,
       actorId: actor.id,
       action: "SUPERSEDE",
-      reason: `Digantikan oleh ${proposal.proposal_number} (${documentNumber})`,
+      reason: `Digantikan oleh ${proposal.proposal_number} (${proposal.document_number ?? "-"})`,
     });
   }
 
@@ -776,8 +876,72 @@ export async function releaseQuotation(
     proposalId: proposal.id,
     actorId: actor.id,
     action: "RELEASE",
-    reason: `Dirilis sebagai ${documentNumber}, berlaku s.d. ${validUntil.toISOString().slice(0, 10)}.`,
-    fieldChanges: [{ field: "current_status", old: proposal.current_status, new: "QUOTATION_RELEASED" }],
+    reason: `Dokumen bertanda tangan dilampirkan — ${proposal.document_number ?? proposal.proposal_number} dirilis, berlaku s.d. ${proposal.valid_until ?? "-"}.`,
+    fieldChanges: [{ field: "current_status", old: "PENDING_SIGNED_DOCUMENT", new: "QUOTATION_RELEASED" }],
+  });
+}
+
+/**
+ * Admin override of the automatic Expired status (PRD FR-2.9, v5.0).
+ * EXPIRE marks a Released quotation Expired before its valid_until;
+ * CLEAR undoes an Expired status and sets a new valid_until so the lazy
+ * expiry does not immediately fire again. A Won quotation can never be
+ * Expired.
+ */
+export async function overrideExpired(
+  supabase: Db,
+  proposal: PricingProposal,
+  actor: Actor,
+  mode: "EXPIRE" | "CLEAR",
+  reason: string,
+  newValidUntil?: string
+): Promise<void> {
+  if (!reason.trim()) throw new Error("Isi alasan override.");
+  if (proposal.outcome === "WON") throw new Error("Quotation yang sudah Won tidak dapat di-Expired.");
+  const now = new Date().toISOString();
+  const trail = {
+    expired_override_by: actor.id,
+    expired_override_at: now,
+    expired_override_reason: reason.trim(),
+  };
+
+  if (mode === "EXPIRE") {
+    if (proposal.current_status !== "QUOTATION_RELEASED") {
+      throw new Error("Hanya quotation Released yang dapat dinyatakan Expired.");
+    }
+    await supabase.from("pricing_proposal").update({ current_status: "EXPIRED", ...trail }).eq("id", proposal.id);
+    await writeAuditLog(supabase, {
+      entityType: "pricing_proposal",
+      entityId: proposal.id,
+      proposalId: proposal.id,
+      actorId: actor.id,
+      action: "EXPIRE",
+      reason: `Admin menyatakan Expired: ${reason.trim()}`,
+      fieldChanges: [{ field: "current_status", old: "QUOTATION_RELEASED", new: "EXPIRED" }],
+    });
+    return;
+  }
+
+  if (proposal.current_status !== "EXPIRED") throw new Error("Hanya quotation Expired yang dapat dibatalkan.");
+  const today = new Date().toISOString().slice(0, 10);
+  if (!newValidUntil || newValidUntil <= today) {
+    throw new Error("Isi tanggal berlaku baru yang melewati hari ini.");
+  }
+  await supabase
+    .from("pricing_proposal")
+    .update({ current_status: "QUOTATION_RELEASED", valid_until: newValidUntil, ...trail })
+    .eq("id", proposal.id);
+  await writeAuditLog(supabase, {
+    entityType: "pricing_proposal",
+    entityId: proposal.id,
+    proposalId: proposal.id,
+    actorId: actor.id,
+    action: "UPDATE",
+    reason: `Admin membatalkan Expired (berlaku s.d. ${newValidUntil}): ${reason.trim()}`,
+    fieldChanges: [
+      { field: "current_status", old: "EXPIRED", new: "QUOTATION_RELEASED" },
+      { field: "valid_until", old: proposal.valid_until, new: newValidUntil },
+    ],
   });
 }
 

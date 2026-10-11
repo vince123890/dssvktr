@@ -20,8 +20,10 @@ import type { Actor, FunctionalRole, PricingProposal } from "@/types/database";
 
 export type MenuKey =
   | "overview"
+  | "dashboard"
   | "price_estimate"
   | "quotations"
+  | "projects"
   | "lifecycle"
   | "cost_structure"
   | "dss"
@@ -48,6 +50,13 @@ export const MENUS: MenuDef[] = [
     defaultFunctions: ["SALESPERSON", "SALES_OPERATIONS", "SALES_RELEASER", "COGS_OWNER", "PROFITABILITY_OWNER", "PRICING_COMMITTEE", "SYSTEM_ADMIN"],
   },
   {
+    // v5.0 — Salesperson KPIs and the Chief / Direksi executive view (PRD Module 10).
+    key: "dashboard",
+    href: "/dashboard",
+    label: "Dashboard",
+    defaultFunctions: ["SALESPERSON", "SALES_OPERATIONS", "SALES_RELEASER", "EXECUTIVE", "SYSTEM_ADMIN"],
+  },
+  {
     key: "price_estimate",
     href: "/price-estimate",
     label: "Price Estimate",
@@ -58,6 +67,13 @@ export const MENUS: MenuDef[] = [
     href: "/proposals",
     label: "Official Quotation",
     defaultFunctions: ["SALESPERSON", "SALES_OPERATIONS", "SALES_RELEASER", "COGS_OWNER", "PROFITABILITY_OWNER", "PRICING_COMMITTEE", "SYSTEM_ADMIN"],
+  },
+  {
+    // v5.0 — Won quotations: payment terms and progress (PRD Module 9).
+    key: "projects",
+    href: "/projects",
+    label: "Projects",
+    defaultFunctions: ["SALESPERSON", "SALES_OPERATIONS", "SALES_RELEASER", "FINANCE", "PROJECT_TEAM", "EXECUTIVE", "SYSTEM_ADMIN"],
   },
   {
     key: "lifecycle",
@@ -201,5 +217,32 @@ export async function loadValidatorVisibleRoles(
 
 export function seesAllQuotations(actor: Actor): boolean {
   return hasAnyFunction(actor, SEES_ALL_QUOTATIONS);
+}
+
+/**
+ * v5.0 — Projects (PRD FR-9.2). A Salesperson sees the projects of the
+ * quotations they own; Sales Operations, Head of Sales, Finance, Project
+ * Team, Executive and Admin see all of them.
+ */
+const SEES_ALL_PROJECTS: FunctionalRole[] = [
+  "SALES_OPERATIONS",
+  "SALES_RELEASER",
+  "FINANCE",
+  "PROJECT_TEAM",
+  "EXECUTIVE",
+  "SYSTEM_ADMIN",
+];
+
+export function seesAllProjects(actor: Pick<Actor, "app_role">): boolean {
+  return hasAnyFunction(actor, SEES_ALL_PROJECTS);
+}
+
+export function canViewProject(
+  actor: Pick<Actor, "id" | "app_role">,
+  proposal: Pick<PricingProposal, "created_by" | "account_person_ids">
+): boolean {
+  if (seesAllProjects(actor)) return true;
+  if (proposal.created_by === actor.id) return true;
+  return (proposal.account_person_ids ?? []).includes(actor.id);
 }
 

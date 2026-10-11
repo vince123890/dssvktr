@@ -18,6 +18,7 @@ import {
   type TemplateInput,
   type TemplateTestResult,
 } from "./actions";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 /**
  * Workflow Template Catalog (PRD FR-2.0.1 v4.1). VKTR expects ~30
@@ -74,7 +75,7 @@ export function CatalogTable({ rows }: { rows: TemplateRow[] }) {
         </Link>
       </CardHeader>
       <CardContent className="overflow-x-auto p-0">
-        <table className="w-full text-xs">
+        <table className="w-full text-xs min-w-[760px]">
           <thead>
             <tr className="border-b border-card-border bg-slate-50 text-left text-muted">
               <th className="w-8 px-4 py-2 font-medium">#</th>
@@ -406,7 +407,8 @@ export function TemplateTester({ lists }: { lists: QualifierLists }) {
               Terpilih: <strong>{result.templateName}</strong> — {result.reason}
               <div className="text-muted">Estimasi nilai {formatIDR(attrs.estimatedValue)}</div>
             </div>
-            <table className="w-full">
+            <TableScroll>
+            <table className="w-full min-w-[420px]">
               <tbody>
                 {result.rows?.map((r) => (
                   <tr key={r.name} className="border-b border-card-border last:border-0">
@@ -418,6 +420,7 @@ export function TemplateTester({ lists }: { lists: QualifierLists }) {
                 ))}
               </tbody>
             </table>
+            </TableScroll>
           </div>
         )}
         {result && !result.ok && <p className="text-xs text-danger">{result.error}</p>}

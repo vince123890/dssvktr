@@ -9,6 +9,7 @@ import { canConfigureMasterData } from "@/lib/rbac";
 import { ExchangeRatePanel, MineralIndexPanel, RateSensitivityPanel } from "./RateAndIndexPanel";
 import { loadMineralContext } from "@/lib/pricing/mineral";
 import type { ExchangeRate, MineralIndexSnapshot, RateSensitivityConfig } from "@/types/database";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 const COST_GROUP_LABEL: Record<CostGroup, string> = {
   COGS: "COGS",
@@ -156,7 +157,8 @@ export default async function MasterDataPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
+            <TableScroll>
+            <table className="w-full text-sm min-w-[720px]">
               <thead>
                 <tr className="border-b border-card-border bg-slate-50 text-left text-xs text-muted">
                   <th className="px-5 py-2.5 font-medium">Code</th>
@@ -222,6 +224,7 @@ export default async function MasterDataPage() {
                 )}
               </tbody>
             </table>
+            </TableScroll>
           </CardContent>
         </Card>
       ))}

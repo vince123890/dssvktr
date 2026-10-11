@@ -9,6 +9,9 @@ export interface AppSettings {
   vatRatePct: number;
   deviationGmThresholdPct: number;
   quotationValidityDays: number;
+  /** v5.0 — age badge thresholds, counted from the release date (PRD FR-3.4). */
+  quotationYellowDays: number;
+  quotationRedDays: number;
   fraudGuardMaxPerDay: number;
   documentTitle: string;
   documentNumberPattern: string;
@@ -28,6 +31,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   vatRatePct: 11,
   deviationGmThresholdPct: 10,
   quotationValidityDays: 30,
+  quotationYellowDays: 14,
+  quotationRedDays: 30,
   fraudGuardMaxPerDay: 1,
   documentTitle: "COST ESTIMATE",
   documentNumberPattern: "{seq}/L/VKTR/{scheme}-{unit}/{MM}-{YYYY}",
@@ -46,6 +51,8 @@ export const SETTING_KEYS: Record<keyof AppSettings, string> = {
   vatRatePct: "vat_rate_pct",
   deviationGmThresholdPct: "deviation_gm_threshold_pct",
   quotationValidityDays: "quotation_validity_days",
+  quotationYellowDays: "quotation_yellow_days",
+  quotationRedDays: "quotation_red_days",
   fraudGuardMaxPerDay: "fraud_guard_max_per_day",
   documentTitle: "document_title",
   documentNumberPattern: "document_number_pattern",

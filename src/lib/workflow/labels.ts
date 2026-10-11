@@ -8,6 +8,7 @@ export const STATUS_LABEL: Record<ProposalStatus, string> = {
   PENDING_ADDITIONAL_APPROVAL: "Persetujuan Tambahan (template)",
   PENDING_OWNER_APPROVAL: "Approval Tier — COGS & Profitability Owner",
   PENDING_PRICING_COMMITTEE_APPROVAL: "Approval Tier — Pricing Committee (CCO & CFO)",
+  PENDING_SIGNED_DOCUMENT: "Menunggu dokumen bertanda tangan",
   QUOTATION_RELEASED: "Quotation Released",
   EXPIRED: "Kedaluwarsa",
   SUPERSEDED: "Digantikan (Superseded)",
@@ -26,6 +27,7 @@ export const STATUS_TONE: Record<ProposalStatus, "default" | "success" | "warnin
   PENDING_ADDITIONAL_APPROVAL: "info",
   PENDING_OWNER_APPROVAL: "warning",
   PENDING_PRICING_COMMITTEE_APPROVAL: "danger",
+  PENDING_SIGNED_DOCUMENT: "warning",
   QUOTATION_RELEASED: "success",
   EXPIRED: "default",
   SUPERSEDED: "default",
@@ -43,6 +45,7 @@ export const KANBAN_COLUMNS: ProposalStatus[] = [
   "PENDING_HEAD_OF_SALES_REVIEW",
   "PENDING_OWNER_APPROVAL",
   "PENDING_PRICING_COMMITTEE_APPROVAL",
+  "PENDING_SIGNED_DOCUMENT",
   "QUOTATION_RELEASED",
 ];
 
@@ -54,6 +57,7 @@ export const IN_FLIGHT_STATUSES: ProposalStatus[] = [
   "PENDING_ADDITIONAL_APPROVAL",
   "PENDING_OWNER_APPROVAL",
   "PENDING_PRICING_COMMITTEE_APPROVAL",
+  "PENDING_SIGNED_DOCUMENT",
 ];
 
 export const STEP_STATUS_LABEL: Record<StepStatus, string> = {

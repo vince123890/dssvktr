@@ -500,6 +500,17 @@ export async function saveGeneralSettingsAction(values: Partial<AppSettings>): P
         updated_at: new Date().toISOString(),
       }));
     if (values.vatRatePct !== undefined && (values.vatRatePct < 0 || values.vatRatePct > 50)) throw new Error("Tarif PPN tidak valid.");
+    // v5.0 — age badge thresholds, counted from the release date (PRD FR-3.4).
+    for (const [label, v] of [["kuning", values.quotationYellowDays], ["merah", values.quotationRedDays]] as const) {
+      if (v !== undefined && (!Number.isInteger(v) || v < 1 || v > 365)) throw new Error(`Ambang ${label} harus bilangan bulat 1–365 hari.`);
+    }
+    if (
+      values.quotationYellowDays !== undefined &&
+      values.quotationRedDays !== undefined &&
+      values.quotationRedDays <= values.quotationYellowDays
+    ) {
+      throw new Error("Ambang merah harus lebih besar dari ambang kuning.");
+    }
     const { error } = await supabase.from("app_setting").upsert(rows, { onConflict: "key" });
     if (error) throw new Error(error.message);
     return `Settings umum disimpan (${rows.map((r) => r.key).join(", ")})`;

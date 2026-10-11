@@ -27,6 +27,7 @@ import {
   saveSegregationAction,
   saveTiersAction,
 } from "./actions";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 function useSaver() {
   const [isPending, startTransition] = useTransition();
@@ -73,7 +74,7 @@ export function RolesEditor({ roles }: { roles: AppRole[] }) {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full text-xs min-w-[520px]">
             <thead>
               <tr className="border-b border-card-border text-left text-muted">
                 <th className="py-2 pr-2 font-medium">Kode</th>
@@ -183,7 +184,8 @@ export function UsersEditor({
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <table className="w-full text-xs">
+        <TableScroll>
+        <table className="w-full text-xs min-w-[560px]">
           <thead>
             <tr className="border-b border-card-border bg-slate-50 text-left text-muted">
               <th className="px-5 py-2 font-medium">Nama</th>
@@ -213,6 +215,7 @@ export function UsersEditor({
             ))}
           </tbody>
         </table>
+        </TableScroll>
         <div className="px-5 py-2">{feedback}</div>
       </CardContent>
     </Card>
@@ -275,7 +278,7 @@ export function ScopeAuthorityEditor({
             </div>
           </CardHeader>
           <CardContent className="overflow-x-auto p-0">
-            <table className="w-full text-xs">
+            <table className="w-full text-xs min-w-[600px]">
               <thead>
                 <tr className="border-b border-card-border bg-slate-50 text-left text-muted">
                   <th className="px-4 py-2 font-medium">Role</th>
@@ -391,7 +394,7 @@ export function MenuAccessEditor({
         </div>
       </CardHeader>
       <CardContent className="space-y-3 overflow-x-auto">
-        <table className="w-full text-xs">
+        <table className="w-full text-xs min-w-[560px]">
           <thead>
             <tr className="border-b border-card-border text-left text-muted">
               <th className="py-2 pr-2 font-medium">Menu</th>
@@ -514,7 +517,8 @@ export function BandEditor({ bands }: { bands: QuantityBand[] }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
-        <table className="w-full text-xs">
+        <TableScroll>
+        <table className="w-full text-xs min-w-[520px]">
           <thead>
             <tr className="text-left text-muted">
               <th className="py-1 font-medium">Band</th>
@@ -542,6 +546,7 @@ export function BandEditor({ bands }: { bands: QuantityBand[] }) {
             ))}
           </tbody>
         </table>
+        </TableScroll>
         <div className="flex items-center gap-2">
           <Button size="sm" disabled={isPending} onClick={() => save(() => saveBandsAction(rows))}>Simpan band</Button>
           {feedback}
@@ -573,6 +578,8 @@ export function GeneralSettingsEditor({ settings }: { settings: AppSettings }) {
         <L label="Tarif PPN efektif (%)"><input className="pc-input" type="number" step="0.01" value={s.vatRatePct} onChange={num("vatRatePct")} /></L>
         <L label="Ambang skenario Deviation — GM (%)"><input className="pc-input" type="number" step="0.01" value={s.deviationGmThresholdPct} onChange={num("deviationGmThresholdPct")} /></L>
         <L label="Masa berlaku quotation (hari)"><input className="pc-input" type="number" value={s.quotationValidityDays} onChange={num("quotationValidityDays")} /></L>
+        <L label="Status kuning — hari sejak tanggal rilis (follow up)"><input className="pc-input" type="number" min={1} max={365} value={s.quotationYellowDays} onChange={num("quotationYellowDays")} /></L>
+        <L label="Status merah — hari sejak tanggal rilis (perlu quotation baru)"><input className="pc-input" type="number" min={1} max={365} value={s.quotationRedDays} onChange={num("quotationRedDays")} /></L>
         <L label="Fraud guard — maks. quotation/hari per customer+varian"><input className="pc-input" type="number" min={1} value={s.fraudGuardMaxPerDay} onChange={num("fraudGuardMaxPerDay")} /></L>
         <L label="Judul dokumen"><input className="pc-input" value={s.documentTitle} onChange={str("documentTitle")} /></L>
         <L label="Pola nomor ({seq} {scheme} {unit} {MM} {YYYY})"><input className="pc-input" value={s.documentNumberPattern} onChange={str("documentNumberPattern")} /></L>

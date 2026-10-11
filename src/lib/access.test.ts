@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { actorFillsSlot, canManageProductMasterData, canSeeCostStructure, hasAnyFunction, hasFunction, isExternal, legacyRoleFor } from "./rbac";
+import {
+  actorFillsSlot,
+  canAttachSignedDocument,
+  canEditRevisionDiscount,
+  canManageProductMasterData,
+  canOverrideExpired,
+  canRecordProjectProgress,
+  canSeeCostStructure,
+  canSetPaymentTerms,
+  canUpdatePaymentStatus,
+  hasAnyFunction,
+  hasFunction,
+  isExternal,
+  legacyRoleFor,
+} from "./rbac";
 import {
   DEFAULT_MENU_ACCESS,
   allowedMenus,
@@ -70,7 +84,7 @@ describe("akses menu", () => {
     for (const k of ["cost_structure", "dss", "master_data", "audit", "settings", "product"] as const) {
       expect(canAccessMenu(a, k, DEFAULT_MENU_ACCESS)).toBe(false);
     }
-    expect(allowedMenus(a, DEFAULT_MENU_ACCESS)).toEqual(["overview", "price_estimate", "quotations"]);
+    expect(allowedMenus(a, DEFAULT_MENU_ACCESS)).toEqual(["overview", "dashboard", "price_estimate", "quotations", "projects"]);
   });
   it("agency eksternal hanya price_estimate", () => {
     expect(allowedMenus(actor(["EXTERNAL_AGENCY"]), DEFAULT_MENU_ACCESS)).toEqual(["price_estimate"]);
@@ -103,5 +117,63 @@ describe("canViewQuotation", () => {
     const lead = actor(["SALESPERSON", "SALES_VALIDATOR"]);
     expect(canViewQuotation(lead, p(), ["SALES_EXEC"])).toBe(true);
     expect(canViewQuotation(lead, p({ initiator_role_code: "OTHER" }), ["SALES_EXEC"])).toBe(false);
+  });
+});
+
+describe("v5.0 — role dan menu baru", () => {
+  const me = (fns: FunctionalRole[]) => actor(fns);
+  it("Finance, Tim Project, Chief/Direksi hanya mendapat menu yang dipakainya", () => {
+    expect(allowedMenus(me(["FINANCE"]), DEFAULT_MENU_ACCESS)).toEqual(["projects"]);
+    expect(allowedMenus(me(["PROJECT_TEAM"]), DEFAULT_MENU_ACCESS)).toEqual(["projects"]);
+    expect(allowedMenus(me(["EXECUTIVE"]), DEFAULT_MENU_ACCESS)).toEqual(["dashboard", "projects"]);
+  });
+  it("halaman awal Chief/Direksi adalah Dashboard, Finance adalah Projects", () => {
+    expect(landingHref(me(["EXECUTIVE"]), DEFAULT_MENU_ACCESS)).toBe("/dashboard");
+    expect(landingHref(me(["FINANCE"]), DEFAULT_MENU_ACCESS)).toBe("/projects");
+  });
+  it("Chief/Direksi dan Finance tidak melihat cost structure atau daftar quotation", () => {
+    expect(canSeeCostStructure(me(["EXECUTIVE"]))).toBe(false);
+    expect(canSeeCostStructure(me(["FINANCE"]))).toBe(false);
+    expect(canAccessMenu(me(["EXECUTIVE"]), "quotations", DEFAULT_MENU_ACCESS)).toBe(false);
+    expect(canAccessMenu(me(["FINANCE"]), "cost_structure", DEFAULT_MENU_ACCESS)).toBe(false);
+  });
+  it("Salesperson mendapat Dashboard dan Projects (miliknya)", () => {
+    const menus = allowedMenus(me(["SALESPERSON"]), DEFAULT_MENU_ACCESS);
+    expect(menus).toContain("dashboard");
+    expect(menus).toContain("projects");
+  });
+});
+
+describe("v5.0 — wewenang aksi baru", () => {
+  const owner = { created_by: "me", account_person_ids: [] as string[] };
+  const other = { created_by: "someone", account_person_ids: [] as string[] };
+  it("lampiran dokumen bertanda tangan: hanya Salesperson pemilik atau Admin", () => {
+    expect(canAttachSignedDocument(actor(["SALESPERSON"]), owner)).toBe(true);
+    expect(canAttachSignedDocument(actor(["SALESPERSON"]), { ...other, account_person_ids: ["me"] })).toBe(true);
+    expect(canAttachSignedDocument(actor(["SALESPERSON"]), other)).toBe(false);
+    expect(canAttachSignedDocument(actor(["SALES_RELEASER"]), owner)).toBe(false);
+    expect(canAttachSignedDocument(actor(["SYSTEM_ADMIN"]), other)).toBe(true);
+  });
+  it("termin ditetapkan Salesperson pemilik; status payment oleh Finance; progres oleh Tim Project", () => {
+    expect(canSetPaymentTerms(actor(["SALESPERSON"]), owner)).toBe(true);
+    expect(canSetPaymentTerms(actor(["FINANCE"]), owner)).toBe(false);
+    expect(canUpdatePaymentStatus(actor(["FINANCE"]))).toBe(true);
+    expect(canUpdatePaymentStatus(actor(["SALESPERSON"]))).toBe(false);
+    expect(canRecordProjectProgress(actor(["PROJECT_TEAM"]))).toBe(true);
+    expect(canRecordProjectProgress(actor(["FINANCE"]))).toBe(false);
+    expect(canRecordProjectProgress(actor(["SALESPERSON"]))).toBe(false);
+  });
+  it("override Expired hanya Admin", () => {
+    expect(canOverrideExpired(actor(["SYSTEM_ADMIN"]))).toBe(true);
+    expect(canOverrideExpired(actor(["SALESPERSON"]))).toBe(false);
+    expect(canOverrideExpired(actor(["SALES_RELEASER"]))).toBe(false);
+  });
+  it("diskon Salesperson hanya pada draft revisi miliknya", () => {
+    const revDraft = { current_status: "DRAFT" as const, supersedes_proposal_id: "p0", created_by: "me" };
+    expect(canEditRevisionDiscount(actor(["SALESPERSON"]), revDraft)).toBe(true);
+    expect(canEditRevisionDiscount(actor(["SALESPERSON"]), { ...revDraft, supersedes_proposal_id: null })).toBe(false);
+    expect(canEditRevisionDiscount(actor(["SALESPERSON"]), { ...revDraft, created_by: "x" })).toBe(false);
+    expect(canEditRevisionDiscount(actor(["SALESPERSON"]), { ...revDraft, current_status: "PENDING_SALES_OPERATIONS" })).toBe(false);
+    expect(canEditRevisionDiscount(actor(["SALES_OPERATIONS"]), revDraft)).toBe(false);
   });
 });
