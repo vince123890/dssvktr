@@ -4,8 +4,8 @@
 
 | | |
 |---|---|
-| **Document Version** | 4.0 (Konfirmasi VKTR — Configurable Roles & Scope Authority, Cost Structure Maker/Checker/Releaser, Basic Workflow Price Estimate & Official Quotation, Dokumen Cost Estimate) |
-| **Companion Document** | `PRD-VKTR-PriceCore.md` v4.0 |
+| **Document Version** | 5.0 (Satu workflow aktif, approval Head of Sales + lampiran tanda tangan, Won/Lost manual, Expired otomatis (override Admin), Project & Payment Tracking, Dashboard, UI responsif — meeting *VKTR Req 2*). Basis: 4.1 (Configurable Roles & Scope Authority, Cost Structure Maker/Checker/Releaser, Basic Workflow Price Estimate & Official Quotation, Dokumen Cost Estimate) |
+| **Companion Document** | `PRD-VKTR-PriceCore.md` v5.0 |
 | **Purpose** | Menerjemahkan requirement fungsional PRD menjadi logika data, state machine, dan arsitektur teknis yang dapat langsung dieksekusi oleh tim engineering. |
 
 > **Perubahan utama v2.0** (mengikuti PRD v2.0):
@@ -104,6 +104,45 @@
 >     v4.1) — qualifier statis per template, pemilihan berdasar
 >     prioritas → spesifisitas, tier margin per template, katalog awal 6
 >     template; target ±30 template (transcribe.md).
+>
+> **Perubahan v5.0** (mengikuti PRD v5.0 — sumber `kebutuhan_baru_v2.md`,
+> meeting *VKTR Req 2*). Bagian bertanda *(dikodekan)* sudah ada di kode (2026-10-11) tetapi
+> migrasi 0018–0019 belum diverifikasi di database; bagian bertanda *(konfigurasi)*
+> dikerjakan lewat migrasi 0019 / Settings tanpa mengubah mesin.
+> 27. **Satu template aktif** *(konfigurasi)* (§4.1a) — hanya `OQ-STANDARD`
+>     aktif, dengan langkah Generate dan Review & Rilis; semua
+>     `quantity_band_config.processing_mode` = `AUTO` dan
+>     `default_discount_pct` = 0 (seed 0016 memberi 2% dan 3% pada band
+>     2 dan 3; `quotationEngine.ts` menerapkannya pada baris yang belum
+>     diedit manual, sehingga harus dinolkan agar rilis awal = harga
+>     standar); langkah validasi
+>     Sales Lead dihapus lewat editor template; template lain
+>     dinonaktifkan (`is_active = false`). Mesin workflow, validasi
+>     template, tier margin, dan Release Gate **tidak berubah**.
+> 28. **Diskon tetap lewat Revisi + tier** (§11.4) — tidak ada tabel atau
+>     state machine baru; rilis awal memakai harga standar sehingga GM
+>     jatuh ke Tier 1. **Satu perubahan kode:** pada draft Revisi,
+>     Salesperson boleh mengisi diskon sebelum submit (§11.4).
+> 29. **Won/Lost manual, Expired otomatis + override Admin, warna status**
+>     *(dikodekan)* (§4.11, §4.13) — job/evaluasi kedaluwarsa otomatis
+>     **dipertahankan** (as-built); ditambah aksi Admin untuk mengubah
+>     status Expired secara manual; warna status dihitung fungsi murni
+>     dari `released_at`.
+> 29a. **Persetujuan Head of Sales + lampiran tanda tangan** *(dikodekan)*
+>     (§4.17) — status baru `PENDING_SIGNED_DOCUMENT`; kolom
+>     `signed_document_*`, `document_date`; `released_at` = saat lampiran
+>     diunggah Salesperson.
+> 30. **Project, Payment, Tracking** *(dikodekan)* (§2.1 tabel `project`,
+>     `project_payment_term`, `project_progress_entry`; §4.14) — Won
+>     mewajibkan bukti PO dan membuat project; berkas disimpan di storage
+>     privat.
+> 31. **Dashboard Sales & Executive** *(dikodekan)* (§4.15) — agregasi
+>     baca-saja atas `pricing_proposal` dan `project`.
+> 32. **Fungsi role baru** *(dikodekan)* (§8.4) — `FINANCE`,
+>     `PROJECT_TEAM` (Tim Project), dan `EXECUTIVE` ditambahkan ke daftar
+>     fungsi role (enum), menu `projects` dan `dashboard` ke daftar menu.
+> 33. **UI responsif** *(dikodekan)* (§4.16, §10) — shell berbasis
+>     *drawer*, komponen tabel/kartu adaptif; tanpa perubahan data.
 
 ---
 
@@ -441,7 +480,12 @@ kemudian.
 | supersedes_proposal_id | FK nullable | FR-2.5 |
 | released_at, valid_until | timestamptz / date | **baru** — FR-2.9 |
 | special_notes, inclusions, exclusions | text[] | **baru** — *default* dari varian & template, dapat diubah Sales Operations/Head of Sales |
-| outcome | enum `PENDING`, `WON`, `LOST`, `CANCELLED` | FR-2.10 |
+| outcome | enum `PENDING`, `WON`, `LOST`, `CANCELLED` | FR-2.10. `WON`/`LOST` dinyatakan **manual** oleh Salesperson. Expired tetap berupa `current_status = EXPIRED` yang dihasilkan otomatis (§4.11), dengan override Admin |
+| outcome_at, outcome_by, outcome_reason | timestamptz / FK / text — **baru v5.0 (dikodekan)** | kapan, siapa, dan alasan (wajib untuk `LOST`) |
+| document_date | date — **baru v5.0 (dikodekan)** | tanggal dokumen, ditetapkan saat approval final Head of Sales (§4.17); dasar `valid_until` |
+| signed_document_url, signed_document_uploaded_by, signed_document_uploaded_at | text / FK / timestamptz — **baru v5.0 (dikodekan)** | lampiran dokumen bertanda tangan Head of Sales; unggahan oleh Salesperson mengubah status ke `QUOTATION_RELEASED` dan mengisi `released_at` (§4.17) |
+| expired_override_by, expired_override_at, expired_override_reason | FK / timestamptz / text — **baru v5.0 (dikodekan)** | jejak override Admin atas status Expired (§4.11) |
+| po_number, po_document_url, po_received_at | varchar / text / date — **baru v5.0 (dikodekan)** | bukti PO; **wajib** bila `outcome = WON` (§4.14) |
 | accepted_document_url | text nullable | salinan bertanda tangan pelanggan |
 | transaction_value | numeric | total excl. VAT |
 | created_by, created_at | | Duplicate/Fraud Guard (§4.7) |
@@ -701,6 +745,59 @@ Seed (sheet *Basic Workflow* langkah 7):
 | total_direct_cost_idr / total_direct_cost_usd | numeric | hasil dalam kedua mata uang (FR-1.4.4) |
 | margin_tier | int | **baru** — tier (1/2/3) hasil evaluasi `resolveMarginTier` (§11.1), disimpan untuk audit meski quotation belum dinegosiasikan |
 
+#### Tabel baru v5.0 — Project, Payment, Tracking *(dikodekan)*
+
+**`project`** — satu baris per quotation Won (FR-9.1)
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | uuid PK | |
+| proposal_id | FK pricing_proposal **unique** | quotation Won sumber project |
+| project_identifier_id | FK | FR-2.5 |
+| po_number, po_received_at, po_document_url | varchar / date / text | salinan dari bukti PO saat Won |
+| contract_value_ex_vat | numeric(18,2) | `transaction_value` saat Won; tidak berubah walau quotation direvisi kemudian |
+| current_status | varchar | status terakhir dari `project_progress_entry` (denormalisasi untuk daftar) |
+| current_progress_pct | smallint 0–100 | progres terakhir (denormalisasi) |
+| created_by, created_at | | |
+
+**`project_payment_term`** (FR-9.3)
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | uuid PK | |
+| project_id | FK | |
+| term_no | smallint | 1, 2, 3, … unik per project |
+| label | varchar | mis. "DP" |
+| planned_pct / planned_amount | numeric nullable | persentase atau jumlah rencana (salah satu) |
+| due_date | date nullable | jadwal |
+| status | enum `PENDING`, `RECEIVED` | |
+| received_amount, received_at | numeric / date nullable | diisi Finance |
+| proof_url | text nullable | screenshot bukti transfer |
+| updated_by, updated_at | | |
+
+**`project_progress_entry`** (FR-9.4) — append-only
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | uuid PK | |
+| project_id | FK | |
+| entry_date | date | |
+| status_label | varchar | mis. "Proses produksi" |
+| progress_pct | smallint 0–100 | |
+| note | text nullable | |
+| created_by, created_at | | |
+
+- **Penyimpanan berkas:** bucket storage **privat** `project-files`
+  (`po/<proposal_id>/…`, `payment/<project_id>/<term_no>/…`); URL
+  bertanda tangan berumur pendek; kebijakan akses mengikuti visibilitas
+  project (§8.5). Batas ukuran dan tipe (PDF/PNG/JPG) divalidasi di server.
+- **RLS:** baris `project*` dapat dibaca role dengan menu `projects`
+  sesuai cakupan baris (Salesperson: miliknya; Sales Ops/Head of Sales/
+  Finance/Executive/Admin: semua; Tim Project: semua). Tulis: Won/PO
+  oleh Salesperson (lewat aksi quotation); **penetapan termin**
+  (`project_payment_term` baris baru: nomor, label, persen/jumlah, jatuh
+  tempo) oleh Salesperson pemilik project; **status termin** (`status`,
+  `received_*`, `proof_url`) hanya oleh `FINANCE`;
+  `project_progress_entry` oleh `PROJECT_TEAM`.
+- Setiap tulis memanggil `writeAuditLog` (konvensi proyek).
+
 ---
 
 ## 3. Formula Engine (FR-1.2 — Satu Formula Dasar untuk Semua Lini Bisnis)
@@ -846,6 +943,16 @@ function rentalMonthly(line):
 | **B. Official Quotation, langkah 1–6** | `pricing_proposal.current_status` | `workflow_definition (OFFICIAL_QUOTATION)` + `workflow_step_definition` (§4.1a) + `quantity_band_config` (§4.10) | **Ya** — Workflow & Quantity Band |
 | **C. Official Quotation, langkah 7** | `pricing_proposal.current_status` + `tier_approval` | `margin_tier_authority` (§11) — disisipkan dinamis, **tidak** dari template | **Ya** — Tier Margin (terpisah dari template) |
 
+> **Konfigurasi aktif v5.0 *(konfigurasi, tanpa perubahan kode)*.**
+> Lapisan B pada go-live hanya memakai template `OQ-STANDARD` dengan
+> langkah `GENERATE_QUOTATION` → `REVIEW_AND_ROUTE`. Karena semua
+> `quantity_band_config.processing_mode = 'AUTO'`, langkah Generate
+> selesai otomatis ("Auto-generated") saat submit (`quotationEngine.ts`
+> memeriksa `processing_mode === 'AUTO'`), sehingga satu-satunya
+> antrean manusia adalah Head of Sales. Validasi template (≥ 2 langkah,
+> tepat satu Generate dan satu Review) tetap terpenuhi, sehingga tidak
+> perlu melonggarkan validasi.
+
 **Kenapa langkah 7 tidak berasal dari Workflow Template.** Template
 dapat dibuat bebas oleh Admin untuk segmen baru; bila tier ikut di
 template, sebuah template dapat (sengaja atau tidak) menghilangkan
@@ -886,17 +993,31 @@ PENDING_HEAD_OF_SALES_REVIEW           ← Head of Sales lihat quotation + detai
               tolak → PENDING_SALES_OPERATIONS                  │
                               │ semua setuju                    │
                               ▼                                 ▼
-                      canReleaseQuotation (§4.2.1) ──lolos──► QUOTATION_RELEASED
-                                                               │ (document_number,
-                                                               │  valid_until, PDF)
+                      canReleaseQuotation (§4.2.1) ──lolos──► [v4.x: QUOTATION_RELEASED langsung]
+                                                               │
+                  v5.0: ──► PENDING_SIGNED_DOCUMENT            │ (document_number, document_date,
+                              │  Head of Sales menandatangani   │  valid_until ditetapkan di sini;
+                              │  dokumen (di luar aplikasi)     │  PDF Cost Estimate siap tanda tangan)
+                              │  Salesperson unggah lampiran TTD (§4.17)
+                              ▼
+                          QUOTATION_RELEASED  (released_at = saat lampiran diunggah)
 QUOTATION_RELEASED → SUPERSEDED     ← revisi pada Project Identifier yang sama dirilis
-QUOTATION_RELEASED → EXPIRED        ← valid_until terlewati tanpa outcome WON (§4.11)
+QUOTATION_RELEASED → EXPIRED        ← otomatis saat valid_until terlewati dan outcome ≠ WON
+                                       (§4.11, as-built dipertahankan); v5.0: Admin dapat
+                                       menyatakan/membatalkan Expired secara manual
 QUOTATION_RELEASED → EXPORTED_TO_ERP
 CONFIG_ERROR                        ← tidak ada template/tier yang cocok (§4.5)
 ```
 
 - `outcome` (`WON`/`LOST`) adalah field terpisah dari `current_status`
-  (FR-2.10); quotation `WON` tidak dapat menjadi `EXPIRED`.
+  (FR-2.10); quotation `WON` tidak dapat menjadi `EXPIRED`. **v5.0:**
+  Won/Lost dinyatakan manual dan hanya valid untuk quotation
+  `QUOTATION_RELEASED` (§4.13).
+- **v5.0 — rilis dengan harga standar.** Pada template aktif rilis awal
+  tanpa diskon sehingga `resolveMarginTier` menghasilkan Tier 1 dan
+  quotation langsung ke `PENDING_SIGNED_DOCUMENT` setelah Head of Sales
+  *accept* (bukan langsung `QUOTATION_RELEASED`; §4.17). Tier 2/3 terjadi
+  pada revisi berdiskon (§11.4). Routing tier tidak berubah.
 - Status v3.0 yang **dihapus**: `PENDING_COGS_VALIDATION`,
   `PENDING_CHIEF_SALES_REVIEW`, `PENDING_BOD_APPROVAL`. Migrasi data POC:
   quotation berjalan dengan status lama ditutup sebagai `CANCELLED` atau
@@ -937,6 +1058,17 @@ function resolveTemplate(templates, deal):
   Blacklist 100 selalu menang atas B2G 10); spesifisitas hanya pemecah
   seri. Alat **Uji pemilihan template** di Settings menampilkan hasil &
   alasan untuk atribut apa pun.
+- **Status aktif v5.0 *(konfigurasi)*:** hanya `OQ-STANDARD` yang
+  `is_active`; `OQ-BLACKLIST`, `OQ-RELASI-KHUSUS`, `OQ-NILAI-BESAR`,
+  `OQ-B2G`, `OQ-INDUSTRI-BERAT` dinonaktifkan (bukan dihapus). Karena
+  `resolveTemplate` hanya mengevaluasi template aktif, setiap deal jatuh
+  ke fallback `OQ-STANDARD` ("Tidak ada template spesifik yang cocok —
+  memakai template dasar"). Perubahan ini dibuat lewat Settings → Workflow
+  atau satu migrasi seed (agar sama di semua lingkungan); menyimpan
+  `OQ-STANDARD` tanpa langkah validasi menghasilkan **versi baru**
+  (versi lama dinonaktifkan, quotation berjalan tetap memakai salinan
+  langkahnya). Katalog di bawah adalah **definisi katalog**, bukan status
+  aktif.
 - **Katalog awal (migrasi 0017)**:
 
 | Template (kode) | Qualifier | Prioritas | Langkah setelah KYC | Tier margin |
@@ -1264,21 +1396,151 @@ on StepActivated(step.action_kind == GENERATE_QUOTATION, proposal):
 ### 4.11 Penomoran, Masa Berlaku & Kedaluwarsa (FR-2.9)
 
 ```pseudo
-on QuotationReleased(proposal):
+on QuotationApprovedFinal(proposal):     # v5.0: sebelumnya on QuotationReleased
     tpl = proposal.document_template
+    proposal.document_date = today()
     proposal.document_number = renderPattern(tpl.number_pattern, {
         seq: nextSequence(scope: tpl.sequence_scope),   # mis. per bulan per kode unit
         scheme_code: schemeCode(proposal),               # mis. RNT untuk Rental (konfirmasi)
         unit_code: salesUnitCode(proposal),              # mis. EFS (konfirmasi)
-        MM, YYYY: released_at })
-    proposal.valid_until = released_at::date + tpl.validity_days   # 6 Sep → 6 Okt
+        MM, YYYY: document_date })
+    proposal.valid_until = document_date + tpl.validity_days   # 6 Sep → 6 Okt
+    # v4.x: ketiganya ditetapkan saat QuotationReleased (released_at). Pada v5.0
+    # dokumen yang ditandatangani harus sudah bernomor, jadi ditetapkan saat
+    # approval final; released_at baru terisi saat lampiran diunggah (§4.17).
 
-scheduled_job expireQuotations():   # harian 00:05
+scheduled_job expireQuotations():   # DIPERTAHANKAN (as-built: dievaluasi saat halaman dibuka)
     UPDATE pricing_proposal SET current_status = 'EXPIRED'
     WHERE current_status = 'QUOTATION_RELEASED' AND outcome = 'PENDING'
       AND valid_until < today()
     # audit EXPIRE; notifikasi ke Salesperson untuk opsi revisi/perpanjangan
 ```
+
+> **v5.0 *(dikodekan)*.** Kedaluwarsa **tetap otomatis** (dikonfirmasi).
+> Ditambahkan **override Admin** (`adminSetExpiredAction`): hanya
+> `SYSTEM_ADMIN` yang dapat (a) menyatakan `EXPIRED` pada quotation
+> Released sebelum `valid_until`, atau (b) membatalkan `EXPIRED` yang
+> keliru (kembali `QUOTATION_RELEASED`, `valid_until` dapat diperbarui
+> dengan alasan). Setiap override mengisi `expired_override_*` dan audit
+> `UPDATE`; quotation `WON` tidak dapat di-Expired. Karena evaluasi otomatis
+> berjalan saat halaman dibuka, pembatalan Expired harus menyertakan
+> `valid_until` baru agar tidak segera di-Expired ulang. `valid_until` tetap
+> tampil di dokumen sebagai masa berlaku informatif.
+
+### 4.13 Siklus Hidup Quotation Terkirim — Warna & Won/Lost (FR-3.4, FR-2.10) *(dikodekan)*
+
+Fungsi **murni** (tanpa DB; mengikuti konvensi `src/lib/` dan dapat diuji
+unit) menghitung kondisi tampilan dari data quotation:
+
+```pseudo
+type AgeState = GREEN | YELLOW | RED | WON | LOST | EXPIRED | NONE
+
+function quotationAgeState(p, today, cfg = { yellowDays: 14, redDays: 30 }):
+    if p.outcome == WON:     return WON
+    if p.outcome == LOST:    return LOST       # tampil merah
+    if p.current_status == 'EXPIRED': return EXPIRED   # otomatis/override Admin; merah
+    if p.current_status != 'QUOTATION_RELEASED' or p.released_at is null:
+        return NONE
+    age = daysBetween(date(p.released_at), today)   # dari TANGGAL RILIS
+    if age >= cfg.redDays:    return RED       # harus buat quotation baru (revisi)
+    if age >= cfg.yellowDays: return YELLOW    # perlu follow up
+    return GREEN
+```
+
+- Ambang dari `app_setting` (`quotationYellowDays` = 14,
+  `quotationRedDays` = 30; nilai default sesuai meeting: 2 minggu dan
+  1 bulan). Umur dihitung dari `released_at`, **bukan** aktivitas
+  terakhir.
+- **Pernyataan hasil** (`setOutcomeAction`): hanya `QUOTATION_RELEASED`,
+  hanya `SALESPERSON` (pemilik/account person), `SALES_RELEASER`, atau
+  `SYSTEM_ADMIN` (aturan as-built `canRecordWinLossOutcome` dipertahankan).
+  `WON` mensyaratkan bukti PO (§4.14); `LOST` mensyaratkan alasan.
+  Audit `UPDATE` memuat perubahan `outcome`. Expired bukan pernyataan
+  Salesperson: otomatis, dengan override Admin (§4.11).
+- Tidak ada transisi balik dari `WON`; membatalkan hasil `LOST`
+  dilakukan dengan revisi (FR-2.5), bukan mengedit hasil.
+
+### 4.14 Won → Project (FR-9.1) *(dikodekan)*
+
+```pseudo
+function markWon(proposal, actor, po):    # po = { number, receivedAt, file }
+    require proposal.current_status == 'QUOTATION_RELEASED'
+    require canRecordWinLossOutcome(actor) and canViewQuotation(actor, proposal)
+    require po.file valid (PDF/PNG/JPG, ukuran ≤ batas) else error "Bukti PO wajib diunggah."
+    url = storage.put('po/<proposal.id>/…', po.file)
+    # satu rangkaian: update proposal + insert project (idempotent via unique proposal_id)
+    proposal.outcome = WON; outcome_at/by; po_number, po_document_url, po_received_at
+    INSERT project (proposal_id, project_identifier_id, po_*, contract_value_ex_vat = proposal.transaction_value)
+    writeAuditLog('UPDATE', outcome WON, po_number)
+```
+
+- Karena kode as-built tidak atomik (lihat spec official-quotation,
+  "Catatan as-built"), unggahan berkas dilakukan **sebelum** update dan
+  `project.proposal_id` bersifat unik agar pengulangan aman.
+- `contract_value_ex_vat` dibekukan saat Won.
+
+### 4.15 Dashboard (FR-10.1 – FR-10.3) *(dikodekan)*
+
+Agregasi baca-saja, dihitung di server dengan query paralel, tidak ada
+tabel baru:
+
+| Dashboard | Sumber | Metrik |
+|---|---|---|
+| Sales (per Salesperson) | `pricing_proposal` (visibilitas baris §8.5) | jumlah Released; jumlah per `outcome` (Won/Lost/Expired); jumlah per `quotationAgeState` (hijau/kuning/merah); nilai `transaction_value` per kelompok |
+| Executive | `pricing_proposal` + `project` + `project_payment_term` | Released vs Won; jumlah PO dan Σ `contract_value_ex_vat`; termin `RECEIVED` vs `PENDING` (jumlah & nilai); project per `current_status` dan rata-rata `current_progress_pct` |
+
+Konten executive tidak memuat cost structure, GM, maupun tier. Dashboard
+Sales untuk Sales Ops/Head of Sales menambah pemilih Salesperson
+(`account_person_ids`/`created_by`).
+
+### 4.16 Shell Aplikasi Responsif (FR-5.8) *(dikodekan)*
+
+- `(app)/layout.tsx` berhenti memakai `h-screen overflow-hidden` pada
+  semua lebar; di bawah breakpoint `lg` halaman mengalir (scroll
+  dokumen) dengan **top bar sticky** (logo, judul, tombol hamburger).
+- `Sidebar` menjadi *drawer* off-canvas di bawah `lg` (state buka/tutup
+  di komponen klien; tutup saat `pathname` berubah, saat overlay diklik,
+  dan saat Esc); di `lg` ke atas tetap kolom tetap.
+- Komponen pembungkus tabel bersama (`overflow-x-auto`, kolom pertama
+  tetap) dan variasi kartu untuk daftar utama; grid mengikuti pola
+  `grid-cols-1 sm:grid-cols-2 lg:grid-cols-N`; kanban memakai
+  scroll-snap horizontal; grafik memakai `ResponsiveContainer`.
+- Halaman cetak (`/print/...`) di luar cakupan (format kertas).
+
+### 4.17 Approval Head of Sales → Dokumen Bertanda Tangan → Released (FR-2.11) *(dikodekan)*
+
+```pseudo
+# dipanggil ketika routing tier selesai dan canReleaseQuotation (§4.2.1) lolos
+function approveFinal(proposal, actor):
+    require actor fills SALES_RELEASER (Head of Sales) or tier approvers done
+    onQuotationApprovedFinal(proposal)         # §4.11: document_number, document_date, valid_until
+    proposal.current_status = 'PENDING_SIGNED_DOCUMENT'
+    audit('APPROVE', 'Menunggu dokumen bertanda tangan')
+
+function attachSignedDocument(proposal, actor, file):
+    require proposal.current_status == 'PENDING_SIGNED_DOCUMENT'
+    require actor in proposal.account_person_ids or actor is SYSTEM_ADMIN     # bukan Head of Sales / approver
+    require file valid (PDF/PNG/JPG, ukuran ≤ batas)
+    url = storage.put('signed/<proposal.id>/…', file)     # sebelum update; aman diulang
+    proposal.signed_document_url/by/at = ...
+    proposal.current_status = 'QUOTATION_RELEASED'
+    proposal.released_at   = now()                         # dasar warna §4.13 & KPI
+    supersedePredecessor(proposal)                         # as-built: saat rilis
+    audit('RELEASE', 'Lampiran dokumen bertanda tangan diunggah')
+```
+
+- Status `PENDING_SIGNED_DOCUMENT` ditambahkan ke enum status (migrasi
+  dua tahap: nilai enum baru tidak boleh dipakai dalam transaksi yang
+  sama, mengikuti pola migrasi 0014/0015).
+- Selama status ini quotation **belum** dihitung terkirim. Dokumen Cost Estimate
+  (sudah bernomor dan bertanggal) dicetak **tanpa watermark** supaya dapat
+  ditandatangani; toolbar menjelaskan bahwa ia resmi dan siap dikirim setelah
+  lampiran bertanda tangan diunggah dan status berubah ke `QUOTATION_RELEASED`.
+- **Pembatalan approval final** (`cancelFinalApproval`, hanya `SALES_RELEASER`/`SYSTEM_ADMIN`, alasan wajib): hanya dari `PENDING_SIGNED_DOCUMENT`; langkah review dibuka kembali (`IN_PROGRESS`), `workflow_instance` kembali `RUNNING`, baris `tier_approval` aktif di-void, `document_number/document_date/valid_until` dikosongkan; audit mencatat nomor lama dan alasan. Setelah Released, koreksi hanya lewat Revisi.
+- Release Gate (§4.2.1) dievaluasi saat approval final; kurs yang
+  bergerak melewati ambang sebelum lampiran diunggah **tidak** membatalkan
+  (harga sudah disetujui dan dokumen sudah ditandatangani) — *perlu
+  konfirmasi*.
 
 Sequence dibuat dengan `SELECT … FOR UPDATE` / sequence DB agar tidak
 ada nomor ganda saat dua rilis bersamaan; nomor yang sudah terbit tidak
@@ -1295,6 +1557,9 @@ function renderQuotationDocument(proposalVersion, kind):
               : p.current_status == SUPERSEDED ? 'SUPERSEDED'
               : p.current_status == EXPIRED    ? 'EXPIRED'
               : 'DRAFT — NOT FOR CUSTOMER'
+    # v5.0 (dikodekan): status PENDING_SIGNED_DOCUMENT → TANPA watermark: dokumen inilah yang
+    # dicetak dan ditandatangani Head of Sales (§4.17); toolbar menjelaskan bahwa ia resmi setelah
+    # lampiran bertanda tangan diunggah. EXPIRED tetap current_status (otomatis/override Admin).
     html = template(p.document_template_version).render(data, watermark)
     INSERT document_render(proposalVersion, kind, watermark, hash(html), currentUser)
     return kind == DOWNLOAD_PDF ? htmlToPdf(html, A4) : html
@@ -1457,6 +1722,18 @@ Matriks default (menu → fungsi); turunan per role ada di PRD FR-5.7.
 | Product Master Data | PRODUCT_OWNER, SYSTEM_ADMIN |
 | Audit Trail | SALES_RELEASER, PRICING_COMMITTEE, SYSTEM_ADMIN |
 | Settings | SYSTEM_ADMIN (terkunci, tidak dapat diubah) |
+| **Projects** *(v5.0, dikodekan)* | SALESPERSON (miliknya), SALES_OPERATIONS, SALES_RELEASER, **FINANCE**, **PROJECT_TEAM**, **EXECUTIVE**, SYSTEM_ADMIN |
+| **Dashboard** *(v5.0, dikodekan)* | SALESPERSON (KPI miliknya), SALES_OPERATIONS, SALES_RELEASER, **EXECUTIVE**, SYSTEM_ADMIN |
+
+**Fungsi role baru v5.0 *(dikodekan)*:** `FINANCE` (memperbarui status
+payment termin, melihat semua project), `PROJECT_TEAM` (mengisi progres
+project, melihat semua project), dan `EXECUTIVE` (baca dashboard dan
+project, tanpa tulis). Fungsi role adalah daftar tetap di kode
+(`rbac.ts`) sedangkan role/wewenang adalah data; maka menambahnya
+membutuhkan perubahan enum + migrasi seed role (mis. "Finance",
+"Tim Project", "Chief / Direksi"; nama disesuaikan) dan penambahan `MenuKey` `projects`/`dashboard`
+di `menuAccess.ts` beserta default `DEFAULT_MENU_ACCESS`. Halaman awal
+`EXECUTIVE` = Dashboard (urutan menu pertama yang diizinkan).
 
 ```pseudo
 function loadMenuAccess():
@@ -1559,6 +1836,8 @@ pada POC, penegakan berada di service layer.
 | **Modern Spreadsheet UI** | Grid component (mis. berbasis canvas/virtualized table) dengan validasi inline; setiap cell edit memicu *optimistic update* + kalkulasi ulang formula ter-scope, bukan full page reload. |
 | **Zero-bypass guarantee** | Validasi `canAdvanceToStep` dijalankan di **service layer**, bukan hanya di UI — mencegah bypass via direct API call. |
 | **High Availability (99.5%)** | Stateless API layer (horizontal scale), workflow state di DB (bukan in-memory), notification via outbox+retry agar gangguan provider notifikasi tidak menjatuhkan transaksi utama. |
+| **Responsif (v5.0, dikodekan)** | Layout adaptif untuk 375/768/1280 px (§4.16): drawer navigasi, tabel/kartu adaptif, form satu kolom. Halaman baru (Projects, Dashboard) mengikuti pola yang sama sejak awal; pengecekan dilakukan manual per halaman karena belum ada tes UI. |
+| **Berkas (v5.0, dikodekan)** | Bukti PO dan transfer di storage privat dengan URL bertanda tangan; validasi tipe/ukuran di server; akses mengikuti RLS project. |
 | **Auditability untuk Tbk compliance** | Audit log terpisah secara fisik (schema/database berbeda opsional) agar tidak bisa terhapus akibat kesalahan operasional pada schema transaksi utama. |
 
 ---
@@ -1672,6 +1951,29 @@ function handleCustomerRequest(released, request):
 
 Quotation asal tetap `QUOTATION_RELEASED` sampai `rev` dirilis, lalu
 `SUPERSEDED`. Tidak ada loop negosiasi di dalam satu quotation.
+
+> **Penegasan v5.0 — jalur diskon tidak berubah.** Meeting *VKTR Req 2*
+> menyatakan permintaan diskon "seperti yang sekarang saja". Maka tidak
+> ada entitas/aksi "Permintaan Diskon" baru: pelanggan meminta diskon →
+> Salesperson membuat revisi (`createRevisionQuotation`) → diskon
+> negosiasi tersalin → revisi submit lewat template aktif → Head of Sales
+> *accept* → `resolveMarginTier` menentukan Tier 1/2/3 → slot keputusan
+> (AND-join) → Release Gate → `PENDING_SIGNED_DOCUMENT` → lampiran
+> tanda tangan (§4.17) → rilis; asal menjadi `SUPERSEDED`. Ambang
+> tier dan pihak berwenang tetap data di Settings (klien dapat
+> mengubahnya sendiri).
+>
+> **Perubahan kode yang dikonfirmasi:** pada draft **revisi**
+> (`supersedes_proposal_id` terisi, `current_status = DRAFT`),
+> Salesperson pengaju boleh mengubah diskon (Rp/%) sebelum submit.
+> Aturan as-built "Mengubah harga" (`quotation-actions.ts`) membatasi
+> perubahan harga pada pelaksana langkah GENERATE/REVIEW; ia diperluas
+> dengan kasus tambahan: `status == DRAFT` ∧ `supersedes_proposal_id IS NOT
+> NULL` ∧ `actor == pengaju`, dengan `discount_source = SALESPERSON_REVISION`
+> (nilai enum baru) dan audit `UPDATE`. Draft awal (bukan revisi) tidak
+> berubah (harga standar). Salesperson tidak menerima GM/tier/cost
+> structure; dampak tier dihitung dan ditampilkan hanya pada role yang
+> boleh melihatnya. Diskon tetap melewati `resolveMarginTier`.
 
 ### 11.5 Audit (FR-6.5)
 
@@ -2004,6 +2306,38 @@ ada logika ganda antara simulasi dan perhitungan sesungguhnya.
 19. **Pemegang peran Product Owner** — tidak ada di sheet *Actors*.
 20. **Migrasi POC → v4.0**: quotation berjalan pada status v3.0 (`PENDING_COGS_VALIDATION`, `PENDING_CHIEF_SALES_REVIEW`, `PENDING_BOD_APPROVAL`) ditutup atau diselesaikan dengan alur lama sebelum *cut-over*; koreksi STNK/Insurance ke `ADD_ONS` menurunkan GM data historis — perlu keputusan apakah data demo historis dihitung ulang.
 
+### 14.4 Baru di v5.0 (meeting *VKTR Req 2*)
+
+**Terjawab:**
+
+| Topik | Jawaban |
+|---|---|
+| Penandatangan quotation | **Head of Sales**: approval di aplikasi, dokumen ditandatangani, **Salesperson melampirkan hasilnya**, baru Released (§4.17) |
+| Dasar warna kuning/merah | **Tanggal rilis** (14 hari kuning, 30 hari merah) |
+| Won / Lost | **Manual** oleh Salesperson (Won wajib bukti PO) |
+| Expired | **Otomatis** (as-built dipertahankan); **Admin dapat mengubah manual** (§4.11) |
+| `valid_until` 30 hari | **Tetap tampil** di dokumen sebagai informasi |
+| Jalur diskon | Revisi + tier; **Salesperson boleh mengisi diskon pada draft Revisi** (§11.4); draft awal harga standar |
+| Workflow aktif | **Satu** (`OQ-STANDARD`); mesin tidak diubah; workflow blacklist/relasi khusus dikesampingkan, daftar manual di Settings |
+| Pengisi progres project | **Tim Project** (`PROJECT_TEAM`, role baru) |
+| Penetapan termin pembayaran | **Salesperson**; status diterima oleh Finance |
+| Nama role Finance / Chief | **Disesuaikan** (role = data) |
+| Integrasi SAP / aplikasi project | **Tidak sekarang** (input manual) |
+
+**Masih terbuka (kecil):**
+
+21. **Urutan penetapan nomor/tanggal** — usulan di §4.11/§4.17: nomor,
+    `document_date`, `valid_until` saat approval final; `released_at`
+    saat lampiran diunggah.
+22. **SLA/pengingat** menunggu lampiran bertanda tangan, dan apakah kurs
+    yang bergerak sesudah approval final perlu menahan rilis (§4.17).
+23. **Perubahan termin** setelah ada termin diterima.
+24. **Apakah Chief/Direksi juga melihat** Lifecycle/Approvals.
+25. **Penyimpanan berkas** produksi (Supabase Storage vs penyimpanan
+    VKTR) dan kebijakan retensi bukti PO/transfer/dokumen TTD.
+26. **Perlakuan quotation Won yang di-revisi** — project tetap terikat
+    quotation Won awal (diasumsikan ya, nilai dibekukan).
+
 ---
 
 ## 15. Traceability Matrix (FR → Technical Component)
@@ -2028,9 +2362,15 @@ ada logika ganda antara simulasi dan perhitungan sesungguhnya.
 | FR-2.6 (Fraud Guard) | `canCreateNewQuotation` (§4.7) |
 | **FR-2.7 (Price Estimate)** | `getPriceEstimate`, `price_estimate_log` (§4.9) |
 | **FR-2.8 (Quantity Band)** | `quantity_band_config` (§2.1), `resolveBand` (§4.10) |
-| **FR-2.9 (nomor, masa berlaku, EXPIRED)** | §4.11 |
-| **FR-2.10 (penerimaan pelanggan)** | `pricing_proposal.outcome`, `accepted_document_url` (§2.1) |
-| FR-3.1 – FR-3.3 | Dashboard (status §4.1 & antrean M/C/R), SLA Job §5, Audit §6 |
+| **FR-2.9 (nomor, masa berlaku, Expired otomatis; v5.0: override Admin)** | §4.11 |
+| **FR-2.11 (approval Head of Sales + lampiran TTD, v5.0)** | `PENDING_SIGNED_DOCUMENT`, `signed_document_*`, `document_date` (§2.1), §4.17 |
+| **FR-2.10 (penerimaan pelanggan; v5.0: Won + bukti PO)** | `pricing_proposal.outcome`, `po_*`, `accepted_document_url` (§2.1), §4.13–§4.14 |
+| **FR-3.4 (status berwarna, v5.0)** | `quotationAgeState` (§4.13), `app_setting.quotationYellowDays/RedDays` |
+| **FR-5.8 (UI responsif, v5.0)** | `Sidebar.tsx`, `(app)/layout.tsx`, komponen tabel/kartu bersama (§4.16) |
+| **FR-9.1 – FR-9.5 (Project, Payment, Tracking, v5.0)** | `project`, `project_payment_term`, `project_progress_entry` (§2.1), `markWon` (§4.14), storage `project-files` |
+| **FR-10.1 – FR-10.3 (Dashboard, v5.0)** | §4.15, fungsi role `EXECUTIVE` (§8.4) |
+| **FR-6.0 (diskon Salesperson pada draft Revisi, v5.0)** | aturan harga `quotation-actions.ts` diperluas (§11.4) |
+| FR-3.1 – FR-3.3 | Dashboard (status §4.1 & antrean M/C/R), SLA Job §5, Audit §6 (FR-3.4: lihat baris di atas) |
 | FR-4.1 – FR-4.3 | DSS §7 (+ tier yang berlaku, Likelihood KYC) |
 | **FR-5.7 (Menu & data access per role, 404)** | `src/lib/menuAccess.ts` (`MENUS`, `requireMenu`, `canViewQuotation`), `app_setting.menu_access`, Settings → Akses Menu (§8.4, §8.5) |
 | **FR-5.6 (Roles & Authorities Settings)** | `app_role`, `functional_role`, `user_role_assignment`, `scope_authority` (§2.1), §8 |

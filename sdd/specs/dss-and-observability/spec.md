@@ -107,3 +107,10 @@ Sistem SHALL mencatat who, what, when, why (aktor, aksi, entity, perubahan field
 - Pesan ambang 15%/10% pada guardrail dan kartu Overview di-hardcode; tidak mengikuti tier yang diubah di Settings.
 - Pengecekan SLA hanya menandai langkah yang melewati batas; tidak ada eskalasi otomatis atau notifikasi.
 - Belum ada tes otomatis.
+
+## Perubahan v5.0 (dikodekan 2026-10-11; migrasi 0018–0019 belum diverifikasi di database)
+<!-- Sumber: PRD v5.0 FR-3.4, Module 10; Technical Logic v5.0 §4.13, §4.15. -->
+- **Daftar quotation Salesperson:** badge warna hijau/kuning/merah/Won/Lost/Expired, umur dalam hari, dan filter per kondisi (lihat official-quotation, "Status berwarna dari tanggal rilis"); Expired tampil merah seperti Lost.
+- **Dashboard Sales (baru):** per Salesperson jumlah Released (terkirim = setelah lampiran bertanda tangan diunggah), Won, Lost, Expired, dan jumlah kuning/merah beserta nilai; Sales Ops/Head of Sales dapat memilih Salesperson atau melihat gabungan.
+- **Dashboard Executive (baru, read-only):** Released vs Won, jumlah PO dan total nilai project, ringkasan termin diterima vs belum, project per status dan rata-rata progres. Tidak memuat cost structure, GM, atau tier.
+- **Overview/Lifecycle:** pada konfigurasi satu workflow, status antara yang tampil hanya Draft, Pending Head of Sales Review, status approval tier bila ada diskon, dan Menunggu dokumen bertanda tangan.

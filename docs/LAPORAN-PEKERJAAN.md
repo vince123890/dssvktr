@@ -14,6 +14,8 @@ VKTR-PriceCore adalah aplikasi web (Next.js + Supabase) untuk penetapan harga da
 | v4.0 | 30 Sep – 1 Okt | Role & workflow yang bisa dikonfigurasi, cost structure M/C/R, Price Estimate, Official Quotation, Cost Estimate yang bisa dicetak, pembatasan menu per role |
 | v4.1 | 5 Okt | Workflow Template Catalog (list + detail), optimasi performa action, perbaikan tampilan Quotation detail |
 | Product Master Data & Cost Structure | 6 Okt | Master produk/varian, perubahan Cost Structure dari halaman versi |
+| Spec as-built & unit test | 9 Okt | Spec SDD 11 capability, Vitest dengan 72 unit test fungsi murni |
+| v5.0 (Req 2) | 11 Okt | Dokumen kebutuhan dan kode disesuaikan dengan meeting *VKTR Req 2*: satu workflow, dokumen bertanda tangan, Won/Lost, Projects, Dashboard, responsif |
 
 ## Rincian
 
@@ -57,9 +59,21 @@ VKTR-PriceCore adalah aplikasi web (Next.js + Supabase) untuk penetapan harga da
 - Daftar produk, detail produk, serta penambahan produk/varian.
 - Cost Structure dapat diubah dari halaman detail versi, dan draft dapat dibatalkan.
 
+### 7. Spec as-built dan unit test (9 Oktober)
+- Spec SDD as-built untuk 11 capability di `sdd/specs/`, plus konfigurasi proyek `sdd/config.md`.
+- Vitest dengan 72 unit test untuk logika murni (pricing, tier, authority, template, akses); change diarsipkan di `sdd/changes/archive/`.
+
+### 8. v5.0 — meeting *VKTR Req 2* (11 Oktober)
+Sumber: transkrip meeting (`docs/kebutuhan_baru_v2.md`).
+- **Dokumen:** PRD dan Technical Logic v5.0, README, skenario demo, spec `sdd/` (spec baru `project-payment-tracking`).
+- **Keputusan:** satu workflow aktif; Head of Sales approve di aplikasi, dokumen ditandatangani, Salesperson melampirkan hasilnya sebelum Released; diskon tetap lewat Revisi + tier dan Salesperson boleh mengisi diskon pada draft Revisi; warna kuning (14 hari) / merah (30 hari) dari tanggal rilis; Won/Lost manual, Expired tetap otomatis dengan override Admin; termin ditetapkan Salesperson, status payment oleh Finance, progres oleh Tim Project.
+- **Kode:** migrasi `0018`–`0019`; status `PENDING_SIGNED_DOCUMENT`; lampiran dan Won (bukti PO) lewat storage privat; menu Projects dan Dashboard; role Finance / Tim Project / Chief-Direksi; override Expired; diskon revisi oleh Salesperson; Sidebar drawer dan tabel/kartu adaptif di seluruh halaman aplikasi; fungsi murni `lifecycle`, `dashboard`, `projects`, `files` dengan unit test (155 tes).
+- **Terverifikasi:** `tsc`, `eslint`, `next build`, `vitest` lulus.
+- **Belum diverifikasi:** migrasi di database sungguhan, alur unggah berkas ke Supabase Storage, dan tampilan di peramban/handphone (tidak ada tes UI). Butir terbuka kecil ada di PRD §10 no. 18–20.
+
 ## Dokumentasi yang dihasilkan
-Folder [docs/](.): PRD, Technical Logic, DEMO-FLOW (Overview, Price Estimate, Official Quotation), DEMO-SCENARIO (termasuk CNY), serta dokumen referensi dari VKTR.
+Folder [docs/](.): PRD, Technical Logic (keduanya v5.0), DEMO-FLOW (Overview, Price Estimate, Official Quotation), DEMO-SCENARIO (termasuk CNY), `kebutuhan_baru_v2.md` (sumber v5.0), serta dokumen referensi dari VKTR. Spec as-built ada di [sdd/specs/](../sdd/specs/).
 
 ## Catatan
 - Dokumen ini disusun dari pesan commit; detail fungsional tiap fitur ada di PRD dan Technical Logic.
-- Belum ada spesifikasi SDD (`sdd/`) di proyek ini.
+- Spesifikasi SDD ada di `sdd/` (as-built per 9 Oktober). Perubahan v5.0 dicatat sebagai "Perubahan terencana" di spec terkait dan belum menjadi perilaku as-built.

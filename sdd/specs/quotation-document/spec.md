@@ -74,3 +74,6 @@ Sistem SHALL menulis audit log PRINT setiap kali tombol "Print / Simpan PDF" dit
 - Pembulatan tampilan `Rp` per baris dapat berbeda 1 rupiah dari total tak dibulatkan; total grand dijumlahkan dari total baris.
 - Logo diambil dari `/vktr-logo.png` statis; alamat penerbit, judul, dan disclaimer dari Settings → Umum & Dokumen.
 - Belum ada tes visual atau tes angka untuk dokumen.
+
+## Perubahan v5.0 (dikodekan 2026-10-11; migrasi 0018–0019 belum diverifikasi di database)
+- **Dokumen untuk ditandatangani:** pada status PENDING_SIGNED_DOCUMENT dokumen sudah bernomor dan bertanggal (ditetapkan saat approval final) tanpa watermark (dokumen inilah yang ditandatangani); toolbar menulis bahwa dokumen resmi setelah lampiran bertanda tangan diunggah dan status QUOTATION_RELEASED. Salesperson pemilik dapat membukanya pada status ini. Watermark EXPIRED tetap berdasarkan status EXPIRED (otomatis atau override Admin).

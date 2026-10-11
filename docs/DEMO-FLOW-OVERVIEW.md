@@ -11,6 +11,15 @@ perpindahan.
 > `TECHNICAL-LOGIC-VKTR-PriceCore.md` v4.0 — **sudah dibangun** di
 > aplikasi. Perbedaan terhadap POC v3.0 ada di §9.
 >
+> **Pembaruan v5.0 (meeting *VKTR Req 2*, belum dibangun kecuali
+> konfigurasi).** Peta di bawah menggambarkan kemampuan penuh build
+> sekarang. Arah v5.0: satu workflow aktif (KYC → Generate otomatis →
+> Head of Sales approve + lampiran tanda tangan oleh Salesperson), diskon tetap lewat Revisi + tier (Salesperson mengisi diskon pada draft Revisi), Won/Lost
+> manual, Expired otomatis (override Admin), warna 14/30 hari, lalu **Project (termin Salesperson, payment Finance, progres Tim Project) →
+> Tracking** dan **Dashboard** untuk Salesperson dan Chief/Direksi, serta
+> UI responsif. Ringkasan di §9b; PRD v5.0 dan Technical Logic v5.0
+> adalah acuannya.
+>
 > Skrip demo per workflow: [`DEMO-FLOW-PRICE-ESTIMATE.md`](DEMO-FLOW-PRICE-ESTIMATE.md)
 > dan [`DEMO-FLOW-OFFICIAL-QUOTATION.md`](DEMO-FLOW-OFFICIAL-QUOTATION.md).
 
@@ -368,6 +377,25 @@ Format mengikuti contoh *Cost Estimate — PT Siborong Nusa Gemilang*:
 | Skema | Penjualan | **Purchase & Rental** (Rental menunggu formula) |
 | Masa berlaku | Tidak ada | **30 hari**, status `EXPIRED` |
 | Line item | Satu produk per quotation | **Multi-varian** |
+
+---
+
+## 9b. Perubahan v5.0 Terhadap v4.1 (rencana)
+
+| Aspek | v4.1 (build sekarang) | v5.0 (target) |
+|---|---|---|
+| Workflow aktif | Katalog 6 template, dipilih otomatis | **Satu** (`OQ-STANDARD`); lainnya dinonaktifkan untuk dipakai kemudian *(konfigurasi)* |
+| Langkah sebelum Head of Sales | Validasi Sales Lead; Generate (manual band 10+) | **Tidak ada antrean**; Generate otomatis semua band, diskon default band 0% *(konfigurasi)* |
+| Penandatangan / rilis | Head of Sales merilis langsung | **Head of Sales** approve → dokumen ditandatangani → **Salesperson melampirkan hasil TTD** → baru Released |
+| Diskon pada Revisi | Hanya Sales Ops/Head of Sales | **Salesperson boleh mengisi diskon pada draft Revisi** (draft awal tetap harga standar) |
+| Diskon | Revisi + tier | **Sama** — tidak ada fitur baru |
+| Kedaluwarsa | Otomatis saat halaman dibuka | **Tetap otomatis**; Admin dapat mengubah manual; ditambah warna kuning 14 hari, merah 30 hari dari tanggal rilis |
+| Hasil | WON/LOST, URL salinan opsional | Won (**wajib bukti PO**) dan Lost (alasan) manual oleh Salesperson |
+| Setelah Won | Selesai | **Project** → termin (Salesperson) → status payment + bukti transfer (Finance) → progres (Tim Project) |
+| Dashboard | Overview, Lifecycle, DSS | + **Dashboard Sales (KPI)** dan **Executive** untuk Chief/Direksi |
+| Peran baru | — | **Finance**, **Tim Project**, **Chief / Direksi** (nama disesuaikan) |
+| Tampilan | Desktop | **Responsif** (handphone, iPad) |
+| Integrasi | Di-skip | Tetap di-skip (SAP/aplikasi project ditunda; input manual) |
 
 ---
 

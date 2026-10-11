@@ -73,3 +73,9 @@ Sistem SHALL menyimpan pasangan kunci-nilai: tarif PPN (default 11, valid 0–50
 - Update tier tidak memeriksa kontinuitas rentang antar tier (celah/tumpang tindih diatasi `resolveTier` dengan jatuh ke tier terakhir).
 - Pola nomor dokumen tidak divalidasi; pola tanpa `{seq}` menghasilkan nomor tidak unik.
 - Belum ada tes otomatis.
+
+## Perubahan v5.0 (dikodekan 2026-10-11; migrasi 0018–0019 belum diverifikasi di database)
+<!-- Sumber: PRD v5.0 FR-2.8, FR-3.4; Technical Logic v5.0 §4.13. -->
+- **Quantity band:** semua band diatur ke mode `AUTO` agar langkah Generate selesai otomatis, dan `default_discount_pct` semua band = 0 (seed saat ini 2% untuk band 2 dan 3% untuk band 3) agar rilis awal = harga standar (konfigurasi di Settings → Tier & Band, tanpa perubahan kode).
+- **Ambang status berwarna (baru):** setelan `quotationYellowDays` (default 14) dan `quotationRedDays` (default 30), dihitung dari tanggal rilis.
+- **Masa berlaku dokumen:** `quotationValidityDays` (30 hari) tetap berlaku dan tampil di dokumen; dihitung dari tanggal dokumen (approval final).

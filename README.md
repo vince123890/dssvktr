@@ -3,9 +3,37 @@
 Proof-of-concept untuk **Enterprise Smart Pricing & Decision Support System**
 (VKTR-PriceCore), dibangun mengikuti spesifikasi di [`docs/PRD-VKTR-PriceCore.md`](docs/PRD-VKTR-PriceCore.md)
 dan [`docs/TECHNICAL-LOGIC-VKTR-PriceCore.md`](docs/TECHNICAL-LOGIC-VKTR-PriceCore.md)
-**v4.0** — konfirmasi VKTR lewat `docs/BTEL - Cost and Roles and Flow.xlsx`
+**v5.0**. Basis v4.0 adalah konfirmasi VKTR lewat `docs/BTEL - Cost and Roles and Flow.xlsx`
 (sheet *Cost Structure*, *Actors*, *Basic Workflow*) dan contoh dokumen
-`docs/Cost Estimate - PT Siborong Nusa Gemilang 20260906 (1).pdf`.
+`docs/Cost Estimate - PT Siborong Nusa Gemilang 20260906 (1).pdf`. Perubahan
+v5.0 berasal dari meeting *VKTR Req 2* (`docs/kebutuhan_baru_v2.md`).
+
+> **Status v5.0 (2026-10-11).** Kode sudah mengikuti PRD/Technical Logic v5.0 dan
+> lolos `tsc`, `eslint`, `next build`, serta 155 tes (unit, engine dengan fake DB, komponen UI, dan penjaga responsif). **Belum
+> diverifikasi di database sungguhan dan di peramban**: migrasi `0018` dan
+> `0019` harus dijalankan lebih dulu (`npm run migrate -- supabase/migrations/0018_v5_enums.sql`, lalu
+> `0019_v5_structures.sql`; `0018` harus selesai/commit sebelum `0019`), kemudian
+> `npm run seed:demo` (menambah akun Finance, Tim Project, Chief dan project contoh).
+> - *Konfigurasi (di migrasi 0019):* satu workflow aktif `OQ-STANDARD`
+>   (Generate → Review Head of Sales), semua quantity band Otomatis dengan diskon default 0%,
+>   langkah Validasi Sales Lead dihapus, template lain dinonaktifkan.
+> - *Kode baru:* status **Menunggu dokumen bertanda tangan** + lampiran, diskon Salesperson
+>   pada draft Revisi, badge hijau/kuning/merah, Won (bukti PO) / Lost, override Expired oleh Admin,
+>   menu **Projects** (termin, payment, progres), **Dashboard** Sales & Executive, role Finance /
+>   Tim Project / Chief-Direksi, penyimpanan berkas privat, dan UI responsif
+>   (sidebar drawer, tabel/kartu adaptif, kanban geser).
+>
+> **v5.0 highlights (hasil meeting *VKTR Req 2*).**
+> - **Satu workflow aktif.** Quotation: KYC → submit → harga standar dihitung
+>   otomatis → **Head of Sales** approve → dokumen ditandatangani → **Salesperson melampirkan hasilnya** → Released. Mesin Workflow Template
+>   Catalog tetap ada untuk dipakai kemudian.
+> - **Diskon tetap lewat Revisi + tier margin** (15%/10%); Salesperson boleh mengisi diskon pada draft Revisi.
+> - **Siklus hidup:** hijau → kuning (14 hari) → merah (30 hari) dari tanggal
+>   rilis; Won/Lost manual (Won wajib bukti PO); Expired tetap otomatis, Admin dapat mengubah manual.
+> - **Project & Payment Tracking** manual (Finance mengisi termin + bukti
+>   transfer; Tim Project mengisi progres %), tanpa integrasi SAP.
+> - **Dashboard** KPI Sales dan Executive (user Chief/Direksi).
+> - **Responsif** di handphone dan iPad.
 
 > **v4.0 highlights.**
 > - **Role & wewenang sebagai data** — 12 role sheet *Actors* (Sales
@@ -51,7 +79,7 @@ ini sepadan dengan kecepatan setup.
 
 ---
 
-## 2. Cakupan Modul (PRD v4.0)
+## 2. Cakupan Modul (PRD v5.0)
 
 | Modul | Implementasi |
 |---|---|
@@ -63,6 +91,9 @@ ini sepadan dengan kecepatan setup.
 | Master Data | `/master-data` (cost item 4 scope, kurs CNY/IDR, rate sensitivity, HMA referensi) · `/master-data/product` (varian produk). |
 | Observability | `/` (antrean "menunggu tindakan Anda"), `/lifecycle` (Kanban/Table), `/audit-log`. |
 | DSS | `/dss` — what-if kurs/FOB/diskon → GM & tier, guardrail 15%, win/loss. |
+| **Projects** *(v5.0)* | `/projects` — project dari quotation Won: bukti PO, payment termin (Finance, bukti transfer), tracking progres manual. |
+| **Dashboard** *(v5.0)* | KPI per Salesperson (terkirim/Won/Lost/kuning/merah) dan dashboard Executive untuk Chief/Direksi. |
+| **Responsif** *(v5.0)* | Sidebar → drawer, tabel/kartu adaptif, form satu kolom di semua halaman aplikasi. |
 
 ## 3. Keputusan Desain POC (vs Technical Logic Doc lengkap)
 
@@ -72,7 +103,7 @@ ini sepadan dengan kecepatan setup.
 | Role & wewenang | Role sebagai data + slot fungsional (§2.1, §8) | Sama — `app_role` + `scope_authority`; kode hanya membaca fungsi. Kolom legacy `profile.role` dijaga sinkron untuk RLS lama | Role baru dari Settings langsung berlaku tanpa deploy |
 | Workflow Template | Editor no-code (§4.1a) | Editor langkah di Settings (pelaksana, kondisi lewati, tujuan tolak, SLA); simpan = versi baru; tier margin selalu disisipkan engine | Template tidak dapat melemahkan wewenang margin |
 | Dokumen | Render HTML → PDF server-side (§4.12) | Satu halaman `/print/...` untuk preview & cetak; PDF via dialog cetak browser | Tanpa headless browser di Vercel; isi preview = isi cetak |
-| Kedaluwarsa | Job harian (§4.11) | Dievaluasi saat halaman dibuka (`expireStaleQuotations`) | Tanpa scheduler |
+| Kedaluwarsa | Job harian (§4.11) | As-built: dievaluasi saat halaman dibuka (`expireStaleQuotations`). **v5.0: tetap otomatis**, Admin dapat mengubah manual; ditambah peringatan warna dari tanggal rilis (§4.13) | Keputusan meeting *VKTR Req 2* |
 | Integrasi ERP/CRM/Notifikasi | API-first contracts (§9) | **Di-skip** | Sesuai arahan POC |
 | Exchange Rate Auto-Pull (FR-1.4.2) | Job mingguan dari API bank | Kurs CNY/IDR diinput di `/master-data` | Scheduler di luar scope POC |
 
@@ -142,9 +173,14 @@ Dibuat oleh `npm run seed:demo` (password semua: `PriceCore123!`):
 | cfo@vktr.demo | Chief Finance Officer (Pricing Committee) |
 | product@vktr.demo | Product Owner |
 | admin@vktr.demo | System Admin |
+| finance@vktr.demo | Finance (status payment termin) — v5.0 |
+| projectteam@vktr.demo | Tim Project (progres project) — v5.0 |
+| chief@vktr.demo | Chief / Direksi (dashboard executive, baca saja) — v5.0 |
 
 Akun v3.0 (sales@, vpops@, vpfinance@, chiefsales@, bod1@, bod2@) dihapus
 oleh seed — perannya tidak ada di sheet *Actors*.
+
+
 
 Dokumentasi demo:
 
@@ -224,7 +260,8 @@ scripts/
   demoData.ts                  # Akun, cost structure seed, quotation historis (dipakai seed & reset)
   seed-demo.ts / reset-demo.ts / run-migration.ts
 docs/
-  PRD-VKTR-PriceCore.md, TECHNICAL-LOGIC-VKTR-PriceCore.md   # v4.0
+  PRD-VKTR-PriceCore.md, TECHNICAL-LOGIC-VKTR-PriceCore.md   # v5.0
+  kebutuhan_baru_v2.md                                       # sumber v5.0 (meeting VKTR Req 2)
   DEMO-FLOW-PRICE-ESTIMATE.md, DEMO-FLOW-OFFICIAL-QUOTATION.md  # skrip demo per workflow
   DEMO-FLOW-OVERVIEW.md, DEMO-SCENARIO.md, DEMO-SCENARIO-CNY.md
   BTEL - Cost and Roles and Flow.xlsx, Cost Estimate - PT Siborong Nusa Gemilang 20260906 (1).pdf
@@ -249,5 +286,8 @@ docs/
   cost structure baru.
 - Pembuatan akun user dari Settings (akun dibuat lewat Supabase Auth /
   seed; Settings mengatur role-nya).
-- Kedaluwarsa quotation dievaluasi saat halaman dibuka (bukan cron job).
+- Kedaluwarsa quotation dievaluasi saat halaman dibuka (bukan cron job) —
+  **v5.0: tetap otomatis, Admin dapat mengubah manual**.
+- **v5.0:** integrasi SAP (payment), aplikasi project, dan bank ditunda;
+  payment dan progres project diisi manual.
 - Verifikasi KYC pihak ketiga, e-signature, Global Adjustment HPM.

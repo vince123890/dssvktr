@@ -1,5 +1,13 @@
 # Skenario Demo — VKTR-PriceCore (v4.0)
 
+> **Catatan v5.0 (meeting *VKTR Req 2*).** Skenario naratif ini mengikuti
+> build v4.x. Pada konfigurasi go-live v5.0 hanya satu workflow aktif
+> (langkah Validasi Sales Lead dan Generate manual tidak muncul; Released baru setelah lampiran tanda tangan), Won/Lost manual,
+> Expired tetap otomatis dengan override Admin, warna 14/30 hari (§9–10 berubah), dan
+> ditambah Project → Payment → Dashboard serta UI responsif. Perubahan
+> dirangkum di [`DEMO-FLOW-OVERVIEW.md`](DEMO-FLOW-OVERVIEW.md) §9b dan
+> skripnya di [`DEMO-FLOW-OFFICIAL-QUOTATION.md`](DEMO-FLOW-OFFICIAL-QUOTATION.md) B9.
+
 > **Status terhadap PRD/Technical Logic v4.0.** Revisi mengikuti
 > `BTEL - Cost and Roles and Flow.xlsx` (sheet *Cost Structure*,
 > *Actors*, *Basic Workflow*) dan contoh dokumen `Cost Estimate - PT
@@ -495,6 +503,10 @@ AND-join, format dokumen riil.
 
 **Yang didemokan:** PRD FR-2.9.
 
+> **v5.0:** kedaluwarsa otomatis ini tetap berjalan; Admin dapat mengubahnya manual. Ditambah warna: quotation yang melewati 14
+> hari tampil kuning dan 30 hari merah (dari tanggal rilis, yaitu saat lampiran bertanda tangan diunggah).
+> Lihat PRD FR-2.9 dan FR-3.4.
+
 ---
 
 ## 10. Penerimaan Pelanggan
@@ -505,6 +517,10 @@ AND-join, format dokumen riil.
    4 sebagai pembanding.
 
 **Yang didemokan:** PRD FR-2.10.
+
+> **v5.0:** menyatakan **Won** mewajibkan unggahan **bukti PO** (bukan
+> sekadar URL opsional), lalu quotation menjadi **Project** (payment
+> termin oleh Finance, tracking progres). Lihat PRD Module 9 dan B9d–B9e.
 
 ---
 

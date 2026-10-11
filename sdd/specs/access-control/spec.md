@@ -117,3 +117,10 @@ Sistem SHALL memberikan: inisiasi quotation — SALESPERSON; kelola master data/
 - Tidak ada UI atau validasi untuk mencegah admin menghapus fungsi SYSTEM_ADMIN dari seluruh role.
 - `canViewQuotation` untuk validator memakai daftar role salesperson non-validator (tanpa hierarki tim).
 - Belum ada tes otomatis untuk pemeriksaan fungsi, matriks menu, atau RLS.
+
+## Perubahan v5.0 (dikodekan 2026-10-11; migrasi 0018–0019 belum diverifikasi di database)
+<!-- Sumber: PRD v5.0 FR-5.7 (tambahan), Technical Logic v5.0 §8.4. -->
+- **Fungsi role baru:** `FINANCE` (memperbarui status payment termin, melihat semua project), `PROJECT_TEAM` (mengisi progres project, melihat semua project), dan `EXECUTIVE` (baca dashboard dan project). Fungsi role adalah daftar tetap di kode, jadi penambahan butuh perubahan `rbac.ts` dan migrasi seed role (mis. "Finance", "Tim Project", "Chief / Direksi"; nama disesuaikan).
+- **Menu baru:** `projects` (Salesperson: miliknya; Sales Ops, Head of Sales, Finance, Tim Project, Executive, Admin: semua) dan `dashboard` (Salesperson: KPI miliknya; Sales Ops, Head of Sales, Executive, Admin). Menu di luar matriks tetap disembunyikan dan 404.
+- **Halaman awal Executive:** Dashboard.
+- **Visibilitas baris project:** mengikuti kepemilikan quotation asal untuk Salesperson.

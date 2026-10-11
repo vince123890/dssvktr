@@ -1,5 +1,12 @@
 # Skenario Demo 2 — FOB dalam CNY & Rate Sensitivity (v4.0)
 
+> **Catatan v5.0.** Skenario kurs/rate sensitivity tidak berubah oleh
+> meeting *VKTR Req 2*. Satu penyesuaian: pada konfigurasi go-live v5.0
+> semua quantity band Otomatis dan hanya `OQ-STANDARD` aktif, sehingga
+> quotation 12 unit di §3 langsung menunggu **Head of Sales** tanpa
+> langkah Sales Operations manual; Release Gate dan alur "Hitung Ulang"
+> (§5–§7) tetap sama.
+
 > **Status terhadap PRD/Technical Logic v4.0.** Revisi mengikuti
 > `BTEL - Cost and Roles and Flow.xlsx`. Perbedaan utama terhadap v3.0:
 > FOB Price in CNY kini diinput **di cost structure varian** oleh COGS

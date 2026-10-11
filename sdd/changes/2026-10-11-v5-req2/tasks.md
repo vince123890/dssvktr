@@ -1,0 +1,19 @@
+# Tasks: v5-req2
+
+- [x] Migrasi 0018 (enum status) dan 0019 (kolom proposal, tabel project*, bucket privat, role, setelan, konfigurasi satu workflow)
+- [x] Tipe database, fungsi role baru, menu `projects`/`dashboard`, visibilitas project
+- [x] Fungsi murni: lifecycle (umur/warna), files, projects, dashboard + unit test
+- [x] Engine: approveFinal, attachSignedDocument, overrideExpired; priceQuotation menerima sumber SALESPERSON_REVISION
+- [x] Aksi: lampiran bertanda tangan, Won (PO) / Lost, override Expired, diskon revisi; ActionPanel dan halaman detail
+- [x] Dokumen cetak untuk ditandatangani (tanpa watermark) dan akses Salesperson
+- [x] Daftar quotation: badge umur dan filter; Overview: antrean lampiran dan follow up
+- [x] Projects: daftar, detail, termin, progres (aksi server + UI)
+- [x] Dashboard Sales dan Executive
+- [x] Setelan ambang kuning/merah di Settings -> Umum
+- [x] Responsif: layout, Sidebar drawer, Card/Input, TableScroll, kanban, form, tabel
+- [x] Seed/reset demo: akun baru, project contoh, pembersihan project dan berkas
+- [x] Membatalkan approval final sebelum lampiran (engine, aksi, UI, tes)
+- [x] Tes: engine v5 (fake DB yang dapat menulis), komponen UI (jsdom), penjaga responsif statis
+- [x] Dokumen: PRD/Technical Logic v5.0, README, laporan, skenario demo, spec
+- [x] Menjalankan migrasi 0018 lalu 0019 pada database (dikonfirmasi pengguna; 0019 diperbaiki dulu karena FK langkah workflow)
+- [ ] Uji manual alur lengkap di peramban (desktop 1280, iPad 768, handphone 375)

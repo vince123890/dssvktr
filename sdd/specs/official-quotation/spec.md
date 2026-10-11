@@ -305,3 +305,93 @@ Sistem SHALL menampilkan semua quotation kepada role SALES_OPERATIONS, SALES_REL
 - Status v3.0 (PENDING_COGS_VALIDATION, PENDING_CHIEF_SALES_REVIEW, PENDING_BOD_APPROVAL) masih ada di enum, tidak lagi dihasilkan.
 - Rental: skema dan field tersimpan, tanpa formula (lihat pricing-engine).
 - Belum ada tes otomatis; skenario demo di docs/DEMO-FLOW-OFFICIAL-QUOTATION.md adalah satu-satunya verifikasi.
+
+## Perubahan v5.0 (dikodekan 2026-10-11; migrasi 0018–0019 belum diverifikasi di database)
+<!-- Sumber: docs/kebutuhan_baru_v2.md dan tanggapan lanjutan, PRD v5.0 (FR-2.9, FR-2.10, FR-2.11, FR-3.4, FR-6.0, FR-9.1), Technical Logic v5.0 §4.11, §4.13, §4.14, §4.17. Bagian di atas tetap menjelaskan perilaku saat ini. -->
+
+### Tanpa perubahan kode
+- Alur Submit sampai approval tier tidak berubah. Yang berubah adalah **konfigurasi**: hanya template `OQ-STANDARD` aktif dengan langkah Generate + Review & Rilis, semua quantity band bermode AUTO dengan diskon default 0%, langkah Validasi Sales Lead dihapus (lihat workflow-template-catalog dan settings-configuration). Akibatnya Generate selesai otomatis dan satu-satunya antrean manusia sebelum tier adalah Head of Sales.
+- Routing tier, Release Gate, dan Revisi **tidak berubah**. Rilis awal harga standar jatuh ke Tier 1.
+- Expired otomatis (requirement "Kedaluwarsa" di atas) **dipertahankan**.
+
+### Requirement: Approval final → dokumen bertanda tangan → Released
+Setelah routing tier dan Release Gate lolos, sistem SHALL menetapkan nomor dokumen, tanggal dokumen, dan `valid_until`, lalu mengubah status menjadi PENDING_SIGNED_DOCUMENT ("Menunggu dokumen bertanda tangan") alih-alih langsung QUOTATION_RELEASED. Salesperson pengaju (account person) atau Admin SHALL mengunggah lampiran dokumen yang sudah ditandatangani Head of Sales; unggahan itu SHALL mengubah status menjadi QUOTATION_RELEASED dan mengisi `released_at`.
+
+#### Scenario: Approval final harga standar
+- **WHEN** Head of Sales meng-ACCEPT quotation Tier 1 dan Release Gate lolos
+- **THEN** status PENDING_SIGNED_DOCUMENT, `document_number/document_date/valid_until` terisi, audit APPROVE tercatat
+- **AND** quotation belum dihitung terkirim dan dokumen belum berstatus "siap dikirim ke pelanggan"
+
+#### Scenario: Lampiran diunggah
+- **WHEN** salesperson pengaju mengunggah PDF/PNG/JPG bertanda tangan
+- **THEN** status QUOTATION_RELEASED, `released_at` = saat unggah, lampiran tersimpan, audit RELEASE tercatat
+- **AND** quotation pendahulu (revisi) menjadi SUPERSEDED pada saat ini
+
+#### Scenario: Bukan pengaju
+- **WHEN** Head of Sales, approver tier, atau salesperson lain mencoba mengunggah
+- **THEN** ditolak
+
+#### Scenario: Perubahan setelah approval
+- **WHEN** harga/diskon diubah atau approval dibatalkan sebelum lampiran diunggah
+- **THEN** approval final dibatalkan dan status kembali ke PENDING_HEAD_OF_SALES_REVIEW
+
+### Requirement: Won/Lost manual; Expired otomatis dengan override Admin
+Salesperson (pemilik/account person), SALES_RELEASER, atau SYSTEM_ADMIN SHALL menyatakan **WON** atau **LOST** pada quotation QUOTATION_RELEASED (aturan as-built dipertahankan). Expired SHALL tetap otomatis seperti requirement "Kedaluwarsa"; SYSTEM_ADMIN SHALL dapat menyatakan atau membatalkan Expired secara manual dengan alasan, tercatat di audit. Quotation WON tidak dapat di-Expired.
+
+#### Scenario: Won butuh bukti PO
+- **WHEN** salesperson menyatakan WON tanpa mengunggah bukti PO
+- **THEN** ditolak "Bukti PO wajib diunggah."
+- **AND** dengan PO valid: outcome WON, `po_number/po_document_url/po_received_at` tersimpan, satu Project dibuat (lihat project-payment-tracking)
+
+#### Scenario: Lost butuh alasan
+- **WHEN** hasil LOST dinyatakan tanpa alasan
+- **THEN** ditolak
+
+#### Scenario: Admin menyatakan Expired lebih awal
+- **WHEN** Admin menyatakan EXPIRED pada quotation Released sebelum `valid_until` dengan alasan
+- **THEN** status EXPIRED, `expired_override_*` terisi, audit UPDATE tercatat
+
+#### Scenario: Admin membatalkan Expired
+- **WHEN** Admin membatalkan Expired dan memberi `valid_until` baru
+- **THEN** status kembali QUOTATION_RELEASED; tanpa `valid_until` baru ditolak (agar tidak segera di-Expired ulang)
+
+#### Scenario: Non-admin mencoba override Expired
+- **WHEN** salesperson mencoba mengubah status Expired
+- **THEN** ditolak
+
+### Requirement: Status berwarna dari tanggal rilis
+Sistem SHALL menurunkan kondisi tampilan quotation Released tanpa hasil dari umur sejak `released_at`: hijau (< 14 hari), kuning (≥ 14 hari), merah (≥ 30 hari). Won menghentikan penghitungan; Lost dan Expired tampil merah. Ambang adalah setelan (default 14 dan 30).
+
+#### Scenario: Batas hari
+- **WHEN** rilis 14 hari lalu tanpa hasil
+- **THEN** kondisi kuning; 30 hari lalu → merah; 13 hari → hijau
+
+#### Scenario: Sudah Won
+- **WHEN** outcome WON
+- **THEN** kondisi WON, tidak kuning/merah meskipun umur > 30 hari
+
+### Requirement: Diskon oleh salesperson pada draft Revisi
+Sistem SHALL mengizinkan salesperson pengaju mengubah diskon (Rp/%) pada quotation berstatus DRAFT yang merupakan revisi (`supersedes_proposal_id` terisi), dengan sumber diskon `SALESPERSON_REVISION`. Draft awal (bukan revisi) SHALL tetap harga standar dan tidak dapat diberi diskon oleh salesperson. Diskon tetap melewati routing tier. Salesperson SHALL tidak menerima GM, tier, atau cost structure.
+
+#### Scenario: Revisi dengan diskon
+- **WHEN** salesperson pengaju menyimpan diskon 5% pada draft revisi lalu submit
+- **THEN** harga dihitung ulang, sumber diskon SALESPERSON_REVISION, audit UPDATE; routing tier dihitung dari GM setelah diskon
+
+#### Scenario: Draft awal
+- **WHEN** salesperson mencoba mengubah diskon pada draft yang bukan revisi
+- **THEN** ditolak ("Harga hanya dapat diubah oleh …" sesuai requirement "Mengubah harga")
+
+#### Scenario: Bukan pengaju
+- **WHEN** salesperson lain mencoba mengubah diskon draft revisi
+- **THEN** gagal "Quotation tidak ditemukan." atau ditolak
+
+### Requirement: Membatalkan approval final
+Head of Sales (SALES_RELEASER) atau Admin SHALL dapat membatalkan approval final hanya selama status PENDING_SIGNED_DOCUMENT, dengan alasan wajib. Langkah review SHALL dibuka kembali, putaran tier aktif di-void, dan nomor/tanggal dokumen serta `valid_until` dikosongkan; audit SHALL mencatat nomor lama dan alasan.
+
+#### Scenario: Batal sebelum lampiran
+- **WHEN** Head of Sales membatalkan approval final dengan alasan "Harga salah"
+- **THEN** status kembali ke PENDING_HEAD_OF_SALES_REVIEW, `document_number` kosong, langkah review IN_PROGRESS, workflow RUNNING
+
+#### Scenario: Sudah dirilis atau tanpa alasan
+- **WHEN** status QUOTATION_RELEASED, atau alasan kosong
+- **THEN** ditolak (koreksi setelah rilis lewat Revisi)

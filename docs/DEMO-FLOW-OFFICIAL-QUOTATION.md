@@ -6,6 +6,21 @@ v4.1 aplikasi (termasuk Workflow Template Catalog). Dokumen keluaran
 mengikuti contoh *Cost Estimate — PT Siborong Nusa Gemilang*. Durasi ± 35
 menit untuk B1–B6; B6c, B7, dan B8 opsional (B8 ± 25 menit).
 
+> **Catatan v5.0 (meeting *VKTR Req 2*).** B1–B8 di bawah menjelaskan
+> build **saat ini** dengan seluruh katalog workflow aktif (validasi Sales
+> Lead, Generate manual untuk band 10+, dst.) dan tetap valid untuk
+> mendemokan **kemampuan** mesin. Pada konfigurasi go-live v5.0 hanya
+> `OQ-STANDARD` yang aktif dengan alur singkat (KYC → Generate otomatis →
+> Head of Sales), sehingga langkah validasi dan Generate manual tidak
+> muncul. Skrip untuk konfigurasi itu, serta Won → Project → Payment →
+> Dashboard, ada di **B9 (v5.0)**. Kode B9 sudah ada tetapi **belum diuji
+> manual di database/peramban** (migrasi 0018–0019 perlu dijalankan dulu).
+> Ketentuan baru: penandatangan
+> tetap Head of Sales (approve di aplikasi, tanda tangan, lalu Salesperson
+> melampirkan hasilnya sebelum Released); diskon tetap lewat Revisi + tier
+> (Salesperson boleh mengisi diskon pada draft Revisi); Won/Lost manual,
+> Expired tetap otomatis (override Admin) — lihat catatan di B5.
+
 | Langkah di sheet | Yang terjadi di aplikasi | Demo |
 |---|---|---|
 | 1–3. Salesperson mengisi KYC (a–h), meninjau, submit | **Official Quotation → Baru**; KYC 8 field (6 wajib), varian & qty (boleh lebih dari satu) | B1 |
@@ -254,6 +269,12 @@ menit untuk B1–B6; B6c, B7, dan B8 opsional (B8 ± 25 menit).
    tanpa jawaban). Tombol **Buat Revisi** tersedia untuk memperpanjang
    dengan harga terbaru.
 
+> **Berubah di v5.0.** **Won** wajib mengunggah bukti PO
+> dan **Lost** wajib alasan (keduanya manual oleh Salesperson). Status
+> *Kedaluwarsa* pada langkah 2 di atas **tetap otomatis**, dan Admin dapat
+> mengubahnya manual. Ditambah badge **kuning** setelah 14 hari dan
+> **merah** setelah 30 hari sejak tanggal rilis. Lihat B9.
+
 ## B6 — Fraud guard, antrean kerja & audit
 
 1. **sales.exec@vktr.demo** → Official Quotation baru untuk `PT Tirta
@@ -385,6 +406,84 @@ Variasi singkat yang menarik ditunjukkan:
 
 ---
 
+## B9 — v5.0: satu workflow, siklus hidup, Project & Dashboard
+
+> **Status:** hasil meeting *VKTR Req 2*, sudah dikodekan. **Prasyarat:**
+> jalankan migrasi `0018` lalu `0019` dan `npm run seed:demo` (akun
+> finance@, projectteam@, chief@ dan project contoh). Migrasi 0019 sudah
+> melakukan konfigurasi B9-0 (satu workflow aktif, band Otomatis, diskon
+> default 0%), jadi B9-0 hanya perlu diperiksa di Settings. Belum
+> diuji manual terhadap database sungguhan.
+
+**B9-0 Konfigurasi (admin@vktr.demo, tanpa kode).** Settings → Workflow:
+nonaktifkan `OQ-BLACKLIST`, `OQ-RELASI-KHUSUS`, `OQ-NILAI-BESAR`,
+`OQ-B2G`, `OQ-INDUSTRI-BERAT`; ubah `OQ-STANDARD` dengan menghapus
+langkah *Validasi Sales Lead* (simpan → versi baru). Settings → Tier &
+Band: ubah semua *quantity band* ke **Otomatis** dan set **diskon
+default 0%** pada semua band (seed memberi 2% dan 3% pada band 2–3;
+tanpa ini rilis awal sudah berdiskon, bukan harga standar).
+
+**B9a Rilis harga standar (sales.exec@vktr.demo → headsales@vktr.demo).**
+1. Sales Executive membuat quotation 4 unit (KYC lengkap) → **Submit**.
+2. Status langsung **Pending Head of Sales Review** (tanpa validasi Sales
+   Lead dan tanpa antrean Sales Operations); harga standar terhitung.
+   Sales Executive tidak dapat mengisi diskon pada draft awal ini.
+3. **headsales@** *Accept* → GM ≥ 15% → Tier 1 → status **Menunggu dokumen
+   bertanda tangan**; nomor dan tanggal dokumen sudah terisi, `valid_until`
+   30 hari tampil di dokumen.
+4. Head of Sales menandatangani dokumen (cetak/PDF) di luar aplikasi.
+   **sales.exec@** membuka quotation → **Lampirkan dokumen bertanda
+   tangan** → unggah PDF/gambar → status **Quotation Released**.
+   (headsales@ tidak punya tombol unggah.) Di daftar Sales Executive,
+   quotation tampil **hijau**.
+
+**B9b Diskon lewat Revisi + tier.**
+1. Pelanggan meminta diskon → Sales Executive **Buat Revisi** dengan alasan.
+2. Pada draft revisi, **Sales Executive mengisi diskon** (Rp atau %) —
+   tombol ubah diskon hanya tampil pada draft revisi; draft awal tetap
+   terkunci. Tidak ada GM/tier/cost structure di layar Sales Executive.
+3. Revisi di-submit → Head of Sales *Accept* → GM mis. 12% → **Tier 2**
+   (COGS Owner + Profitability Owner menyetujui) → Menunggu dokumen
+   bertanda tangan → lampiran diunggah → Released; quotation asal menjadi
+   SUPERSEDED.
+
+**B9c Status berwarna & Expired (v5.0).** Data seed:
+quotation dirilis 3, 16, dan 35 hari lalu tanpa hasil → badge **hijau**,
+**kuning**, **merah**. Dashboard Sales menampilkan hitungan masing-masing.
+Quotation yang melewati `valid_until` menjadi **Expired otomatis**;
+**admin@** dapat menyatakan Expired lebih awal atau membatalkannya
+(dengan `valid_until` baru dan alasan); sales.exec@ tidak punya aksi itu.
+
+**B9d Won/Lost + bukti PO (v5.0).** Sales Executive pada
+quotation yang dirilis → **Hasil → Won**; tanpa unggahan PO ditolak
+("Bukti PO wajib diunggah."); dengan PO → Won dan muncul di menu
+**Projects**. Tunjukkan juga **Lost** (alasan wajib).
+
+**B9e Termin, Payment & Tracking (finance@ dan
+projectteam@ dibuat oleh `npm run seed:demo`).**
+1. **sales.exec@** membuka project → tab **Payment** → tambah termin 1
+   (DP 30%) dan termin 2 (70%) — Salesperson yang menetapkan termin.
+2. **finance@** (login terpisah) → termin 1 → isi jumlah, unggah
+   screenshot transfer, centang diterima. Finance tidak dapat mengubah
+   jumlah/persentase termin.
+3. **projectteam@** → tab **Tracking** → tambah entri "Proses produksi"
+   5%, lalu 20%.
+4. **sales.exec@** membuka project yang sama dan **hanya membaca** status
+   payment dan progres.
+
+**B9f Dashboard (chief@vktr.demo).**
+Login sebagai Chief/Direksi → Dashboard executive: quotation Released vs
+Won, jumlah PO dan total nilai project, ringkasan payment dan project.
+Menu lain (Cost Structure, Settings) tidak tampil dan 404 bila dibuka
+lewat URL.
+
+**B9g Responsif (v5.0).** Buka aplikasi pada lebar 375 px
+(DevTools atau handphone): sidebar menjadi hamburger/drawer, daftar
+quotation dan project berbentuk kartu, form satu kolom, tabel dapat
+digeser, tidak ada halaman yang terpotong.
+
+---
+
 ## Ringkasan yang harus terlihat
 
 | Kontrol | Bukti |
@@ -398,7 +497,10 @@ Variasi singkat yang menarik ditunjukkan:
 | Tier 1 rilis langsung; Tier 2 & 3 AND-join; cc Tier 3; tolak → Sales Operations | B1–B3 |
 | Dokumen Cost Estimate: preview draft (watermark), cetak/PDF versi rilis, halaman spesifikasi | B1, B3 |
 | Revisi via Project Identifier, lama SUPERSEDED | B4 |
-| WON, kedaluwarsa 30 hari | B5 |
+| WON, kedaluwarsa 30 hari otomatis (build sekarang; v5.0: Won wajib PO, Expired override Admin, lihat B9) | B5 |
+| *(v5.0, target)* Satu workflow aktif; Head of Sales approve + lampiran tanda tangan oleh Salesperson sebelum Released; diskon Salesperson pada draft Revisi + tier | B9-0, B9a, B9b |
+| *(v5.0, target)* Status berwarna 14/30 hari; Expired otomatis + override Admin; Won + PO; Lost manual | B9c, B9d |
+| *(v5.0, target)* Projects: termin (Salesperson), payment (Finance), progres (Tim Project), dashboard Sales/Executive, responsif | B9e–B9g |
 | Fraud guard, antrean per role, audit trail | B6 |
 | Role & workflow dapat diatur di Settings | B7 |
 | Menu di luar role tersembunyi & 404; quotation dibatasi per baris | B6b |
