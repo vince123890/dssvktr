@@ -197,33 +197,19 @@ export function ActionPanel({ proposalId, caps }: { proposalId: string; caps: Ac
         )}
 
         {caps.awaitingRelease && (
-          <div className="space-y-3">
-            <p className="text-xs text-muted">
-              Quotation sudah disetujui dan bernomor. <strong>Lampiran dokumen bertanda tangan bersifat opsional</strong>:
-              rilis sekarang, atau cetak dokumen (tombol <strong>Cetak untuk ditandatangani</strong>), minta
-              tanda tangan Head of Sales, lalu lampirkan hasilnya — keduanya merilis quotation.
-            </p>
-            <Button size="sm" variant="success" loading={isPending} onClick={() => run(() => releaseWithoutSignedDocumentAction(proposalId))}>
-              Rilis tanpa lampiran
-            </Button>
-          </div>
+          <ReleaseForm proposalId={proposalId} isPending={isPending} run={run} submitForm={submitForm} />
         )}
 
-        {caps.canAttachSigned && (
-          <form
-            className={`space-y-2 ${caps.awaitingRelease ? "border-t border-card-border pt-3" : ""}`}
-            onSubmit={(e) => submitForm(e, (fd) => attachSignedDocumentAction(proposalId, fd))}
-          >
+        {caps.canAttachSigned && !caps.awaitingRelease && (
+          <form className="space-y-2" onSubmit={(e) => submitForm(e, (fd) => attachSignedDocumentAction(proposalId, fd))}>
             <p className="text-xs text-muted">
-              {caps.awaitingRelease
-                ? "Atau lampirkan dokumen yang sudah ditandatangani — quotation dirilis saat lampiran diunggah."
-                : caps.hasSignedDocument
-                  ? "Ganti lampiran dokumen bertanda tangan (opsional)."
-                  : "Lampirkan dokumen bertanda tangan (opsional) — dapat ditambahkan setelah rilis."}
+              {caps.hasSignedDocument
+                ? "Ganti lampiran dokumen bertanda tangan (opsional)."
+                : "Lampirkan dokumen bertanda tangan (opsional) — dapat ditambahkan setelah rilis."}
             </p>
             <input className="pc-input" type="file" name="file" accept="application/pdf,image/png,image/jpeg" required />
-            <Button size="sm" type="submit" variant={caps.awaitingRelease ? "success" : "secondary"} loading={isPending}>
-              {caps.awaitingRelease ? "Lampirkan & rilis" : caps.hasSignedDocument ? "Ganti lampiran" : "Lampirkan"}
+            <Button size="sm" type="submit" variant="secondary" loading={isPending}>
+              {caps.hasSignedDocument ? "Ganti lampiran" : "Lampirkan"}
             </Button>
           </form>
         )}
@@ -313,6 +299,62 @@ export function ActionPanel({ proposalId, caps }: { proposalId: string; caps: Ac
         {error && <p className="rounded bg-danger-bg px-2 py-1.5 text-xs text-danger">{error}</p>}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * One form to release an approved quotation (PRD FR-2.11): a dropdown picks
+ * whether a signed document goes with it. "Tanpa lampiran" releases at once;
+ * "Dengan lampiran" shows the file field and releases when the file is sent.
+ */
+function ReleaseForm({
+  proposalId,
+  isPending,
+  run,
+  submitForm,
+}: {
+  proposalId: string;
+  isPending: boolean;
+  run: (fn: () => Promise<ActionResult>) => void;
+  submitForm: (e: React.FormEvent<HTMLFormElement>, action: (fd: FormData) => Promise<ActionResult>) => void;
+}) {
+  const [mode, setMode] = useState<"WITHOUT" | "WITH">("WITHOUT");
+  return (
+    <form
+      className="space-y-3"
+      onSubmit={(e) => {
+        if (mode === "WITHOUT") {
+          e.preventDefault();
+          run(() => releaseWithoutSignedDocumentAction(proposalId));
+        } else {
+          submitForm(e, (fd) => attachSignedDocumentAction(proposalId, fd));
+        }
+      }}
+    >
+      <p className="text-xs text-muted">
+        Quotation sudah disetujui dan bernomor. Pilih cara merilis — lampiran dokumen bertanda tangan{" "}
+        <strong>opsional</strong>.
+      </p>
+      <label className="block text-xs text-muted">
+        Rilis
+        <select className="pc-input mt-1" value={mode} onChange={(e) => setMode(e.target.value as "WITHOUT" | "WITH")}>
+          <option value="WITHOUT">Tanpa lampiran dokumen</option>
+          <option value="WITH">Dengan lampiran dokumen bertanda tangan</option>
+        </select>
+      </label>
+      {mode === "WITH" && (
+        <div className="space-y-1">
+          <p className="text-xs text-muted">
+            Cetak dokumen (tombol <strong>Cetak untuk ditandatangani</strong>), minta tanda tangan Head of Sales, lalu
+            pilih berkas hasilnya.
+          </p>
+          <input className="pc-input" type="file" name="file" accept="application/pdf,image/png,image/jpeg" required />
+        </div>
+      )}
+      <Button size="sm" type="submit" variant="success" loading={isPending}>
+        Rilis
+      </Button>
+    </form>
   );
 }
 

@@ -165,23 +165,24 @@ flowchart TD
 default **0%** (sebelumnya 2–5 unit 2% dan 6–9 unit 3%), sehingga rilis awal
 = harga standar; diskon hanya lewat Revisi (§5).
 
-### Workflow Template Catalog — satu aktif, sisanya siap dipakai
+### Workflow Template Catalog — satu workflow di seed, katalog tetap dapat diisi
 
 Mesin tetap mendukung ±30 template (qualifier statis: segmen, industri,
 hubungan, lini bisnis, qty, estimasi nilai, blacklist). Pada go-live v5.0
-hanya **Standard** yang aktif; lima template contoh **nonaktif** (bukan
-dihapus) dan dapat diaktifkan di Settings → Workflow kapan pun.
+hanya **Standard** yang ada di seed (migrasi 0021 menghapus lima template contoh).
+Workflow baru ditambahkan di Settings → Workflow (**Tambah workflow** atau
+**Duplikat**). Tabel berikut hanya **contoh definisi** yang pernah disediakan.
 
-| Template (kode) | Status v5.0 | Langkah setelah KYC | Tier margin |
+| Template contoh (kode) | Status | Langkah setelah KYC | Tier margin |
 |---|---|---|---|
 | Standard (`OQ-STANDARD`) | **Aktif** (versi 2) | Generate (otomatis) → Review & Rilis | Global |
-| Customer Blacklist (`OQ-BLACKLIST`) | Nonaktif | Validasi → Persetujuan Pricing Committee → Generate → Review | Semua tier CCO + CFO |
-| Relasi Khusus (`OQ-RELASI-KHUSUS`) | Nonaktif | Generate → Review | GM < 15% langsung CCO + CFO |
-| Nilai Besar ≥ Rp 50 M (`OQ-NILAI-BESAR`) | Nonaktif | Validasi → Kelayakan deal (Pricing Committee) → Generate → Review | Global |
-| B2G Pemerintah (`OQ-B2G`) | Nonaktif | Validasi → Verifikasi tender (Head of Sales) → Generate → Review | Setiap tier sampai CCO + CFO |
-| Industri Tambang & Perkebunan (`OQ-INDUSTRI-BERAT`) | Nonaktif | Validasi → Generate → Review COGS Owner → Review | Global |
+| Customer Blacklist (`OQ-BLACKLIST`) | Dihapus dari seed | Validasi → Persetujuan Pricing Committee → Generate → Review | Semua tier CCO + CFO |
+| Relasi Khusus (`OQ-RELASI-KHUSUS`) | Dihapus dari seed | Generate → Review | GM < 15% langsung CCO + CFO |
+| Nilai Besar ≥ Rp 50 M (`OQ-NILAI-BESAR`) | Dihapus dari seed | Validasi → Kelayakan deal (Pricing Committee) → Generate → Review | Global |
+| B2G Pemerintah (`OQ-B2G`) | Dihapus dari seed | Validasi → Verifikasi tender (Head of Sales) → Generate → Review | Setiap tier sampai CCO + CFO |
+| Industri Tambang & Perkebunan (`OQ-INDUSTRI-BERAT`) | Dihapus dari seed | Validasi → Generate → Review COGS Owner → Review | Global |
 
-Hanya template yang aktif yang dipertimbangkan saat submit; tanpa yang cocok,
+Hanya template yang aktif dipertimbangkan saat submit; tanpa yang cocok,
 template dasar dipakai. Template menyimpan perubahan sebagai **versi baru**;
 quotation berjalan memakai salinan langkahnya. Tier tidak dapat dihapus oleh
 template. Demo variasi: `DEMO-FLOW-OFFICIAL-QUOTATION.md` B9.
@@ -287,7 +288,7 @@ Sales Operations Manager.
 
 | Aspek | v4.1 | v5.0 |
 |---|---|---|
-| Workflow aktif | Katalog 6 template | **Satu** (`OQ-STANDARD`); lainnya nonaktif, siap dipakai |
+| Workflow aktif | Katalog 6 template | **Satu** (`OQ-STANDARD`); template contoh lain dihapus dari seed |
 | Sebelum Head of Sales | Validasi Sales Lead; Generate (manual band 10+) | Tidak ada antrean; Generate otomatis, diskon default 0% |
 | Rilis | Head of Sales merilis langsung | **Approve → Disetujui (menunggu rilis) → Salesperson merilis, lampiran TTD opsional**; **dropdown *Tanpa approval Head of Sales* → langsung rilis (tier tetap berlaku)**; approve final dapat dibatalkan |
 | Diskon | Sales Ops / Head of Sales | Tetap Revisi + tier; **Salesperson mengisi diskon pada draft Revisi** |
@@ -314,5 +315,5 @@ npm run reset:demo      # kembalikan ke kondisi sebelum demo
 dan berkas di bucket), log Price Estimate, dan audit log; mengembalikan
 cost structure v1 dan quotation historis berikut project dari yang Won; bila
 kurs CNY/IDR diubah saat demo, menambahkan baris kurs 2.600 baru. Settings
-(termasuk workflow yang diaktifkan/dinonaktifkan), master data, dan akun demo
-tidak disentuh — nonaktifkan lagi template yang Anda aktifkan di B9.
+(termasuk workflow yang Anda tambahkan di B9), master data, dan akun demo
+tidak disentuh — hapus/nonaktifkan lagi workflow tambahan dari B9 bila tidak dipakai.

@@ -37,7 +37,7 @@
 >    berisi langkah *Generate* (otomatis untuk semua quantity band, dengan
 >    **diskon default band diatur 0%** agar rilis awal benar-benar harga
 >    standar) dan *Review & Rilis* Head of Sales. Langkah Validasi Sales Lead dihapus
->    dari template; template lain dinonaktifkan, bukan dihapus. Semua ini
+>    dari template; template contoh lain dihapus dari seed (migrasi 0021). Semua ini
 >    adalah **konfigurasi di Settings**, bukan perubahan kode.
 > 3. **Approval berbasis tier tetap hanya relevan saat ada diskon.** Mesin
 >    tier margin (Module 6: tier 15%/10%, slot, AND-join, tembusan) **tidak
@@ -762,8 +762,11 @@ Peran berikut mengikuti sheet *Actors* dan *Basic Workflow* pada
     diskon hanya muncul lewat Revisi. Langkah Validasi
     Sales Lead dihapus lewat editor template. Validasi mesin (minimal 2
     langkah, tepat satu Generate dan satu Review) tetap terpenuhi.
-  - Lima template contoh lain (tabel di bawah) **dinonaktifkan**, tidak
-    dihapus, sehingga dapat diaktifkan kembali tanpa kerja ulang.
+  - Lima template contoh lain (tabel di bawah) **dihapus dari seed** (migrasi
+    0021; hanya bila belum dipakai quotation) karena tidak diperlukan sekarang
+    — termasuk workflow blacklist/relasi khusus. Fitur katalog tetap ada:
+    workflow baru ditambahkan kapan pun lewat **Tambah workflow** /
+    **Duplikat** di Settings. Tabel di bawah hanya contoh definisi.
   - Tier margin, slot keputusan, dan Release Gate **tidak berubah**.
   - Seluruhnya adalah perubahan **data/konfigurasi** (Settings atau satu
     migrasi seed), bukan perubahan kode mesin workflow.
@@ -971,9 +974,10 @@ Peran berikut mengikuti sheet *Actors* dan *Basic Workflow* pada
      (`PENDING_SIGNED_DOCUMENT`). Sistem menetapkan nomor dokumen, tanggal
      dokumen, dan `valid_until` (FR-2.9) dan menyediakan dokumen Cost
      Estimate untuk dicetak (FR-1.5.4).
-  3. Salesperson pemilik/account person (atau Admin) memilih salah satu:
-     - **Rilis tanpa lampiran** — langsung **Released**; atau
-     - **Lampirkan dokumen bertanda tangan & rilis** — Head of Sales
+  3. Salesperson pemilik/account person (atau Admin) memakai satu form
+     **Rilis** dengan dropdown lalu menekan **Rilis**:
+     - **Tanpa lampiran dokumen** (default) — langsung **Released**; atau
+     - **Dengan lampiran dokumen bertanda tangan** — kolom berkas muncul; Head of Sales
        menandatangani dokumen di luar aplikasi (e-signature *Out of
        Scope*), Salesperson mengunggah PDF/gambar, lalu **Released**.
   4. `released_at` = saat rilis (dasar warna kuning/merah, FR-3.4, dan KPI
@@ -1519,7 +1523,7 @@ Pembaruan v4.0 ditandai **baru/direvisi**:
 | Project, Payment & Tracking (v5.0) | **Menu Projects, project otomatis dari Won, termin oleh Salesperson, status payment + bukti transfer oleh Finance, tracking progres oleh Tim Project, unggah berkas (baru, Module 9)** |
 | Dashboard (v5.0) | **KPI per Salesperson, dashboard executive, role Chief/Direksi (baru, Module 10)** |
 | UI Responsif (v5.0) | **Drawer navigasi, tabel/kartu adaptif, form satu kolom, kanban/grafik responsif untuk semua halaman (baru, FR-5.8)** |
-| Konfigurasi Workflow (v5.0) | **Satu template aktif `OQ-STANDARD`, quantity band semua Otomatis, template lain dinonaktifkan — konfigurasi, tanpa perubahan kode (direvisi)** |
+| Konfigurasi Workflow (v5.0) | **Satu workflow di seed (`OQ-STANDARD`), quantity band semua Otomatis; template contoh lain dihapus, katalog tetap dapat diisi lewat Settings** (konfigurasi, tanpa perubahan kode) |
 | Mineral Index | HMA (referensi), HPM Calculator, Stale Index Warning |
 | Integrasi Eksternal | ERP, CRM, Notifikasi MS Teams |
 

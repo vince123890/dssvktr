@@ -183,8 +183,8 @@ COGS & Profitability Owner), padahal layar lama masih menampilkan
 
 2. Versi quotation naik; versi lama tetap tersimpan (Rate Locking).
 3. **headsales@vktr.demo** → **Approve & rute tier** → status *Disetujui —
-   menunggu rilis*; **sales.lead@vktr.demo** → **Rilis tanpa lampiran** (atau
-   lampirkan dokumen bertanda tangan) → Released → **Preview / Print**:
+   menunggu rilis*; **sales.lead@vktr.demo** → dropdown **Rilis** → *Tanpa lampiran*
+   (atau *Dengan lampiran dokumen bertanda tangan*) → **Rilis** → Released → **Preview / Print**:
    dokumen Cost Estimate dengan deskripsi varian MWB Aluminium Box 132 kWh
    dan halaman spesifikasi kolom *Medium Wheelbase*.
 

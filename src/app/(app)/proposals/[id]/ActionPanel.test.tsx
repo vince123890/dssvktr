@@ -53,56 +53,78 @@ describe("ActionPanel", () => {
     expect(screen.getByText("Head of Sales")).toBeInTheDocument();
   });
 
-  it("setelah approve: Salesperson dapat merilis TANPA lampiran (lampiran opsional)", async () => {
+  const releaseSelect = () => screen.getByRole("combobox", { name: /Rilis/ });
+
+  it("setelah approve: satu form Rilis dengan dropdown, default tanpa lampiran dan tanpa kolom berkas", async () => {
+    const { container } = render(<ActionPanel proposalId="p1" caps={caps({ awaitingRelease: true, canAttachSigned: true })} />);
+    expect(releaseSelect()).toHaveValue("WITHOUT");
+    expect(screen.getByRole("button", { name: "Rilis" })).toBeInTheDocument();
+    expect(container.querySelector('input[type="file"]')).toBeNull();
+    expect(screen.getAllByText(/opsional/i).length).toBeGreaterThan(0);
+  });
+
+  it("pilih 'Tanpa lampiran' lalu Rilis: langsung dirilis tanpa berkas", async () => {
     const user = userEvent.setup();
     render(<ActionPanel proposalId="p1" caps={caps({ awaitingRelease: true, canAttachSigned: true })} />);
-    expect(screen.getByText(/bersifat opsional/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Rilis tanpa lampiran" }));
+    await user.click(screen.getByRole("button", { name: "Rilis" }));
     await waitFor(() => expect(actions.releaseWithoutSignedDocumentAction).toHaveBeenCalledWith("p1"));
     expect(actions.attachSignedDocumentAction).not.toHaveBeenCalled();
   });
 
-  it("tidak ada tombol rilis bagi yang bukan pemilik quotation", () => {
-    render(<ActionPanel proposalId="p1" caps={caps({ waitingFor: "Salesperson merilis" })} />);
-    expect(screen.queryByRole("button", { name: "Rilis tanpa lampiran" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Lampirkan/ })).not.toBeInTheDocument();
-  });
-
-  it("setelah rilis lampiran tetap dapat ditambahkan, lalu diganti", () => {
-    const { rerender } = render(<ActionPanel proposalId="p1" caps={caps({ canAttachSigned: true })} />);
-    expect(screen.getByText(/dapat ditambahkan setelah rilis/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Lampirkan" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Rilis tanpa lampiran" })).not.toBeInTheDocument();
-    rerender(<ActionPanel proposalId="p1" caps={caps({ canAttachSigned: true, hasSignedDocument: true })} />);
-    expect(screen.getByRole("button", { name: "Ganti lampiran" })).toBeInTheDocument();
-  });
-
-  it("lampiran bertanda tangan: Salesperson mengunggah berkas, aksi dipanggil dengan FormData", async () => {
+  it("pilih 'Dengan lampiran': kolom berkas muncul, lalu Rilis mengirim berkas", async () => {
     const user = userEvent.setup();
     const { container } = render(<ActionPanel proposalId="p1" caps={caps({ awaitingRelease: true, canAttachSigned: true })} />);
+    await user.selectOptions(releaseSelect(), "WITH");
     const input = container.querySelector('input[type="file"][name="file"]') as HTMLInputElement;
+    expect(input).not.toBeNull();
     await user.upload(input, pdf());
     expect(input.files?.[0].name).toBe("ttd.pdf");
     input.form!.noValidate = true; // jsdom does not count user-event uploads for `required`
-    await user.click(screen.getByRole("button", { name: /Lampirkan & rilis/ }));
+    await user.click(screen.getByRole("button", { name: "Rilis" }));
     await waitFor(() => expect(actions.attachSignedDocumentAction).toHaveBeenCalledTimes(1));
     const [id, form] = vi.mocked(actions.attachSignedDocumentAction).mock.calls[0];
     expect(id).toBe("p1");
     expect(form.has("file")).toBe(true); // jsdom FormData does not carry user-event files; the input check above does
+    expect(actions.releaseWithoutSignedDocumentAction).not.toHaveBeenCalled();
   });
 
-  it("menampilkan pesan kesalahan dari server", async () => {
+  it("kembali ke 'Tanpa lampiran' menyembunyikan kolom berkas", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<ActionPanel proposalId="p1" caps={caps({ awaitingRelease: true, canAttachSigned: true })} />);
+    await user.selectOptions(releaseSelect(), "WITH");
+    expect(container.querySelector('input[type="file"]')).not.toBeNull();
+    await user.selectOptions(releaseSelect(), "WITHOUT");
+    expect(container.querySelector('input[type="file"]')).toBeNull();
+  });
+
+  it("menampilkan pesan kesalahan dari server saat rilis dengan lampiran", async () => {
     vi.mocked(actions.attachSignedDocumentAction).mockResolvedValueOnce({
       ok: false,
       error: "Format berkas harus PDF, PNG, atau JPG.",
     });
     const user = userEvent.setup();
     const { container } = render(<ActionPanel proposalId="p1" caps={caps({ awaitingRelease: true, canAttachSigned: true })} />);
+    await user.selectOptions(releaseSelect(), "WITH");
     const file = container.querySelector('input[type="file"]') as HTMLInputElement;
     await user.upload(file, pdf());
     file.form!.noValidate = true;
-    await user.click(screen.getByRole("button", { name: /Lampirkan & rilis/ }));
+    await user.click(screen.getByRole("button", { name: "Rilis" }));
     expect(await screen.findByText(/Format berkas harus PDF/)).toBeInTheDocument();
+  });
+
+  it("tidak ada form rilis bagi yang bukan pemilik quotation", () => {
+    render(<ActionPanel proposalId="p1" caps={caps({ waitingFor: "Salesperson merilis" })} />);
+    expect(screen.queryByRole("button", { name: "Rilis" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Lampirkan/ })).not.toBeInTheDocument();
+  });
+
+  it("setelah rilis lampiran tetap dapat ditambahkan, lalu diganti (tanpa form Rilis)", () => {
+    const { rerender } = render(<ActionPanel proposalId="p1" caps={caps({ canAttachSigned: true })} />);
+    expect(screen.getByText(/dapat ditambahkan setelah rilis/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lampirkan" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Rilis" })).not.toBeInTheDocument();
+    rerender(<ActionPanel proposalId="p1" caps={caps({ canAttachSigned: true, hasSignedDocument: true })} />);
+    expect(screen.getByRole("button", { name: "Ganti lampiran" })).toBeInTheDocument();
   });
 
   it("Head of Sales membatalkan approval final dengan alasan", async () => {

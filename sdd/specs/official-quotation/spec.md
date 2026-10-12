@@ -339,7 +339,7 @@ Pada `HEAD_OF_SALES`, setelah routing tier dan Release Gate lolos, sistem SHALL 
 - **AND** quotation belum dihitung terkirim
 
 #### Scenario: Rilis tanpa lampiran
-- **WHEN** salesperson pengaju menekan "Rilis tanpa lampiran"
+- **WHEN** salesperson pengaju memilih "Tanpa lampiran dokumen" pada dropdown Rilis lalu menekan Rilis
 - **THEN** status QUOTATION_RELEASED, `released_at` terisi, `signed_document_path` kosong, audit RELEASE ("tanpa lampiran")
 
 #### Scenario: Lampirkan dan rilis

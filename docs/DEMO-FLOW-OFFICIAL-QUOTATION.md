@@ -130,16 +130,18 @@ B6–B9 dan Lampiran A opsional.
 9. Login **sales.exec@vktr.demo** → buka quotation. Harga incl. VAT kini
    tampil (tanpa cost structure). Daftar quotation menampilkan status
    *Disetujui — menunggu rilis*; Overview menampilkan *"Rilis quotation
-   (lampiran dokumen bertanda tangan opsional)"*. Panel *Aksi Anda* menawarkan
-   dua jalan: **Rilis tanpa lampiran** dan **Lampirkan & rilis**.
+   (lampiran dokumen bertanda tangan opsional)"*. Panel *Aksi Anda* berisi satu form
+   **Rilis** dengan dropdown: *Tanpa lampiran dokumen* (default) atau *Dengan
+   lampiran dokumen bertanda tangan*, lalu tombol **Rilis**.
 10. Klik **Cetak untuk ditandatangani** → dokumen bernomor **tanpa
     watermark**: *COST ESTIMATE*, penerbit + logo, Number, tanggal & Expiry
     Date, **To** dari KYC, Sales/Account Person (Maria Kusuma), tabel (1 ·
     *Purchase* · incl. VAT · Rp 920,800,500), Inclusions, **Exclusions — At
     cost**, Special Notes, blok tanda tangan, halaman **Specification**.
     Pilih *Save as PDF* (A4). Audit Trail mencatat `PRINT`.
-11. (Anggap Head of Sales menandatangani di luar aplikasi.) Pilih berkas →
-    unggah PDF/PNG/JPG (≤ 10 MB) → **Lampirkan & rilis**. Status menjadi
+11. (Anggap Head of Sales menandatangani di luar aplikasi.) Pada dropdown
+    **Rilis** pilih *Dengan lampiran dokumen bertanda tangan* → kolom berkas
+    muncul → pilih PDF/PNG/JPG (≤ 10 MB) → **Rilis**. Status menjadi
     **Quotation Released**; kartu *Dokumen & Hasil* menampilkan tautan *Buka
     lampiran*; badge **hijau · 0 hari sejak rilis**. (Jalan tanpa lampiran
     diperagakan di B2.)
@@ -159,7 +161,8 @@ B6–B9 dan Lampiran A opsional.
    Salesperson lain). Diskon default band 2–5 kini **0%**, sehingga harga
    tetap standar.
 3. **headsales@** Approve → status *Disetujui — menunggu rilis*. **sales.lead@**
-   menekan **Rilis tanpa lampiran** → **Released** (kartu *Dokumen & Hasil* tanpa
+   memilih *Tanpa lampiran dokumen* pada dropdown **Rilis** lalu menekan
+   **Rilis** → **Released** (kartu *Dokumen & Hasil* tanpa
    tautan lampiran; audit RELEASE "tanpa lampiran"). Total 4 unit incl. VAT
    **Rp 3.683.202.000** (4 × 920.800.500), GM 17,79%.
 4. Lampiran tetap opsional sesudahnya: panel menawarkan **Lampirkan** bila
@@ -239,8 +242,8 @@ B6–B9 dan Lampiran A opsional.
 11. **procurement@** → **Approve** (slot COGS Owner; **headproc@** tidak
     punya slot tersisa). **headfinance@** → **Approve** → Release Gate
     lolos → status **Disetujui — menunggu rilis** (nomor baru).
-12. **sales.exec@** → cetak, lalu **Lampirkan & rilis** (atau **Rilis tanpa
-    lampiran**). Total 40 unit:
+12. **sales.exec@** → cetak, lalu dropdown **Rilis** → *Dengan lampiran* (atau
+    *Tanpa lampiran*) → **Rilis**. Total 40 unit:
     excl. VAT Rp 31.854.720.000, incl. VAT **Rp 35.358.739.200**.
 13. Buka quotation awal (3a) → **Digantikan (Superseded)**; kartu *Linimasa
     Project Identifier* menampilkan keduanya. Cetak yang lama → watermark
@@ -377,21 +380,23 @@ handphone, login **sales.exec@**:
    tier, tembusan, band dan diskon default (kini semua Otomatis/0%). Tier
    sengaja **terpisah dari template**. **Settings → Umum & Dokumen**: PPN
    11%, judul/pola nomor/masa berlaku dokumen, **ambang kuning/merah**.
-4. **Settings → Workflow**: daftar berisi seluruh template; hanya *Standard*
-   **aktif**, lima lainnya (Blacklist, Relasi Khusus, Nilai Besar, B2G,
-   Industri Tambang & Perkebunan) **nonaktif** dan siap dipakai kelak. Klik
+4. **Settings → Workflow**: daftar berisi **satu workflow**, *Standard* (aktif;
+   template contoh Blacklist, Relasi Khusus, Nilai Besar, B2G, dan Industri
+   dihapus dari seed oleh migrasi 0021). Klik
    *Standard* → detail: dua langkah, riwayat versi (versi lama yang punya
    Validasi Sales Lead nonaktif). **Ubah** → SLA langkah ke `8` → **Simpan
    sebagai versi baru** (quotation berjalan memakai versi lamanya).
-5. **Variasi per jenis deal (kemampuan mesin, bukan konfigurasi go-live).**
-   Klik *B2G Pemerintah* → **Aktifkan**. Kartu **Uji pemilihan template**:
-   Segmen `B2G` → **Uji** → *B2G Pemerintah* terpilih. Quotation B2G baru
-   (`Dinas Lingkungan Hidup Kota Bekasi`, Lini bisnis **B2G / Pemerintah**,
-   Segmen B2G · Municipality · Reguler, 2 unit) → panel alur menampilkan
-   template dan alasannya; **di sinilah langkah Validasi Sales Lead dan
-   verifikasi dokumen tender muncul lagi**, dan tier khusus B2G mewajibkan
-   CCO & CFO bahkan untuk Tier 1. Setelah selesai, **Nonaktifkan** kembali.
-   *Duplikat* sebuah template untuk membuat workflow baru tanpa kode.
+5. **Menambah workflow tanpa kode (kemampuan mesin, bukan konfigurasi
+   go-live).** Klik *Standard* → **Duplikat** → nama `Official Quotation — B2G
+   Pemerintah`, qualifier **Segmen = B2G**, prioritas `10`, tambahkan langkah
+   *Validasi Sales Lead* sebelum *Generate* → **Buat workflow**. Kartu **Uji
+   pemilihan template**: Segmen `B2G` → **Uji** → workflow baru terpilih;
+   segmen B2B tetap ke *Standard*. Quotation B2G baru (`Dinas Lingkungan
+   Hidup Kota Bekasi`, Lini bisnis **B2G / Pemerintah**, Segmen B2G ·
+   Municipality · Reguler, 2 unit) → panel alur menampilkan template dan
+   alasannya, dan langkah Validasi Sales Lead muncul. Setelah selesai,
+   **Nonaktifkan** workflow tambahan itu supaya demo berikutnya kembali satu
+   workflow.
 
 ---
 

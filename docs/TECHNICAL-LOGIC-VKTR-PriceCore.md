@@ -116,8 +116,8 @@
 >     2 dan 3; `quotationEngine.ts` menerapkannya pada baris yang belum
 >     diedit manual, sehingga harus dinolkan agar rilis awal = harga
 >     standar); langkah validasi
->     Sales Lead dihapus lewat editor template; template lain
->     dinonaktifkan (`is_active = false`). Mesin workflow, validasi
+>     Sales Lead dihapus lewat editor template; template contoh
+>     lain dihapus dari seed (migrasi 0021, hanya yang belum dipakai quotation). Mesin workflow, validasi
 >     template, tier margin, dan Release Gate **tidak berubah**.
 > 28. **Diskon tetap lewat Revisi + tier** (§11.4) — tidak ada tabel atau
 >     state machine baru; rilis awal memakai harga standar sehingga GM
@@ -1061,8 +1061,8 @@ function resolveTemplate(templates, deal):
   alasan untuk atribut apa pun.
 - **Status aktif v5.0 *(konfigurasi)*:** hanya `OQ-STANDARD` yang
   `is_active`; `OQ-BLACKLIST`, `OQ-RELASI-KHUSUS`, `OQ-NILAI-BESAR`,
-  `OQ-B2G`, `OQ-INDUSTRI-BERAT` dinonaktifkan (bukan dihapus). Karena
-  `resolveTemplate` hanya mengevaluasi template aktif, setiap deal jatuh
+  `OQ-B2G`, `OQ-INDUSTRI-BERAT` **dihapus dari seed** (migrasi 0021; template yang sudah dirujuk quotation/instance hanya dinonaktifkan). Karena
+  `resolveTemplate` hanya mengevaluasi template yang ada, setiap deal jatuh
   ke fallback `OQ-STANDARD` ("Tidak ada template spesifik yang cocok —
   memakai template dasar"). Perubahan ini dibuat lewat Settings → Workflow
   atau satu migrasi seed (agar sama di semua lingkungan); menyimpan
@@ -1534,7 +1534,7 @@ function releaseQuotation(proposal, actor, { signedPath?, note }):  # satu-satun
     if signedPath: signed_document_path/by/at = ...
     supersede pendahulu (revisi); audit RELEASE(note)
 
-function releaseWithoutSignedDocument(proposal, actor):             # tombol "Rilis tanpa lampiran"
+function releaseWithoutSignedDocument(proposal, actor):             # form Rilis, dropdown "Tanpa lampiran dokumen"
     require status == PENDING_SIGNED_DOCUMENT; releaseQuotation(proposal, actor, {})
 
 function attachSignedDocument(proposal, actor, path):               # lampiran OPSIONAL

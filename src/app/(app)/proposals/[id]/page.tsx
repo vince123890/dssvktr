@@ -27,6 +27,7 @@ import {
   slotLabel,
 } from "@/lib/rbac";
 import { signedUrl } from "@/lib/files";
+import { visibleSteps } from "@/lib/workflow/timeline";
 import { AGE_STATE_LABEL, AGE_STATE_TONE, ageConfigFrom, daysBetween, quotationAgeState } from "@/lib/lifecycle";
 import {
   activeStep,
@@ -539,8 +540,12 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
                   {proposal.is_blacklisted && <div className="font-medium text-danger">Customer tercantum di blacklist</div>}
                 </div>
               )}
-              <TimelineRow status={proposal.current_status === "DRAFT" ? "IN_PROGRESS" : "APPROVED"} title="KYC & submit (Salesperson)" detail={nameOf(proposal.created_by)} />
-              {steps.map((s) => (
+              {/* Only the steps a person acts on: KYC & submit shows while it is still the open step,
+                  and auto-completed / skipped steps are left out (they only made the card ambiguous). */}
+              {proposal.current_status === "DRAFT" && (
+                <TimelineRow status="IN_PROGRESS" title="KYC & submit (Salesperson)" detail={nameOf(proposal.created_by)} />
+              )}
+              {visibleSteps(steps).map((s) => (
                 <TimelineRow
                   key={s.id}
                   status={s.status}

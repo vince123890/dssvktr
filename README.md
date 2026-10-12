@@ -14,7 +14,7 @@ v5.0 berasal dari meeting *VKTR Req 2* (`docs/kebutuhan_baru_v2.md`).
 > `npm run seed:demo` (menambah akun Finance, Tim Project, Chief dan project contoh).
 > - *Konfigurasi (di migrasi 0019):* satu workflow aktif `OQ-STANDARD`
 >   (Generate → Review Head of Sales), semua quantity band Otomatis dengan diskon default 0%,
->   langkah Validasi Sales Lead dihapus, template lain dinonaktifkan.
+>   langkah Validasi Sales Lead dihapus, template contoh lain dihapus dari seed (migrasi 0021).
 > - *Kode baru:* status **Disetujui — menunggu rilis**, rilis dengan/tanpa lampiran, dropdown tanpa approval Head of Sales, diskon Salesperson
 >   pada draft Revisi, badge hijau/kuning/merah, Won (bukti PO) / Lost, override Expired oleh Admin,
 >   menu **Projects** (termin, payment, progres), **Dashboard** Sales & Executive, role Finance /

@@ -114,7 +114,7 @@ Sistem SHALL memungkinkan template memiliki tangga tier margin sendiri (salinan 
 <!-- Sumber: PRD v5.0 FR-2.0.2, Technical Logic v5.0 §4.1a. Konfigurasi, bukan perubahan kode. -->
 
 ### Requirement: Satu template aktif pada go-live
-Sistem SHALL berjalan dengan tepat satu template OFFICIAL_QUOTATION aktif, `OQ-STANDARD` (fallback), berisi langkah GENERATE_QUOTATION lalu REVIEW_AND_ROUTE (Head of Sales). Template lain (`OQ-BLACKLIST`, `OQ-RELASI-KHUSUS`, `OQ-NILAI-BESAR`, `OQ-B2G`, `OQ-INDUSTRI-BERAT`) SHALL dinonaktifkan, tidak dihapus, dan dapat diaktifkan kembali kelak. Mesin pemilihan, validasi template (minimal 2 langkah, tepat satu Generate dan satu Review), dan versioning SHALL tidak berubah.
+Sistem SHALL berjalan dengan tepat satu template OFFICIAL_QUOTATION aktif, `OQ-STANDARD` (fallback), berisi langkah GENERATE_QUOTATION lalu REVIEW_AND_ROUTE (Head of Sales). Template contoh lain (`OQ-BLACKLIST`, `OQ-RELASI-KHUSUS`, `OQ-NILAI-BESAR`, `OQ-B2G`, `OQ-INDUSTRI-BERAT`) SHALL **dihapus dari seed** (migrasi 0021) bila belum dirujuk quotation atau workflow instance, dan hanya dinonaktifkan bila sudah dirujuk. Workflow baru ditambahkan lewat Tambah workflow / Duplikat di Settings. Mesin pemilihan, validasi template (minimal 2 langkah, tepat satu Generate dan satu Review), dan versioning SHALL tidak berubah.
 
 #### Scenario: Semua deal jatuh ke template dasar
 - **WHEN** deal B2G pertambangan 50 unit disubmit saat hanya `OQ-STANDARD` aktif
@@ -124,6 +124,6 @@ Sistem SHALL berjalan dengan tepat satu template OFFICIAL_QUOTATION aktif, `OQ-S
 - **WHEN** admin menyimpan `OQ-STANDARD` tanpa langkah Validasi Sales Lead
 - **THEN** dibuat versi baru, versi lama dinonaktifkan, dan quotation berjalan tetap memakai salinan langkahnya
 
-#### Scenario: Mengaktifkan kembali template lain
-- **WHEN** admin mengaktifkan `OQ-B2G`
-- **THEN** template itu kembali dipertimbangkan sesuai prioritas dan qualifier-nya, tanpa perubahan kode
+#### Scenario: Menambah workflow baru
+- **WHEN** admin membuat workflow baru (Tambah workflow atau Duplikat `OQ-STANDARD`) dengan qualifier Segmen B2G dan langkah tambahan
+- **THEN** template itu dipertimbangkan saat submit sesuai prioritas dan qualifier-nya, tanpa perubahan kode

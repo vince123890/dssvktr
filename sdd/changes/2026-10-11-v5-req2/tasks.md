@@ -13,7 +13,8 @@
 - [x] Responsif: layout, Sidebar drawer, Card/Input, TableScroll, kanban, form, tabel
 - [x] Seed/reset demo: akun baru, project contoh, pembersihan project dan berkas
 - [x] Approval Head of Sales opsional per quotation (dropdown, migrasi 0020), rilis tanpa lampiran, lampiran menyusul setelah rilis
-- [ ] Menjalankan migrasi 0020 pada database
+- [ ] Menjalankan migrasi 0020 dan 0021 pada database
+- [x] Seeder: template contoh selain OQ-STANDARD dihapus (migrasi 0021, hanya yang belum dipakai)
 - [x] Membatalkan approval final sebelum lampiran (engine, aksi, UI, tes)
 - [x] Tes: engine v5 (fake DB yang dapat menulis), komponen UI (jsdom), penjaga responsif statis
 - [x] Dokumen: PRD/Technical Logic v5.0, README, laporan, skenario demo, spec
