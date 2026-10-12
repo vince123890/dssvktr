@@ -1,19 +1,15 @@
 # Skenario Demo 2 — FOB dalam CNY & Rate Sensitivity (v4.0)
 
-> **Catatan v5.0.** Skenario kurs/rate sensitivity tidak berubah oleh
-> meeting *VKTR Req 2*. Satu penyesuaian: pada konfigurasi go-live v5.0
-> semua quantity band Otomatis dan hanya `OQ-STANDARD` aktif, sehingga
-> quotation 12 unit di §3 langsung menunggu **Head of Sales** tanpa
-> langkah Sales Operations manual; Release Gate dan alur "Hitung Ulang"
-> (§5–§7) tetap sama.
-
-> **Status terhadap PRD/Technical Logic v4.0.** Revisi mengikuti
-> `BTEL - Cost and Roles and Flow.xlsx`. Perbedaan utama terhadap v3.0:
-> FOB Price in CNY kini diinput **di cost structure varian** oleh COGS
-> Owner lewat Maker → Checker → Releaser — bukan per quotation oleh VP
-> Operations — dan **kurs dikunci per versi cost structure**. Peran,
-> tier (15% / 10%), dan alur Official Quotation mengikuti
-> [`DEMO-SCENARIO.md`](DEMO-SCENARIO.md).
+> **Status v5.0.** Skenario kurs/rate sensitivity tidak berubah oleh
+> meeting *VKTR Req 2*; yang berubah hanya jalur quotation-nya: hanya
+> `OQ-STANDARD` yang aktif, tanpa validasi Sales Lead dan tanpa antrean
+> Sales Operations, sehingga quotation 12 unit langsung menunggu **Head of
+> Sales**; setelah *Approve* quotation berstatus *Disetujui — menunggu
+> rilis* dan **Salesperson merilis** (lampiran tanda tangan opsional).
+> FOB Price in CNY diinput **di cost structure varian** oleh COGS Owner
+> lewat Maker → Checker → Releaser dan **kurs dikunci per versi cost
+> structure**. Tier 15% / 10% dan akun/password mengikuti
+> [`DEMO-FLOW-OFFICIAL-QUOTATION.md`](DEMO-FLOW-OFFICIAL-QUOTATION.md) §0.
 
 Skenario ini menunjukkan tiga hal:
 
@@ -30,12 +26,12 @@ Skenario ini menunjukkan tiga hal:
 |---|---|
 | **Varian** | VKTR Light Duty Truck 4x2, Medium Wheelbase, Aluminium Box, Battery 132 kWh, CKD, loco Magelang |
 | **Customer** | PT Nusantara Kargo Elektrik *(fiktif)* — B2B Commercial Fleet |
-| **Kuantitas** | 12 unit → band ≥ 10, **manual** |
+| **Kuantitas** | 12 unit → band ≥ 10 (Otomatis; diskon default band 2% khusus skenario ini, lihat §1 langkah 5) |
 | **Kurs awal / ambang** | Rp 2.600 per CNY / **2%** |
 | **PPN** | 11% efektif (ilustratif) |
 
-Peran & akun sama dengan skenario 1 (§0 `DEMO-SCENARIO.md`). Password
-semua akun: `PriceCore123!`.
+Peran & akun sama dengan skrip utama (§0 `DEMO-FLOW-OFFICIAL-QUOTATION.md`).
+Password semua akun: `PriceCore123!`.
 
 ---
 
@@ -48,6 +44,9 @@ semua akun: `PriceCore123!`.
 3. **Rate Sensitivity**: `threshold_pct = 2%`.
 4. *(Opsional)* **Mineral Index**: HMA `NI` = 16.646 — hanya referensi
    (§8).
+5. **Settings → Tier Margin & Quantity Band**: set **diskon default band ≥ 10
+   unit = 2%** (konfigurasi go-live memakai 0%; angka §3–§7 mengikuti diskon
+   2%). **Kembalikan ke 0%** setelah demo.
 
 ---
 
@@ -104,13 +103,15 @@ dihitung.
    logistik, rute gudang Cikarang → hub Jakarta, 2 siklus/hari,
    Likelihood 4), Lini bisnis **B2B Commercial Fleet**, Kualifikasi deal
    B2B · `On-road Logistics` · `Reguler` (→ workflow **Standard**;
-   estimasi 12 × Rp 918.675.000 ≈ Rp 11 M, di bawah ambang Nilai Besar).
-   Submit → validasi dilewati (pengaju Sales Lead).
-2. **salesops@vktr.demo** (manual, band ≥ 10) → diskon **2%**
-   (Rp 18.373.500/unit): harga bersih Rp 900.301.500/unit, GM
-   **15,63%**, tier **1**. Teruskan.
-3. **headsales@vktr.demo** — **jangan Accept dulu**. Quotation dibiarkan
-   di *Pending Head of Sales Review* untuk langkah berikut.
+   estimasi 12 × Rp 918.675.000 ≈ Rp 11 M, di bawah ambang Nilai Besar),
+   dropdown **Persetujuan Head of Sales** = *Perlu approval* (default).
+   Submit.
+2. *Generate* otomatis (band ≥ 10 Otomatis) menerapkan diskon default band
+   **2%** (Rp 18.373.500/unit): harga bersih Rp 900.301.500/unit, GM
+   **15,63%**, tier **1**. Quotation langsung berstatus **Review Head of
+   Sales** (tidak ada validasi Sales Lead maupun antrean Sales Operations).
+3. **headsales@vktr.demo** — **jangan Approve dulu**. Quotation dibiarkan
+   di *Review Head of Sales* untuk langkah berikut.
 
 ---
 
@@ -133,9 +134,9 @@ pergerakan kecil.
    - **Cost structure v1** (untuk COGS Owner): *"Kurs CNY/IDR telah
      diperbarui menjadi 2.705 — melebihi ambang sensitivitas 2%. Buat
      versi baru."*
-   - **Quotation §3** (untuk Sales Operations & Head of Sales): *"…
+   - **Quotation §3** (untuk Head of Sales): *"…
      Hitung Ulang diperlukan sebelum rilis."*
-3. **headsales@vktr.demo** mencoba **Accept** → Release Gate menolak:
+3. **headsales@vktr.demo** mencoba **Approve** → Release Gate menolak:
    *"Kurs bergerak melewati ambang — Hitung Ulang dulu"*.
 
 **Kenapa ini penting — tunjukkan di panel dampak margin:** bila harga
@@ -170,8 +171,9 @@ COGS & Profitability Owner), padahal layar lama masih menampilkan
 
 ## 7. Hitung Ulang quotation terbuka → rilis
 
-1. **salesops@vktr.demo** → quotation §3 → **Hitung Ulang**. Line item
-   kini mengunci v2; diskon 2% tetap (Rp 18.868.575/unit).
+1. **headsales@vktr.demo** → quotation §3 (langkah *Review Head of Sales*) →
+   **Hitung Ulang**. Line item kini mengunci v2; diskon 2% tetap (Rp
+   18.868.575/unit).
 
    | | Nilai |
    |---|---|
@@ -180,9 +182,11 @@ COGS & Profitability Owner), padahal layar lama masih menampilkan
    | 12 unit excl. / incl. VAT | Rp 11.094.722.100 / **Rp 12.315.141.531** |
 
 2. Versi quotation naik; versi lama tetap tersimpan (Rate Locking).
-3. **headsales@vktr.demo** → **Accept** → Released → **Preview /
-   Print**: dokumen Cost Estimate dengan deskripsi varian MWB Aluminium
-   Box 132 kWh dan halaman spesifikasi kolom *Medium Wheelbase*.
+3. **headsales@vktr.demo** → **Approve & rute tier** → status *Disetujui —
+   menunggu rilis*; **sales.lead@vktr.demo** → **Rilis tanpa lampiran** (atau
+   lampirkan dokumen bertanda tangan) → Released → **Preview / Print**:
+   dokumen Cost Estimate dengan deskripsi varian MWB Aluminium Box 132 kWh
+   dan halaman spesifikasi kolom *Medium Wheelbase*.
 
 ---
 
@@ -223,7 +227,7 @@ COGS & Profitability Owner), padahal layar lama masih menampilkan
 | Varian | LDT 4x2 SWB Dumper 90 kWh | LDT 4x2 MWB Aluminium Box 132 kWh |
 | FOB | ¥ 185.000 | ¥ 205.000 |
 | Kuantitas | 1 / 4 / 40 | 12 |
-| Fitur khas | Settings, M/C/R, Price Estimate, KYC, band, tier 1–3, dokumen & cetak, revisi, Fraud Guard | Kurs terkunci per versi, ambang 2%, Release Gate menahan kurs basi, versi v2 hanya scope COGS |
+| Fitur khas | Satu workflow, approve → rilis (lampiran opsional), tanpa approval, Won → Project, Dashboard, M/C/R, KYC, tier 1–3, revisi, Fraud Guard | Kurs terkunci per versi, ambang 2%, Release Gate menahan kurs basi, versi v2 hanya scope COGS |
 | Tier | 17,79% → 16,10% → 8,95% → 14,34% → 13,44% | 15,63% → (tersembunyi 13,23%) → 15,52% |
 
 ---

@@ -36,6 +36,7 @@ export default async function EditQuotationDraftPage({ params }: { params: Promi
         proposalId={id}
         initial={{
           businessLine: proposal.business_line,
+          approvalMode: proposal.approval_mode,
           kyc: { ...proposal.kyc, existing_project_identifier_id: proposal.project_identifier_id } as never,
           lines: ((lines ?? []) as QuotationLineItem[]).map((l) => ({ product_id: l.product_id, quantity: l.quantity })),
         }}

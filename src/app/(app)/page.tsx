@@ -55,7 +55,7 @@ export default async function OverviewPage() {
     if (p.current_status === "DRAFT" && p.created_by === profile.id) myQueue.set(p.id, { proposal: p, what: "Draft — lengkapi & submit" });
     // v5.0: the Head of Sales has approved; the Salesperson attaches the signed document (PRD FR-2.11).
     if (p.current_status === "PENDING_SIGNED_DOCUMENT" && canAttachSignedDocument(profile, p) && !hasFunction(profile, "SYSTEM_ADMIN")) {
-      myQueue.set(p.id, { proposal: p, what: "Lampirkan dokumen bertanda tangan Head of Sales" });
+      myQueue.set(p.id, { proposal: p, what: "Rilis quotation (lampiran dokumen bertanda tangan opsional)" });
     }
     // v5.0: follow-up list for the Salesperson who owns it (yellow = follow up, red = make a new quotation).
     if (hasFunction(profile, "SALESPERSON") && (p.created_by === profile.id || (p.account_person_ids ?? []).includes(profile.id))) {

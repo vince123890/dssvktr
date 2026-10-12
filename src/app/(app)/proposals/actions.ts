@@ -54,6 +54,8 @@ const QuotationInputSchema = z.object({
   business_line: z.enum(["B2G_TENDER_BUS", "B2B_COMMERCIAL_FLEET", "CHARGING_INFRA_BUILDOUT"]),
   kyc: KycSchema,
   lines: z.array(LineSchema).min(1, "b. Minimal satu varian kendaraan & kuantitas"),
+  // v5.0 — dropdown on the create form; default keeps the Head of Sales in the loop.
+  approval_mode: z.enum(["HEAD_OF_SALES", "NONE"]).default("HEAD_OF_SALES"),
 });
 
 export type QuotationInput = z.input<typeof QuotationInputSchema>;
@@ -139,6 +141,7 @@ export async function createQuotationAction(input: QuotationInput): Promise<Save
         kyc: kycSnapshot(parsed.kyc),
         initiator_role_code: profile.app_role_code,
         account_person_ids: [profile.id],
+        approval_mode: parsed.approval_mode,
         created_by: profile.id,
       })
       .select("id")
@@ -175,6 +178,7 @@ export async function createQuotationAction(input: QuotationInput): Promise<Save
         { field: "proposal_number", old: null, new: proposalNumber },
         { field: "company_name", old: null, new: parsed.kyc.company_name },
         { field: "lines", old: null, new: parsed.lines.length },
+        { field: "approval_mode", old: null, new: parsed.approval_mode },
       ],
     });
 
@@ -216,6 +220,7 @@ export async function updateQuotationDraftAction(
         customer_name: parsed.kyc.company_name,
         unit_quantity: parsed.lines.reduce((s, l) => s + l.quantity, 0),
         kyc: kycSnapshot(parsed.kyc),
+        approval_mode: parsed.approval_mode,
       })
       .eq("id", proposalId);
 

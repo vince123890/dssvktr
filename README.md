@@ -9,15 +9,13 @@ dan [`docs/TECHNICAL-LOGIC-VKTR-PriceCore.md`](docs/TECHNICAL-LOGIC-VKTR-PriceCo
 v5.0 berasal dari meeting *VKTR Req 2* (`docs/kebutuhan_baru_v2.md`).
 
 > **Status v5.0 (2026-10-11).** Kode sudah mengikuti PRD/Technical Logic v5.0 dan
-> lolos `tsc`, `eslint`, `next build`, serta 155 tes (unit, engine dengan fake DB, komponen UI, dan penjaga responsif). **Belum
-> diverifikasi di database sungguhan dan di peramban**: migrasi `0018` dan
-> `0019` harus dijalankan lebih dulu (`npm run migrate -- supabase/migrations/0018_v5_enums.sql`, lalu
-> `0019_v5_structures.sql`; `0018` harus selesai/commit sebelum `0019`), kemudian
+> lolos `tsc`, `eslint`, `next build`, serta 172 tes (unit, engine dengan fake DB, komponen UI, dan penjaga responsif). **Belum
+> diverifikasi di database sungguhan dan di peramban**: migrasi `0018`, `0019`, lalu `0020` harus dijalankan lebih dulu (`npm run migrate -- supabase/migrations/0018_v5_enums.sql`, dst.; `0018` harus selesai/commit sebelum `0019`; `0020` menambah kolom `approval_mode` untuk dropdown approval Head of Sales), kemudian
 > `npm run seed:demo` (menambah akun Finance, Tim Project, Chief dan project contoh).
 > - *Konfigurasi (di migrasi 0019):* satu workflow aktif `OQ-STANDARD`
 >   (Generate → Review Head of Sales), semua quantity band Otomatis dengan diskon default 0%,
 >   langkah Validasi Sales Lead dihapus, template lain dinonaktifkan.
-> - *Kode baru:* status **Menunggu dokumen bertanda tangan** + lampiran, diskon Salesperson
+> - *Kode baru:* status **Disetujui — menunggu rilis**, rilis dengan/tanpa lampiran, dropdown tanpa approval Head of Sales, diskon Salesperson
 >   pada draft Revisi, badge hijau/kuning/merah, Won (bukti PO) / Lost, override Expired oleh Admin,
 >   menu **Projects** (termin, payment, progres), **Dashboard** Sales & Executive, role Finance /
 >   Tim Project / Chief-Direksi, penyimpanan berkas privat, dan UI responsif
@@ -25,7 +23,7 @@ v5.0 berasal dari meeting *VKTR Req 2* (`docs/kebutuhan_baru_v2.md`).
 >
 > **v5.0 highlights (hasil meeting *VKTR Req 2*).**
 > - **Satu workflow aktif.** Quotation: KYC → submit → harga standar dihitung
->   otomatis → **Head of Sales** approve → dokumen ditandatangani → **Salesperson melampirkan hasilnya** → Released. Mesin Workflow Template
+>   otomatis → **Head of Sales** approve → **Salesperson merilis** (lampiran dokumen bertanda tangan **opsional**) → Released. Dropdown *Persetujuan Head of Sales* saat membuat quotation: *Tanpa approval — langsung rilis* (tier margin tetap berlaku bila GM < 15%). Mesin Workflow Template
 >   Catalog tetap ada untuk dipakai kemudian.
 > - **Diskon tetap lewat Revisi + tier margin** (15%/10%); Salesperson boleh mengisi diskon pada draft Revisi.
 > - **Siklus hidup:** hijau → kuning (14 hari) → merah (30 hari) dari tanggal
@@ -187,7 +185,7 @@ Dokumentasi demo:
 - [`docs/DEMO-FLOW-PRICE-ESTIMATE.md`](docs/DEMO-FLOW-PRICE-ESTIMATE.md) — **Workflow A**, langkah demi langkah.
 - [`docs/DEMO-FLOW-OFFICIAL-QUOTATION.md`](docs/DEMO-FLOW-OFFICIAL-QUOTATION.md) — **Workflow B**, langkah demi langkah.
 - [`docs/DEMO-FLOW-OVERVIEW.md`](docs/DEMO-FLOW-OVERVIEW.md) — peta peran & diagram alur.
-- [`docs/DEMO-SCENARIO.md`](docs/DEMO-SCENARIO.md) / [`docs/DEMO-SCENARIO-CNY.md`](docs/DEMO-SCENARIO-CNY.md) — skenario naratif lengkap (termasuk kurs CNY).
+- [`docs/DEMO-SCENARIO-CNY.md`](docs/DEMO-SCENARIO-CNY.md) — skenario kurs CNY, kurs terkunci per versi cost structure, dan Rate Sensitivity.
 
 ### Mengulang demo
 
@@ -263,7 +261,7 @@ docs/
   PRD-VKTR-PriceCore.md, TECHNICAL-LOGIC-VKTR-PriceCore.md   # v5.0
   kebutuhan_baru_v2.md                                       # sumber v5.0 (meeting VKTR Req 2)
   DEMO-FLOW-PRICE-ESTIMATE.md, DEMO-FLOW-OFFICIAL-QUOTATION.md  # skrip demo per workflow
-  DEMO-FLOW-OVERVIEW.md, DEMO-SCENARIO.md, DEMO-SCENARIO-CNY.md
+  DEMO-FLOW-OVERVIEW.md, DEMO-SCENARIO-CNY.md
   BTEL - Cost and Roles and Flow.xlsx, Cost Estimate - PT Siborong Nusa Gemilang 20260906 (1).pdf
 ```
 

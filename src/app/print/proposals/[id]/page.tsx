@@ -90,7 +90,7 @@ export default async function CostEstimateDocumentPage({ params }: { params: Pro
           watermark
             ? `Watermark: ${watermark}`
             : forSigning
-              ? "Untuk ditandatangani Head of Sales — resmi dan siap dikirim setelah lampiran bertanda tangan diunggah"
+              ? "Untuk ditandatangani Head of Sales (opsional) — resmi dan siap dikirim setelah quotation dirilis"
               : "Dokumen resmi — siap dikirim ke pelanggan"
         }
       />

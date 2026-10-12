@@ -314,26 +314,50 @@ Sistem SHALL menampilkan semua quotation kepada role SALES_OPERATIONS, SALES_REL
 - Routing tier, Release Gate, dan Revisi **tidak berubah**. Rilis awal harga standar jatuh ke Tier 1.
 - Expired otomatis (requirement "Kedaluwarsa" di atas) **dipertahankan**.
 
-### Requirement: Approval final → dokumen bertanda tangan → Released
-Setelah routing tier dan Release Gate lolos, sistem SHALL menetapkan nomor dokumen, tanggal dokumen, dan `valid_until`, lalu mengubah status menjadi PENDING_SIGNED_DOCUMENT ("Menunggu dokumen bertanda tangan") alih-alih langsung QUOTATION_RELEASED. Salesperson pengaju (account person) atau Admin SHALL mengunggah lampiran dokumen yang sudah ditandatangani Head of Sales; unggahan itu SHALL mengubah status menjadi QUOTATION_RELEASED dan mengisi `released_at`.
+### Requirement: Pilihan approval Head of Sales per quotation
+Pada form buat/ubah draft, Salesperson SHALL memilih lewat dropdown *Persetujuan Head of Sales*: `HEAD_OF_SALES` (default) atau `NONE` ("Tanpa approval — langsung rilis"). Pilihan SHALL tersimpan di `approval_mode`, tampil di detail, dan terbawa ke Revisi.
+
+#### Scenario: Tanpa approval, GM ≥ 15%
+- **WHEN** quotation `NONE` disubmit dan GM akhir ≥ 15%
+- **THEN** langkah review Head of Sales SKIPPED_NOT_APPLICABLE, nomor/tanggal dokumen terisi, status langsung QUOTATION_RELEASED, tanpa lampiran
+- **AND** audit mencatat STEP_SKIPPED, APPROVE, dan RELEASE
+
+#### Scenario: Tanpa approval tidak melewati tier margin
+- **WHEN** quotation `NONE` memiliki GM akhir < 15%
+- **THEN** persetujuan tier (Owner atau Pricing Committee, AND-join) tetap dibuka dan rilis baru terjadi setelah slot terakhir setuju
+
+#### Scenario: Rilis otomatis gagal
+- **WHEN** Release Gate menolak (mis. kurs basi) atau tangga tier belum dikonfigurasi
+- **THEN** langkah review dibuka untuk Head of Sales dan audit mencatat "Rilis otomatis ... gagal"; quotation tidak tersangkut
+
+### Requirement: Approval final → rilis → lampiran tanda tangan (opsional)
+Pada `HEAD_OF_SALES`, setelah routing tier dan Release Gate lolos, sistem SHALL menetapkan nomor dokumen, tanggal dokumen, dan `valid_until`, lalu mengubah status menjadi PENDING_SIGNED_DOCUMENT (tampil "Disetujui — menunggu rilis"). Salesperson pengaju (account person) atau Admin SHALL dapat **merilis tanpa lampiran** atau **melampirkan dokumen bertanda tangan dan merilis**; keduanya mengisi `released_at`. Lampiran SHALL tetap dapat ditambahkan atau diganti sesudah rilis tanpa mengubah `released_at`.
 
 #### Scenario: Approval final harga standar
 - **WHEN** Head of Sales meng-ACCEPT quotation Tier 1 dan Release Gate lolos
 - **THEN** status PENDING_SIGNED_DOCUMENT, `document_number/document_date/valid_until` terisi, audit APPROVE tercatat
-- **AND** quotation belum dihitung terkirim dan dokumen belum berstatus "siap dikirim ke pelanggan"
+- **AND** quotation belum dihitung terkirim
 
-#### Scenario: Lampiran diunggah
+#### Scenario: Rilis tanpa lampiran
+- **WHEN** salesperson pengaju menekan "Rilis tanpa lampiran"
+- **THEN** status QUOTATION_RELEASED, `released_at` terisi, `signed_document_path` kosong, audit RELEASE ("tanpa lampiran")
+
+#### Scenario: Lampirkan dan rilis
 - **WHEN** salesperson pengaju mengunggah PDF/PNG/JPG bertanda tangan
-- **THEN** status QUOTATION_RELEASED, `released_at` = saat unggah, lampiran tersimpan, audit RELEASE tercatat
-- **AND** quotation pendahulu (revisi) menjadi SUPERSEDED pada saat ini
+- **THEN** status QUOTATION_RELEASED, `released_at` = saat unggah, lampiran tersimpan
+- **AND** quotation pendahulu (revisi) menjadi SUPERSEDED pada saat rilis (kedua jalur)
+
+#### Scenario: Lampiran sesudah rilis
+- **WHEN** salesperson pengaju menambah atau mengganti lampiran pada quotation Released
+- **THEN** berkas tersimpan, `released_at` tidak berubah, audit UPDATE ("ditambahkan/diganti setelah rilis")
 
 #### Scenario: Bukan pengaju
-- **WHEN** Head of Sales, approver tier, atau salesperson lain mencoba mengunggah
+- **WHEN** Head of Sales, approver tier, atau salesperson lain mencoba merilis/melampirkan
 - **THEN** ditolak
 
-#### Scenario: Perubahan setelah approval
-- **WHEN** harga/diskon diubah atau approval dibatalkan sebelum lampiran diunggah
-- **THEN** approval final dibatalkan dan status kembali ke PENDING_HEAD_OF_SALES_REVIEW
+#### Scenario: Status lain
+- **WHEN** status bukan disetujui-menunggu-rilis atau Released
+- **THEN** ditolak "Lampiran hanya untuk quotation yang disetujui (menunggu rilis) atau sudah dirilis."
 
 ### Requirement: Won/Lost manual; Expired otomatis dengan override Admin
 Salesperson (pemilik/account person), SALES_RELEASER, atau SYSTEM_ADMIN SHALL menyatakan **WON** atau **LOST** pada quotation QUOTATION_RELEASED (aturan as-built dipertahankan). Expired SHALL tetap otomatis seperti requirement "Kedaluwarsa"; SYSTEM_ADMIN SHALL dapat menyatakan atau membatalkan Expired secara manual dengan alasan, tercatat di audit. Quotation WON tidak dapat di-Expired.

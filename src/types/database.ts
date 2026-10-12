@@ -77,6 +77,14 @@ export type StepStatus =
 
 export type ProposalOutcome = "PENDING" | "WON" | "LOST" | "CANCELLED";
 
+/**
+ * v5.0 — chosen when the quotation is created: with HEAD_OF_SALES the Head of
+ * Sales reviews and approves it; with NONE that review is skipped and the
+ * quotation is released straight away (margin-tier approvals below 15% GM
+ * still apply).
+ */
+export type ApprovalMode = "HEAD_OF_SALES" | "NONE";
+
 export type AuditAction =
   | "CREATE"
   | "UPDATE"
@@ -499,6 +507,8 @@ export interface PricingProposal {
   special_notes: string[];
   tier_round: number;
   accepted_document_url: string | null;
+  /** v5.0 — Head of Sales approval required, or released without it (chosen at creation). */
+  approval_mode: ApprovalMode;
   /** v5.0 — document date, set at final approval; valid_until counts from it. */
   document_date: string | null;
   /** v5.0 — storage path of the document signed by the Head of Sales (attached by the Salesperson). */

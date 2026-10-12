@@ -117,7 +117,7 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
   const waitingFor = step?.performer_function
     ? FUNCTIONAL_ROLE_LABEL[step.performer_function]
     : proposal.current_status === "PENDING_SIGNED_DOCUMENT"
-      ? "dokumen bertanda tangan Head of Sales (dilampirkan Salesperson)"
+      ? "Salesperson merilis (lampiran dokumen bertanda tangan opsional)"
       : tierPending
       ? decisionRows.filter((t) => t.decision === null).map((t) => slotLabel(t.slot, roles)).join(" + ")
       : null;
@@ -133,7 +133,11 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
       decisionRows.length > 0 &&
       decisionRows.every((t) => t.decision === "APPROVE") &&
       hasFunction(me, "SALES_RELEASER"),
-    canAttachSigned: proposal.current_status === "PENDING_SIGNED_DOCUMENT" && canAttachSignedDocument(me, proposal),
+    awaitingRelease: proposal.current_status === "PENDING_SIGNED_DOCUMENT" && canAttachSignedDocument(me, proposal),
+    canAttachSigned:
+      (proposal.current_status === "PENDING_SIGNED_DOCUMENT" || proposal.current_status === "QUOTATION_RELEASED") &&
+      canAttachSignedDocument(me, proposal),
+    hasSignedDocument: Boolean(proposal.signed_document_path),
     canCancelApproval: proposal.current_status === "PENDING_SIGNED_DOCUMENT" && canCancelFinalApproval(me),
     canRecordOutcome:
       proposal.current_status === "QUOTATION_RELEASED" &&
@@ -231,6 +235,7 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
             <span className="font-mono text-xs text-muted">{proposal.proposal_number}</span>
             <Badge tone={STATUS_TONE[proposal.current_status]}>{STATUS_LABEL[proposal.current_status]}</Badge>
             {proposal.outcome !== "PENDING" && <Badge tone={proposal.outcome === "WON" ? "success" : "danger"}>{proposal.outcome}</Badge>}
+            {proposal.approval_mode === "NONE" && <Badge tone="default">Tanpa approval Head of Sales</Badge>}
             {ageState !== "NONE" && ageState !== "WON" && ageState !== "LOST" && (
               <Badge tone={AGE_STATE_TONE[ageState]}>
                 {AGE_STATE_LABEL[ageState]}
@@ -433,8 +438,9 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
               <CardContent className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs md:grid-cols-2">
                 {forSigning && (
                   <div className="md:col-span-2 rounded-lg border border-warning/30 bg-warning-bg px-3 py-2 text-warning">
-                    Disetujui final sebagai <span className="font-mono">{proposal.document_number}</span>. Quotation belum
-                    dinyatakan Released sampai dokumen yang ditandatangani Head of Sales dilampirkan oleh Salesperson.
+                    Disetujui final sebagai <span className="font-mono">{proposal.document_number}</span>. Quotation baru
+                    Released setelah Salesperson merilisnya — dengan atau tanpa lampiran dokumen bertanda tangan Head of Sales
+                    (opsional).
                   </div>
                 )}
                 {proposal.document_date && <Kv label="Tanggal dokumen" value={formatDate(proposal.document_date)} />}
@@ -569,8 +575,8 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
               {forSigning && (
                 <TimelineRow
                   status="IN_PROGRESS"
-                  title="Menunggu dokumen bertanda tangan"
-                  detail={`${proposal.document_number ?? ""} · dilampirkan oleh Salesperson`}
+                  title="Disetujui — menunggu rilis"
+                  detail={`${proposal.document_number ?? ""} · dirilis oleh Salesperson (lampiran TTD opsional)`}
                 />
               )}
               {released && proposal.released_at && (

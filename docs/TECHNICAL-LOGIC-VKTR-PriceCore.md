@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Document Version** | 5.0 (Satu workflow aktif, approval Head of Sales + lampiran tanda tangan, Won/Lost manual, Expired otomatis (override Admin), Project & Payment Tracking, Dashboard, UI responsif — meeting *VKTR Req 2*). Basis: 4.1 (Configurable Roles & Scope Authority, Cost Structure Maker/Checker/Releaser, Basic Workflow Price Estimate & Official Quotation, Dokumen Cost Estimate) |
+| **Document Version** | 5.0 (Satu workflow aktif, approval Head of Sales opsional per quotation + rilis dengan lampiran tanda tangan opsional, Won/Lost manual, Expired otomatis (override Admin), Project & Payment Tracking, Dashboard, UI responsif — meeting *VKTR Req 2*). Basis: 4.1 (Configurable Roles & Scope Authority, Cost Structure Maker/Checker/Releaser, Basic Workflow Price Estimate & Official Quotation, Dokumen Cost Estimate) |
 | **Companion Document** | `PRD-VKTR-PriceCore.md` v5.0 |
 | **Purpose** | Menerjemahkan requirement fungsional PRD menjadi logika data, state machine, dan arsitektur teknis yang dapat langsung dieksekusi oleh tim engineering. |
 
@@ -128,10 +128,10 @@
 >     **dipertahankan** (as-built); ditambah aksi Admin untuk mengubah
 >     status Expired secara manual; warna status dihitung fungsi murni
 >     dari `released_at`.
-> 29a. **Persetujuan Head of Sales + lampiran tanda tangan** *(dikodekan)*
+> 29a. **Persetujuan Head of Sales opsional per quotation (dropdown), rilis oleh Salesperson, lampiran tanda tangan opsional** *(dikodekan)*
 >     (§4.17) — status baru `PENDING_SIGNED_DOCUMENT`; kolom
->     `signed_document_*`, `document_date`; `released_at` = saat lampiran
->     diunggah Salesperson.
+>     `signed_document_*`, `document_date`; `released_at` = saat rilis (dengan atau tanpa lampiran)
+>     (opsional, bila dilampirkan Salesperson).
 > 30. **Project, Payment, Tracking** *(dikodekan)* (§2.1 tabel `project`,
 >     `project_payment_term`, `project_progress_entry`; §4.14) — Won
 >     mewajibkan bukti PO dan membuat project; berkas disimpan di storage
@@ -482,6 +482,7 @@ kemudian.
 | special_notes, inclusions, exclusions | text[] | **baru** — *default* dari varian & template, dapat diubah Sales Operations/Head of Sales |
 | outcome | enum `PENDING`, `WON`, `LOST`, `CANCELLED` | FR-2.10. `WON`/`LOST` dinyatakan **manual** oleh Salesperson. Expired tetap berupa `current_status = EXPIRED` yang dihasilkan otomatis (§4.11), dengan override Admin |
 | outcome_at, outcome_by, outcome_reason | timestamptz / FK / text — **baru v5.0 (dikodekan)** | kapan, siapa, dan alasan (wajib untuk `LOST`) |
+| approval_mode | enum `HEAD_OF_SALES` (default), `NONE` — **baru v5.0 (dikodekan, migrasi 0020)** | dipilih lewat dropdown saat membuat quotation; `NONE` melewati review Head of Sales dan merilis langsung (tier margin tetap berlaku, §4.17) |
 | document_date | date — **baru v5.0 (dikodekan)** | tanggal dokumen, ditetapkan saat approval final Head of Sales (§4.17); dasar `valid_until` |
 | signed_document_url, signed_document_uploaded_by, signed_document_uploaded_at | text / FK / timestamptz — **baru v5.0 (dikodekan)** | lampiran dokumen bertanda tangan Head of Sales; unggahan oleh Salesperson mengubah status ke `QUOTATION_RELEASED` dan mengisi `released_at` (§4.17) |
 | expired_override_by, expired_override_at, expired_override_reason | FK / timestamptz / text — **baru v5.0 (dikodekan)** | jejak override Admin atas status Expired (§4.11) |
@@ -998,9 +999,9 @@ PENDING_HEAD_OF_SALES_REVIEW           ← Head of Sales lihat quotation + detai
                   v5.0: ──► PENDING_SIGNED_DOCUMENT            │ (document_number, document_date,
                               │  Head of Sales menandatangani   │  valid_until ditetapkan di sini;
                               │  dokumen (di luar aplikasi)     │  PDF Cost Estimate siap tanda tangan)
-                              │  Salesperson unggah lampiran TTD (§4.17)
+                              │  Salesperson rilis, lampiran TTD opsional (§4.17)
                               ▼
-                          QUOTATION_RELEASED  (released_at = saat lampiran diunggah)
+                          QUOTATION_RELEASED  (released_at = saat rilis)
 QUOTATION_RELEASED → SUPERSEDED     ← revisi pada Project Identifier yang sama dirilis
 QUOTATION_RELEASED → EXPIRED        ← otomatis saat valid_until terlewati dan outcome ≠ WON
                                        (§4.11, as-built dipertahankan); v5.0: Admin dapat
@@ -1407,7 +1408,7 @@ on QuotationApprovedFinal(proposal):     # v5.0: sebelumnya on QuotationReleased
     proposal.valid_until = document_date + tpl.validity_days   # 6 Sep → 6 Okt
     # v4.x: ketiganya ditetapkan saat QuotationReleased (released_at). Pada v5.0
     # dokumen yang ditandatangani harus sudah bernomor, jadi ditetapkan saat
-    # approval final; released_at baru terisi saat lampiran diunggah (§4.17).
+    # approval final; released_at baru terisi saat rilis (§4.17).
 
 scheduled_job expireQuotations():   # DIPERTAHANKAN (as-built: dievaluasi saat halaman dibuka)
     UPDATE pricing_proposal SET current_status = 'EXPIRED'
@@ -1507,90 +1508,59 @@ Sales untuk Sales Ops/Head of Sales menambah pemilih Salesperson
   scroll-snap horizontal; grafik memakai `ResponsiveContainer`.
 - Halaman cetak (`/print/...`) di luar cakupan (format kertas).
 
-### 4.17 Approval Head of Sales → Dokumen Bertanda Tangan → Released (FR-2.11) *(dikodekan)*
+### 4.17 Approval Head of Sales (opsional) → Rilis → Lampiran Tanda Tangan (opsional) (FR-2.11) *(dikodekan)*
+
+`pricing_proposal.approval_mode` (`HEAD_OF_SALES` default | `NONE`, migrasi 0020)
+dipilih lewat dropdown saat membuat/mengubah draft dan disalin ke Revisi.
 
 ```pseudo
-# dipanggil ketika routing tier selesai dan canReleaseQuotation (§4.2.1) lolos
+# advanceFrom: langkah REVIEW_AND_ROUTE
+if step.action_kind == REVIEW_AND_ROUTE and proposal.approval_mode == NONE:
+    step.status = SKIPPED_NOT_APPLICABLE; audit STEP_SKIPPED
+    try:  routeAfterReview(fresh(proposal), actor = pengaju)       # tier tetap berlaku
+    catch e:                                                        # mis. kurs basi / tangga tier kosong
+        buka langkah review untuk Head of Sales; audit "Rilis otomatis gagal"
+
+# dipanggil dari routeAfterReview (selfReleasing) dan decideTier (semua slot setuju)
 function approveFinal(proposal, actor):
-    require actor fills SALES_RELEASER (Head of Sales) or tier approvers done
-    onQuotationApprovedFinal(proposal)         # §4.11: document_number, document_date, valid_until
-    proposal.current_status = 'PENDING_SIGNED_DOCUMENT'
-    audit('APPROVE', 'Menunggu dokumen bertanda tangan')
+    checkReleaseGate; onQuotationApprovedFinal(proposal)           # nomor, document_date, valid_until
+    proposal.current_status = PENDING_SIGNED_DOCUMENT              # label: "Disetujui — menunggu rilis"
+    audit APPROVE
+    if proposal.approval_mode == NONE:
+        releaseQuotation(proposal, actor, note: "Dirilis otomatis ...")
 
-function attachSignedDocument(proposal, actor, file):
-    require proposal.current_status == 'PENDING_SIGNED_DOCUMENT'
-    require actor in proposal.account_person_ids or actor is SYSTEM_ADMIN     # bukan Head of Sales / approver
-    require file valid (PDF/PNG/JPG, ukuran ≤ batas)
-    url = storage.put('signed/<proposal.id>/…', file)     # sebelum update; aman diulang
-    proposal.signed_document_url/by/at = ...
-    proposal.current_status = 'QUOTATION_RELEASED'
-    proposal.released_at   = now()                         # dasar warna §4.13 & KPI
-    supersedePredecessor(proposal)                         # as-built: saat rilis
-    audit('RELEASE', 'Lampiran dokumen bertanda tangan diunggah')
+function releaseQuotation(proposal, actor, { signedPath?, note }):  # satu-satunya jalur ke RELEASED
+    status = QUOTATION_RELEASED; released_at = now
+    if signedPath: signed_document_path/by/at = ...
+    supersede pendahulu (revisi); audit RELEASE(note)
+
+function releaseWithoutSignedDocument(proposal, actor):             # tombol "Rilis tanpa lampiran"
+    require status == PENDING_SIGNED_DOCUMENT; releaseQuotation(proposal, actor, {})
+
+function attachSignedDocument(proposal, actor, path):               # lampiran OPSIONAL
+    if status == PENDING_SIGNED_DOCUMENT: releaseQuotation(proposal, actor, { signedPath: path })
+    elif status == QUOTATION_RELEASED:    simpan/ganti signed_document_*; released_at TIDAK berubah; audit UPDATE
+    else: error
 ```
 
-- Status `PENDING_SIGNED_DOCUMENT` ditambahkan ke enum status (migrasi
-  dua tahap: nilai enum baru tidak boleh dipakai dalam transaksi yang
-  sama, mengikuti pola migrasi 0014/0015).
-- Selama status ini quotation **belum** dihitung terkirim. Dokumen Cost Estimate
-  (sudah bernomor dan bertanggal) dicetak **tanpa watermark** supaya dapat
-  ditandatangani; toolbar menjelaskan bahwa ia resmi dan siap dikirim setelah
-  lampiran bertanda tangan diunggah dan status berubah ke `QUOTATION_RELEASED`.
-- **Pembatalan approval final** (`cancelFinalApproval`, hanya `SALES_RELEASER`/`SYSTEM_ADMIN`, alasan wajib): hanya dari `PENDING_SIGNED_DOCUMENT`; langkah review dibuka kembali (`IN_PROGRESS`), `workflow_instance` kembali `RUNNING`, baris `tier_approval` aktif di-void, `document_number/document_date/valid_until` dikosongkan; audit mencatat nomor lama dan alasan. Setelah Released, koreksi hanya lewat Revisi.
-- Release Gate (§4.2.1) dievaluasi saat approval final; kurs yang
-  bergerak melewati ambang sebelum lampiran diunggah **tidak** membatalkan
-  (harga sudah disetujui dan dokumen sudah ditandatangani) — *perlu
-  konfirmasi*.
-
-Sequence dibuat dengan `SELECT … FOR UPDATE` / sequence DB agar tidak
-ada nomor ganda saat dua rilis bersamaan; nomor yang sudah terbit tidak
-pernah dipakai ulang.
-
-### 4.12 Dokumen, Preview & Cetak (FR-1.5.3, FR-1.5.4)
-
-```pseudo
-function renderQuotationDocument(proposalVersion, kind):
-    p = proposalVersion.proposal
-    require canViewDocument(currentUser, p, kind)    # §8.2
-    data = proposalVersion.document_snapshot ?? buildSnapshot(proposalVersion)
-    watermark = p.current_status in [QUOTATION_RELEASED, EXPORTED_TO_ERP] ? none
-              : p.current_status == SUPERSEDED ? 'SUPERSEDED'
-              : p.current_status == EXPIRED    ? 'EXPIRED'
-              : 'DRAFT — NOT FOR CUSTOMER'
-    # v5.0 (dikodekan): status PENDING_SIGNED_DOCUMENT → TANPA watermark: dokumen inilah yang
-    # dicetak dan ditandatangani Head of Sales (§4.17); toolbar menjelaskan bahwa ia resmi setelah
-    # lampiran bertanda tangan diunggah. EXPIRED tetap current_status (otomatis/override Admin).
-    html = template(p.document_template_version).render(data, watermark)
-    INSERT document_render(proposalVersion, kind, watermark, hash(html), currentUser)
-    return kind == DOWNLOAD_PDF ? htmlToPdf(html, A4) : html
-
-function buildSnapshot(version):
-    # HANYA field yang boleh dilihat pelanggan — allow-list
-    return { title, issuer, document_number (atau "DRAFT"), release_date, expiry_date,
-             to: kyc.company_name + kyc.official_address, disclaimer,
-             account_persons, product_description, prepared_by,
-             items: [{qty, description (skema + deskripsi varian), unit_price, total}],
-             inclusions, exclusions (+ "At cost"), contact, grand_total,
-             special_notes, acceptance_block, spec_pages }
-```
-
-- **Satu renderer** untuk preview layar, print (CSS `@page A4`, header/
-  footer berulang, nomor halaman) dan PDF (render HTML → PDF di server,
-  mis. headless Chromium) — tidak ada dua tata letak berbeda yang bisa
-  menyimpang.
-- `document_snapshot` dibekukan saat rilis; cetak ulang versi rilis
-  memakai snapshot + versi template saat itu → hasil identik
-  (`content_hash` sama).
-- **Cost Structure Sheet** (render_kind `COST_STRUCTURE_SHEET`) adalah
-  template terpisah bertanda *Highly Confidential*, hanya untuk slot
-  `SALES_OPERATIONS`, `SALES_RELEASER`, pemilik scope, dan
-  `PRICING_COMMITTEE`; tidak pernah digabung ke PDF pelanggan.
-- **Status POC**: `QuotationPreview.tsx` sudah menampilkan dokumen dan
-  memanggil `window.print()`, tetapi memakai layout v3.0 (bukan *Cost
-  Estimate*), tanpa halaman spesifikasi, watermark, penomoran resmi,
-  maupun PDF server-side.
-
----
+- **Siapa:** merilis dan melampirkan = Salesperson pemilik/account person atau
+  `SYSTEM_ADMIN` (`canAttachSignedDocument`); Head of Sales dan approver tier
+  tidak. Pada `NONE` tidak ada langkah manusia setelah submit (kecuali tier).
+- **Tier tidak pernah dilewati.** `NONE` hanya melewati review Head of Sales;
+  `routeAfterReview` tetap menentukan tier dari GM. GM ≥ 15% (tangga tanpa
+  slot) langsung `approveFinal` → rilis; GM lebih rendah membuka slot
+  keputusan (AND-join) dan rilis terjadi saat slot terakhir setuju.
+- Status `PENDING_SIGNED_DOCUMENT` (nama enum dipertahankan) ditampilkan
+  sebagai **"Disetujui — menunggu rilis"**. Dokumen dicetak **tanpa
+  watermark** pada status ini (bernomor, siap ditandatangani bila perlu).
+- **Pembatalan approval final** (`cancelFinalApproval`, hanya
+  `SALES_RELEASER`/`SYSTEM_ADMIN`, alasan wajib): hanya dari
+  `PENDING_SIGNED_DOCUMENT`; langkah review dibuka kembali, instance
+  `RUNNING`, `tier_approval` aktif di-void, nomor/tanggal/`valid_until`
+  dikosongkan; audit mencatat nomor lama. Setelah Released, koreksi hanya
+  lewat Revisi. Pada `NONE` status ini tidak pernah tercapai (rilis langsung).
+- Release Gate dievaluasi di `approveFinal`; kurs yang bergerak sesudahnya
+  tidak membatalkan rilis (*perlu konfirmasi*).
 
 ## 5. SLA Timer & Escalation (FR-3.2)
 
@@ -1958,7 +1928,7 @@ Quotation asal tetap `QUOTATION_RELEASED` sampai `rev` dirilis, lalu
 > Salesperson membuat revisi (`createRevisionQuotation`) → diskon
 > negosiasi tersalin → revisi submit lewat template aktif → Head of Sales
 > *accept* → `resolveMarginTier` menentukan Tier 1/2/3 → slot keputusan
-> (AND-join) → Release Gate → `PENDING_SIGNED_DOCUMENT` → lampiran
+> (AND-join) → Release Gate → `PENDING_SIGNED_DOCUMENT` → rilis (lampiran opsional)
 > tanda tangan (§4.17) → rilis; asal menjadi `SUPERSEDED`. Ambang
 > tier dan pihak berwenang tetap data di Settings (klien dapat
 > mengubahnya sendiri).
@@ -2312,7 +2282,7 @@ ada logika ganda antara simulasi dan perhitungan sesungguhnya.
 
 | Topik | Jawaban |
 |---|---|
-| Penandatangan quotation | **Head of Sales**: approval di aplikasi, dokumen ditandatangani, **Salesperson melampirkan hasilnya**, baru Released (§4.17) |
+| Penandatangan quotation | **Head of Sales**: approval di aplikasi, dokumen ditandatangani, **Salesperson merilis, lampiran hasilnya opsional**; approval dapat dimatikan per quotation (dropdown, tier tetap berlaku) (§4.17) |
 | Dasar warna kuning/merah | **Tanggal rilis** (14 hari kuning, 30 hari merah) |
 | Won / Lost | **Manual** oleh Salesperson (Won wajib bukti PO) |
 | Expired | **Otomatis** (as-built dipertahankan); **Admin dapat mengubah manual** (§4.11) |
@@ -2328,8 +2298,8 @@ ada logika ganda antara simulasi dan perhitungan sesungguhnya.
 
 21. **Urutan penetapan nomor/tanggal** — usulan di §4.11/§4.17: nomor,
     `document_date`, `valid_until` saat approval final; `released_at`
-    saat lampiran diunggah.
-22. **SLA/pengingat** menunggu lampiran bertanda tangan, dan apakah kurs
+    saat rilis.
+22. **SLA/pengingat** menunggu rilis, dan apakah kurs
     yang bergerak sesudah approval final perlu menahan rilis (§4.17).
 23. **Perubahan termin** setelah ada termin diterima.
 24. **Apakah Chief/Direksi juga melihat** Lifecycle/Approvals.
@@ -2363,7 +2333,7 @@ ada logika ganda antara simulasi dan perhitungan sesungguhnya.
 | **FR-2.7 (Price Estimate)** | `getPriceEstimate`, `price_estimate_log` (§4.9) |
 | **FR-2.8 (Quantity Band)** | `quantity_band_config` (§2.1), `resolveBand` (§4.10) |
 | **FR-2.9 (nomor, masa berlaku, Expired otomatis; v5.0: override Admin)** | §4.11 |
-| **FR-2.11 (approval Head of Sales + lampiran TTD, v5.0)** | `PENDING_SIGNED_DOCUMENT`, `signed_document_*`, `document_date` (§2.1), §4.17 |
+| **FR-2.11 (approval Head of Sales opsional, rilis, lampiran TTD opsional, v5.0)** | `approval_mode`, `PENDING_SIGNED_DOCUMENT`, `signed_document_*`, `document_date` (§2.1), `releaseQuotation`, `releaseWithoutSignedDocument`, `attachSignedDocument` (§4.17) |
 | **FR-2.10 (penerimaan pelanggan; v5.0: Won + bukti PO)** | `pricing_proposal.outcome`, `po_*`, `accepted_document_url` (§2.1), §4.13–§4.14 |
 | **FR-3.4 (status berwarna, v5.0)** | `quotationAgeState` (§4.13), `app_setting.quotationYellowDays/RedDays` |
 | **FR-5.8 (UI responsif, v5.0)** | `Sidebar.tsx`, `(app)/layout.tsx`, komponen tabel/kartu bersama (§4.16) |

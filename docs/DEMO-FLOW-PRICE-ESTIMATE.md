@@ -2,7 +2,7 @@
 
 Skrip demo langkah demi langkah untuk **Workflow A** pada sheet *Basic
 Workflow* (`docs/BTEL - Cost and Roles and Flow.xlsx`), sesuai build
-v4.0 aplikasi. Durasi ± 10 menit.
+v5.0 aplikasi (alur Price Estimate tidak berubah oleh v5.0). Durasi ± 10 menit.
 
 | Langkah di sheet | Yang terjadi di aplikasi |
 |---|---|

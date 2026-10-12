@@ -20,6 +20,7 @@ import {
   advanceFrom,
   approveFinal,
   attachSignedDocument,
+  releaseWithoutSignedDocument,
   cancelFinalApproval,
   decideTier,
   loadCurrentInstance,
@@ -515,11 +516,27 @@ export async function cancelFinalApprovalAction(proposalId: string, reason: stri
   });
 }
 
-/** The Salesperson attaches the document signed by the Head of Sales; that releases the quotation. */
+/**
+ * Optional (PRD FR-2.11): releases an approved quotation WITHOUT attaching the signed document. The
+ * Salesperson who owns it (or an Admin) decides; the document can still be attached later.
+ */
+export async function releaseWithoutSignedDocumentAction(proposalId: string): Promise<ActionResult> {
+  return run(proposalId, "Gagal merilis quotation.", async ({ supabase, actor, proposal }) => {
+    if (!canAttachSignedDocument(actor, proposal)) {
+      throw new Error("Hanya Salesperson pemilik quotation yang dapat merilis.");
+    }
+    await releaseWithoutSignedDocument(supabase, proposal, actor);
+  });
+}
+
+/**
+ * The Salesperson attaches the document signed by the Head of Sales (optional). While the quotation
+ * waits for release this also releases it; after release it adds or replaces the attachment.
+ */
 export async function attachSignedDocumentAction(proposalId: string, formData: FormData): Promise<ActionResult> {
   return run(proposalId, "Gagal melampirkan dokumen bertanda tangan.", async ({ supabase, actor, proposal }) => {
-    if (proposal.current_status !== "PENDING_SIGNED_DOCUMENT") {
-      throw new Error("Quotation tidak sedang menunggu dokumen bertanda tangan.");
+    if (proposal.current_status !== "PENDING_SIGNED_DOCUMENT" && proposal.current_status !== "QUOTATION_RELEASED") {
+      throw new Error("Lampiran hanya untuk quotation yang disetujui (menunggu rilis) atau sudah dirilis.");
     }
     if (!canAttachSignedDocument(actor, proposal)) {
       throw new Error("Hanya Salesperson pemilik quotation yang dapat melampirkan dokumen bertanda tangan.");
@@ -749,6 +766,7 @@ export async function createRevisionAction(proposalId: string, reason: string): 
         kyc: proposal.kyc,
         initiator_role_code: actor.app_role_code,
         account_person_ids: proposal.account_person_ids,
+        approval_mode: proposal.approval_mode,
         inclusions: proposal.inclusions,
         exclusions: proposal.exclusions,
         special_notes: proposal.special_notes,

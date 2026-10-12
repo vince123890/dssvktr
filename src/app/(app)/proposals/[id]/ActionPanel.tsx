@@ -9,6 +9,7 @@ import type { ActionResult } from "@/lib/actionResult";
 import {
   adminExpiredOverrideAction,
   attachSignedDocumentAction,
+  releaseWithoutSignedDocumentAction,
   cancelFinalApprovalAction,
   createRevisionAction,
   forwardToReviewAction,
@@ -28,8 +29,12 @@ export interface ActionCapabilities {
   stepName: string | null;
   tierDecision: { tier: number; slotName: string } | null;
   canRetryRelease: boolean;
-  /** v5.0 — Salesperson attaches the document signed by the Head of Sales (releases the quotation). */
+  /** v5.0 — approved and waiting for release: the Salesperson releases it, with or without the signed document. */
+  awaitingRelease: boolean;
+  /** v5.0 — Salesperson attaches (or replaces) the signed document; optional, before or after release. */
   canAttachSigned: boolean;
+  /** A signed document is already attached (the form offers to replace it). */
+  hasSignedDocument: boolean;
   /** v5.0 — Head of Sales or Admin withdraws the final approval while the signed document is pending. */
   canCancelApproval: boolean;
   /** Won (PO required) / Lost (reason) — manual, by the Salesperson. */
@@ -78,6 +83,7 @@ export function ActionPanel({ proposalId, caps }: { proposalId: string; caps: Ac
     caps.stepKind ||
     caps.tierDecision ||
     caps.canRetryRelease ||
+    caps.awaitingRelease ||
     caps.canAttachSigned ||
     caps.canCancelApproval ||
     caps.canRecordOutcome ||
@@ -190,16 +196,34 @@ export function ActionPanel({ proposalId, caps }: { proposalId: string; caps: Ac
           </Button>
         )}
 
-        {caps.canAttachSigned && (
-          <form className="space-y-2" onSubmit={(e) => submitForm(e, (fd) => attachSignedDocumentAction(proposalId, fd))}>
+        {caps.awaitingRelease && (
+          <div className="space-y-3">
             <p className="text-xs text-muted">
-              Head of Sales sudah menyetujui. Cetak dokumen (tombol <strong>Cetak</strong> di atas), minta
-              tanda tangan Head of Sales, lalu <strong>lampirkan hasilnya</strong> di sini — quotation baru
-              dinyatakan <strong>Released</strong> setelah lampiran diunggah.
+              Quotation sudah disetujui dan bernomor. <strong>Lampiran dokumen bertanda tangan bersifat opsional</strong>:
+              rilis sekarang, atau cetak dokumen (tombol <strong>Cetak untuk ditandatangani</strong>), minta
+              tanda tangan Head of Sales, lalu lampirkan hasilnya — keduanya merilis quotation.
+            </p>
+            <Button size="sm" variant="success" loading={isPending} onClick={() => run(() => releaseWithoutSignedDocumentAction(proposalId))}>
+              Rilis tanpa lampiran
+            </Button>
+          </div>
+        )}
+
+        {caps.canAttachSigned && (
+          <form
+            className={`space-y-2 ${caps.awaitingRelease ? "border-t border-card-border pt-3" : ""}`}
+            onSubmit={(e) => submitForm(e, (fd) => attachSignedDocumentAction(proposalId, fd))}
+          >
+            <p className="text-xs text-muted">
+              {caps.awaitingRelease
+                ? "Atau lampirkan dokumen yang sudah ditandatangani — quotation dirilis saat lampiran diunggah."
+                : caps.hasSignedDocument
+                  ? "Ganti lampiran dokumen bertanda tangan (opsional)."
+                  : "Lampirkan dokumen bertanda tangan (opsional) — dapat ditambahkan setelah rilis."}
             </p>
             <input className="pc-input" type="file" name="file" accept="application/pdf,image/png,image/jpeg" required />
-            <Button size="sm" type="submit" variant="success" loading={isPending}>
-              Lampirkan &amp; rilis
+            <Button size="sm" type="submit" variant={caps.awaitingRelease ? "success" : "secondary"} loading={isPending}>
+              {caps.awaitingRelease ? "Lampirkan & rilis" : caps.hasSignedDocument ? "Ganti lampiran" : "Lampirkan"}
             </Button>
           </form>
         )}
@@ -207,7 +231,7 @@ export function ActionPanel({ proposalId, caps }: { proposalId: string; caps: Ac
         {caps.canCancelApproval && (
           <div className="space-y-2 border-t border-card-border pt-3">
             <p className="text-xs text-muted">
-              Harga atau dokumen perlu diubah sebelum ditandatangani? Batalkan approval final: quotation kembali
+              Harga atau dokumen perlu diubah sebelum dirilis? Batalkan approval final: quotation kembali
               ke review Head of Sales dan nomor dokumen diterbitkan ulang saat disetujui lagi.
             </p>
             <NoteField value={note} onChange={setNote} placeholder="Alasan pembatalan (wajib)" />

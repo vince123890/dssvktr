@@ -407,6 +407,13 @@ export async function advanceFrom(
       continue;
     }
 
+    // v5.0: a quotation created with "Tanpa approval Head of Sales" skips the review step and goes
+    // straight to margin-tier routing / release.
+    if (step.action_kind === "REVIEW_AND_ROUTE" && proposal.approval_mode === "NONE") {
+      await autoRouteWithoutReview(supabase, ctx, step);
+      return;
+    }
+
     await Promise.all([
       setStep(supabase, step, openPatch(step)),
       supabase
@@ -445,6 +452,56 @@ export async function advanceFrom(
 
   // Template exhausted without a REVIEW step still open — nothing left
   // to do here; routing is triggered by the review decision itself.
+}
+
+/**
+ * approval_mode = NONE (PRD FR-2.11, v5.0): the Head of Sales review is
+ * skipped and the quotation is routed by margin right away. GM >= 15% is
+ * released immediately; a lower GM still opens the tier approvals, so
+ * choosing "no approval" never bypasses the margin authority. If the
+ * release gate fails (e.g. a stale CNY rate) the quotation is not stranded:
+ * the review step opens for the Head of Sales instead.
+ */
+async function autoRouteWithoutReview(supabase: Db, ctx: AdvanceContext, step: WorkflowStepInstance): Promise<void> {
+  const { proposal, actor } = ctx;
+  await Promise.all([
+    setStep(supabase, step, {
+      status: "SKIPPED_NOT_APPLICABLE",
+      completed_at: new Date().toISOString(),
+      decision_note: "Dilewati — quotation dibuat tanpa approval Head of Sales.",
+    }),
+    supabase.from("pricing_proposal").update({ current_step_order: step.step_order }).eq("id", proposal.id),
+  ]);
+  await writeAuditLog(supabase, {
+    entityType: "workflow_step_instance",
+    entityId: step.id,
+    proposalId: proposal.id,
+    actorId: actor.id,
+    action: "STEP_SKIPPED",
+    reason: "Review Head of Sales dilewati (pilihan saat membuat quotation: tanpa approval).",
+  });
+
+  const { data: fresh } = await supabase.from("pricing_proposal").select("*").eq("id", proposal.id).single();
+  try {
+    await routeAfterReview(supabase, fresh as PricingProposal, actor);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "kesalahan tidak diketahui";
+    await Promise.all([
+      setStep(supabase, step, { ...openPatch(step), decision_note: `Rilis otomatis gagal: ${message}` }),
+      supabase
+        .from("pricing_proposal")
+        .update({ current_status: step.status_label ?? "PENDING_HEAD_OF_SALES_REVIEW", current_step_order: step.step_order })
+        .eq("id", proposal.id),
+    ]);
+    await writeAuditLog(supabase, {
+      entityType: "pricing_proposal",
+      entityId: proposal.id,
+      proposalId: proposal.id,
+      actorId: actor.id,
+      action: "UPDATE",
+      reason: `Rilis otomatis (tanpa approval) gagal — diteruskan ke Head of Sales: ${message}`,
+    });
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -724,7 +781,10 @@ export async function nextDocumentNumber(
  * Gate runs, the document number / date / validity are fixed (so the
  * document the Head of Sales signs is complete), and the quotation moves
  * to PENDING_SIGNED_DOCUMENT. It becomes QUOTATION_RELEASED only when the
- * Salesperson attaches the signed document (`attachSignedDocument`).
+ * Salesperson releases it (`releaseWithoutSignedDocument`) or attaches the signed
+ * document (`attachSignedDocument`) — the attachment is optional. A
+ * quotation created without Head of Sales approval (approval_mode NONE) is
+ * released immediately instead.
  */
 export async function approveFinal(
   supabase: Db,
@@ -771,9 +831,26 @@ export async function approveFinal(
     proposalId: proposal.id,
     actorId: actor.id,
     action: "APPROVE",
-    reason: `Disetujui final sebagai ${documentNumber} (berlaku s.d. ${validUntil.toISOString().slice(0, 10)}) — menunggu dokumen bertanda tangan Head of Sales.`,
+    reason:
+      proposal.approval_mode === "NONE"
+        ? `Persetujuan margin lengkap — ${documentNumber} (berlaku s.d. ${validUntil.toISOString().slice(0, 10)}); dirilis otomatis (tanpa approval Head of Sales).`
+        : `Disetujui final sebagai ${documentNumber} (berlaku s.d. ${validUntil.toISOString().slice(0, 10)}) — menunggu rilis (lampiran dokumen bertanda tangan opsional).`,
     fieldChanges: [{ field: "current_status", old: proposal.current_status, new: "PENDING_SIGNED_DOCUMENT" }],
   });
+
+  if (proposal.approval_mode === "NONE") {
+    await releaseQuotation(
+      supabase,
+      {
+        ...proposal,
+        current_status: "PENDING_SIGNED_DOCUMENT",
+        document_number: documentNumber,
+        valid_until: validUntil.toISOString().slice(0, 10),
+      },
+      actor,
+      { note: `Dirilis otomatis — ${documentNumber}, berlaku s.d. ${validUntil.toISOString().slice(0, 10)} (tanpa approval Head of Sales).` }
+    );
+  }
 }
 
 /**
@@ -829,31 +906,24 @@ export async function cancelFinalApproval(
 }
 
 /**
- * The Salesperson attaches the document signed by the Head of Sales:
- * that is the moment the quotation is Released (`released_at` — the basis
- * of the yellow / red age badge) and the quotation it revises becomes
- * SUPERSEDED. `path` is the already-uploaded storage object.
+ * Marks the quotation Released (`released_at` — the basis of the yellow /
+ * red age badge) and supersedes the quotation it revises. The signed
+ * document is optional: `signedPath` is set when it was attached first.
  */
-export async function attachSignedDocument(
+export async function releaseQuotation(
   supabase: Db,
   proposal: PricingProposal,
   actor: Actor,
-  path: string
+  opts: { signedPath?: string | null; note: string }
 ): Promise<void> {
-  if (proposal.current_status !== "PENDING_SIGNED_DOCUMENT") {
-    throw new Error("Lampiran hanya diunggah untuk quotation yang menunggu dokumen bertanda tangan.");
-  }
   const now = new Date().toISOString();
-  await supabase
-    .from("pricing_proposal")
-    .update({
-      current_status: "QUOTATION_RELEASED",
-      released_at: now,
-      signed_document_path: path,
-      signed_document_uploaded_by: actor.id,
-      signed_document_uploaded_at: now,
-    })
-    .eq("id", proposal.id);
+  const patch: Record<string, unknown> = { current_status: "QUOTATION_RELEASED", released_at: now };
+  if (opts.signedPath) {
+    patch.signed_document_path = opts.signedPath;
+    patch.signed_document_uploaded_by = actor.id;
+    patch.signed_document_uploaded_at = now;
+  }
+  await supabase.from("pricing_proposal").update(patch).eq("id", proposal.id);
 
   if (proposal.supersedes_proposal_id) {
     await supabase
@@ -876,8 +946,61 @@ export async function attachSignedDocument(
     proposalId: proposal.id,
     actorId: actor.id,
     action: "RELEASE",
-    reason: `Dokumen bertanda tangan dilampirkan — ${proposal.document_number ?? proposal.proposal_number} dirilis, berlaku s.d. ${proposal.valid_until ?? "-"}.`,
-    fieldChanges: [{ field: "current_status", old: "PENDING_SIGNED_DOCUMENT", new: "QUOTATION_RELEASED" }],
+    reason: opts.note,
+    fieldChanges: [{ field: "current_status", old: proposal.current_status, new: "QUOTATION_RELEASED" }],
+  });
+}
+
+/**
+ * Attaches the document signed by the Head of Sales (optional). While the
+ * quotation waits for release it also releases it; after release it only
+ * stores / replaces the attachment. `path` is the already-uploaded object.
+ */
+export async function attachSignedDocument(
+  supabase: Db,
+  proposal: PricingProposal,
+  actor: Actor,
+  path: string
+): Promise<void> {
+  if (proposal.current_status === "PENDING_SIGNED_DOCUMENT") {
+    await releaseQuotation(supabase, proposal, actor, {
+      signedPath: path,
+      note: `Dokumen bertanda tangan dilampirkan — ${proposal.document_number ?? proposal.proposal_number} dirilis, berlaku s.d. ${proposal.valid_until ?? "-"}.`,
+    });
+    return;
+  }
+  if (proposal.current_status === "QUOTATION_RELEASED") {
+    const now = new Date().toISOString();
+    await supabase
+      .from("pricing_proposal")
+      .update({ signed_document_path: path, signed_document_uploaded_by: actor.id, signed_document_uploaded_at: now })
+      .eq("id", proposal.id);
+    await writeAuditLog(supabase, {
+      entityType: "pricing_proposal",
+      entityId: proposal.id,
+      proposalId: proposal.id,
+      actorId: actor.id,
+      action: "UPDATE",
+      reason: proposal.signed_document_path
+        ? "Lampiran dokumen bertanda tangan diganti setelah rilis."
+        : "Lampiran dokumen bertanda tangan ditambahkan setelah rilis.",
+    });
+    return;
+  }
+  throw new Error("Lampiran hanya untuk quotation yang disetujui (menunggu rilis) atau sudah dirilis.");
+}
+
+/** Releases an approved quotation without attaching a signed document (the attachment is optional). */
+export async function releaseWithoutSignedDocument(
+  supabase: Db,
+  proposal: PricingProposal,
+  actor: Actor
+): Promise<void> {
+  if (proposal.current_status !== "PENDING_SIGNED_DOCUMENT") {
+    throw new Error("Hanya quotation yang sudah disetujui dan menunggu rilis yang dapat dirilis.");
+  }
+  await releaseQuotation(supabase, proposal, actor, {
+    note: `Dirilis tanpa lampiran dokumen bertanda tangan — ${proposal.document_number ?? proposal.proposal_number}, berlaku s.d. ${proposal.valid_until ?? "-"}.`,
   });
 }
 

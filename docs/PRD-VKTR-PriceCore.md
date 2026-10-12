@@ -21,10 +21,16 @@
 >    approval berlapis (Sales Lead, Focus Operation, Procurement, dst.).
 >    Alurnya: Salesperson mengisi KYC dan submit → harga standar dihitung
 >    otomatis → **Head of Sales** me-review dan **approve di aplikasi**
->    → dokumen ditandatangani Head of Sales → **Salesperson melampirkan
->    hasil tanda tangan** (attachment) → barulah quotation dinyatakan
->    **Released** (FR-2.11). Penandatangan quotation **tetap Head of
->    Sales** (dikonfirmasi); tidak ada rilis otomatis.
+>    → quotation **dirilis oleh Salesperson**, dengan atau tanpa lampiran
+>    dokumen yang ditandatangani Head of Sales (**lampiran opsional**,
+>    FR-2.11). Penandatangan dokumen tetap Head of Sales (dikonfirmasi).
+>    **Pilihan per quotation (dropdown saat membuat quotation):**
+>    *Perlu approval Head of Sales* (default) atau *Tanpa approval Head of
+>    Sales — langsung rilis*. Pada pilihan kedua tidak ada review dan tidak
+>    ada lampiran; quotation dirilis otomatis setelah submit, **kecuali GM
+>    akhir < 15%**: persetujuan tier margin (COGS/Profitability Owner atau
+>    CCO & CFO) tetap diperlukan sehingga diskon dalam tidak dapat lolos
+>    hanya dengan memilih "tanpa approval".
 > 2. **Workflow tetap ada, tetapi hanya satu yang aktif.** Mesin Workflow
 >    Template Catalog (FR-2.0.1, FR-2.1) **tidak diubah** dan dipertahankan
 >    untuk dipakai kemudian. Saat ini hanya `OQ-STANDARD` yang aktif,
@@ -645,8 +651,10 @@ Peran berikut mengikuti sheet *Actors* dan *Basic Workflow* pada
   > seluruhnya. Pada go-live v5.0 yang **aktif** hanyalah template
   > `OQ-STANDARD` dengan alur ringkas: **KYC → submit → *Generate*
   > otomatis (semua band) → Head of Sales *accept/revise* → routing
-  > tier → menunggu dokumen bertanda tangan → Salesperson melampirkan
-  > hasil tanda tangan → Released (FR-2.11)**. Langkah 4 (validasi Sales Lead) tidak ada pada
+  > tier → disetujui (menunggu rilis) → Salesperson merilis, dengan atau
+  > tanpa lampiran dokumen bertanda tangan → Released (FR-2.11)**. Bila
+  > quotation dibuat dengan pilihan *tanpa approval*, review Head of Sales
+  > dilewati dan quotation langsung dirilis. Langkah 4 (validasi Sales Lead) tidak ada pada
   > template aktif, dan langkah 5 selesai otomatis karena seluruh
   > *quantity band* diatur ke mode Otomatis (Settings → Quantity Band).
   > Tidak ada perubahan kode untuk ini (FR-2.0.2).
@@ -937,31 +945,51 @@ Peran berikut mengikuti sheet *Actors* dan *Basic Workflow* pada
     tetap dapat dilampirkan sebagai bukti tambahan.
   - E-signature *Out of Scope* (§8).
 
-- **FR-2.11 Persetujuan Head of Sales, Tanda Tangan & Lampiran (baru v5.0)**
+- **FR-2.11 Approval Head of Sales (Opsional), Rilis & Lampiran Tanda Tangan (baru v5.0)**
 
-  Penandatangan quotation adalah Head of Sales, dan rilis tidak otomatis.
-  Alurnya berupa *approval* di aplikasi diikuti lampiran hasil tanda tangan:
+  **Pilihan approval per quotation.** Saat membuat (atau mengubah draft)
+  quotation, Salesperson memilih lewat **dropdown** *Persetujuan Head of
+  Sales*:
 
-  1. Head of Sales *approve* di aplikasi (setelah routing tier dan Release
-     Gate lolos; pada harga standar langsung Tier 1).
-  2. Status menjadi **Menunggu dokumen bertanda tangan**
+  | Pilihan | Alur | Lampiran TTD |
+  |---|---|---|
+  | **Perlu approval Head of Sales** (default) | submit → Head of Sales *approve* → **Disetujui — menunggu rilis** → Salesperson merilis | **Opsional** |
+  | **Tanpa approval Head of Sales — langsung rilis** | submit → (review dilewati) → **Released** otomatis | Tidak ada; dapat ditambahkan sesudah rilis |
+
+  Pilihan tersimpan di quotation, ditampilkan di halaman detail, dan
+  terbawa ke Revisi. *Tier margin tetap berlaku pada kedua pilihan*: GM
+  akhir < 15% membuka persetujuan Owner/Pricing Committee (FR-6.2) meski
+  approval Head of Sales dimatikan; rilis terjadi setelah tier lengkap.
+  Bila rilis otomatis gagal (mis. Release Gate menahan karena kurs basi)
+  quotation diteruskan ke Head of Sales alih-alih tersangkut.
+
+  **Alur dengan approval Head of Sales:**
+
+  1. Head of Sales *approve* (setelah routing tier dan Release Gate lolos;
+     pada harga standar langsung Tier 1).
+  2. Status menjadi **Disetujui — menunggu rilis**
      (`PENDING_SIGNED_DOCUMENT`). Sistem menetapkan nomor dokumen, tanggal
      dokumen, dan `valid_until` (FR-2.9) dan menyediakan dokumen Cost
-     Estimate untuk ditandatangani (cetak/PDF, FR-1.5.4).
-  3. Head of Sales menandatangani dokumen di luar aplikasi (e-signature
-     *Out of Scope*).
-  4. **Salesperson mengunggah hasil tanda tangan** (PDF/gambar) sebagai
-     lampiran pada quotation.
-  5. Setelah lampiran diunggah status menjadi **Quotation Released**;
-     `released_at` = saat lampiran diunggah. Tanggal rilis inilah dasar
-     warna kuning/merah (FR-3.4) dan KPI "terkirim" (FR-10.1).
-  - Hanya Salesperson pemilik/account person (atau Admin) yang dapat
-    mengunggah lampiran; Head of Sales dan approver tier tidak.
-  - Selama menunggu lampiran, quotation tidak dapat dikirim sebagai
-    dokumen resmi dan tidak dihitung terkirim. Lampiran tersimpan sebagai
-    bagian arsip quotation dan tercatat di audit trail.
-  - **Membatalkan approval final** sebelum lampiran diunggah: Head of Sales (atau Admin) dengan alasan wajib. Quotation kembali ke review Head of Sales, putaran tier dibatalkan, nomor/tanggal dokumen dikosongkan dan nomor baru terbit saat disetujui lagi; nomor lama tercatat di audit trail. Setelah dirilis, koreksi lewat Revisi (FR-2.5).
-  - *Terbuka kecil:* batas waktu menunggu lampiran (SLA/pengingat).
+     Estimate untuk dicetak (FR-1.5.4).
+  3. Salesperson pemilik/account person (atau Admin) memilih salah satu:
+     - **Rilis tanpa lampiran** — langsung **Released**; atau
+     - **Lampirkan dokumen bertanda tangan & rilis** — Head of Sales
+       menandatangani dokumen di luar aplikasi (e-signature *Out of
+       Scope*), Salesperson mengunggah PDF/gambar, lalu **Released**.
+  4. `released_at` = saat rilis (dasar warna kuning/merah, FR-3.4, dan KPI
+     "terkirim", FR-10.1) pada kedua jalur.
+  - **Lampiran tetap dapat ditambahkan atau diganti sesudah rilis** oleh
+    Salesperson pemilik (atau Admin); tidak mengubah tanggal rilis dan
+    tercatat di audit trail.
+  - Head of Sales dan approver tier tidak merilis dan tidak mengunggah.
+  - Selama **Disetujui — menunggu rilis**, quotation belum dihitung terkirim
+    dan belum dikirim sebagai dokumen resmi.
+  - **Membatalkan approval final** sebelum rilis: Head of Sales (atau Admin)
+    dengan alasan wajib. Quotation kembali ke review Head of Sales,
+    putaran tier dibatalkan, nomor/tanggal dokumen dikosongkan dan nomor
+    baru terbit saat disetujui lagi; nomor lama tercatat di audit trail.
+    Setelah dirilis, koreksi lewat Revisi (FR-2.5).
+  - *Terbuka kecil:* batas waktu/pengingat quotation yang menunggu rilis.
 
 ### Module 3 — State Tracking & Observability Dashboard
 
@@ -971,8 +999,7 @@ Peran berikut mengikuti sheet *Actors* dan *Basic Workflow* pada
   - Status Official Quotation: *Draft (KYC)*, *Pending Sales Lead
     Validation*, *Pending Sales Operations*, *Pending Head of Sales
     Review*, *Pending Owner Approval (GM 10–15%)*, *Pending Pricing
-    Committee Approval (GM < 10%)*, ***Menunggu dokumen bertanda tangan*
-    (v5.0)**, *Quotation Released*, *Expired*, *Superseded*.
+    Committee Approval (GM < 10%)*, ***Disetujui — menunggu rilis* (v5.0)**, *Quotation Released*, *Expired*, *Superseded*.
   - Status cost structure per varian: per scope *Draft → Checked →
     Released*, sehingga COGS Owner, Profitability Owner, dan Sales
     Pricing Owner melihat antrean masing-masing.
@@ -996,8 +1023,8 @@ Peran berikut mengikuti sheet *Actors* dan *Basic Workflow* pada
   | Lost | Dinyatakan manual Salesperson (alasan) | **Merah** |
   | Expired | Otomatis saat `valid_until` terlewati; dapat diubah manual oleh Admin (FR-2.9) | **Merah** |
 
-  - Umur dihitung dari **tanggal rilis** (saat lampiran bertanda tangan
-    diunggah, FR-2.11), bukan dari aktivitas terakhir. Ambang 14 dan 30
+  - Umur dihitung dari **tanggal rilis** (saat quotation dirilis,
+    FR-2.11), bukan dari aktivitas terakhir. Ambang 14 dan 30
     hari adalah **master config**.
   - **Won dan Lost manual** oleh Salesperson (FR-2.10); **Expired
     otomatis** dengan override Admin (FR-2.9). Warna kuning/merah
@@ -1413,8 +1440,9 @@ pemantauan manual setelah quotation dirilis.
                                    · <10% CCO+CFO (cc Owners)
                                                      │  tolak → Sales Ops
                                                      ▼
-                                   [ Release Gate ] → Menunggu dokumen bertanda tangan
-                                   → Salesperson lampirkan hasil TTD → RELEASED (FR-2.11)
+                                   [ Release Gate ] → Disetujui, menunggu rilis
+                                   → Salesperson rilis (lampiran TTD opsional) → RELEASED
+                                   (tanpa approval HoS: langsung RELEASED, tier tetap berlaku)
                                                      │
                           ┌──────────────────────────┼────────────────────┐
                           ▼                          ▼                    ▼
@@ -1465,7 +1493,7 @@ pemantauan manual setelah quotation dirilis.
 |---|---|---|
 | **Phase 1: Core Governance** | **Settings: Roles & Authorities (FR-5.6) dan Workflow/Quantity Band/Tier (FR-2.1)** yang diisi awal sesuai attachment, Master cost item (4 scope, kepemilikan terkonfirmasi), **Cost Structure per varian + Maker–Checker–Releaser**, Product Master Data (varian), PPN, **Price Estimate**, **KYC**, **Official Quotation workflow langkah 1–7** (validasi Sales Lead, quantity band, review Head of Sales, tier 15%/10%), Release Gate, **Format dokumen Cost Estimate + Preview & Cetak/PDF (FR-1.5.4)**, Project Identifier, SLA Tracking. | Role & workflow VKTR berjalan dari konfigurasi; quotation dapat dicetak dalam format resmi; tidak ada rilis tanpa approval tier. |
 | **Phase 2: Revision & Tracking** | Quotation revisi & negosiasi pasca-rilis, Masa berlaku & `EXPIRED` otomatis (v5.0: override Admin, FR-2.9), Penerimaan pelanggan (upload tanda tangan), Workflow Template builder (varian segmen), Duplicate/Fraud Guard, Dashboard observabilitas, Audit Trail, **skema Rental** (setelah formula dikonfirmasi), ERP/CRM integration. | Siklus penuh quotation → penerimaan → revisi terlacak. |
-| **Phase 1.5: MVP v5.0 (Req 2)** | Konfigurasi satu workflow aktif (`OQ-STANDARD`), **UI responsif menyeluruh** (dikerjakan lebih dulu agar halaman baru langsung responsif), **status berwarna, Won/Lost manual, Expired otomatis dengan override Admin (FR-3.4, FR-2.9)**, **persetujuan Head of Sales + lampiran tanda tangan sebelum Released (FR-2.11)**, **diskon oleh Salesperson pada draft Revisi (FR-6.0)**, **Projects: bukti PO, payment termin, tracking (Module 9)**, **Dashboard Sales & Executive (Module 10)**, role Finance, Tim Project, dan Chief/Direksi. Estimasi total ±1 bulan untuk MVP setengah jadi. | Siklus penuh Release → Won → Project → payment terpantau, tanpa integrasi eksternal. |
+| **Phase 1.5: MVP v5.0 (Req 2)** | Konfigurasi satu workflow aktif (`OQ-STANDARD`), **UI responsif menyeluruh** (dikerjakan lebih dulu agar halaman baru langsung responsif), **status berwarna, Won/Lost manual, Expired otomatis dengan override Admin (FR-3.4, FR-2.9)**, **approval Head of Sales opsional per quotation (dropdown), rilis oleh Salesperson, lampiran tanda tangan opsional (FR-2.11)**, **diskon oleh Salesperson pada draft Revisi (FR-6.0)**, **Projects: bukti PO, payment termin, tracking (Module 9)**, **Dashboard Sales & Executive (Module 10)**, role Finance, Tim Project, dan Chief/Direksi. Estimasi total ±1 bulan untuk MVP setengah jadi. | Siklus penuh Release → Won → Project → payment terpantau, tanpa integrasi eksternal. |
 | **Phase 3: DSS & Analytics** | What-If Simulation Engine, Margin Guardrails, AI Outlier Detection, Win/Loss Analytics (dengan *Likelihood* KYC). | Keputusan harga yang lebih cepat dan tepat. |
 
 ---
@@ -1487,7 +1515,7 @@ Pembaruan v4.0 ditandai **baru/direvisi**:
 | Document Output | **Template "Cost Estimate": nomor, rilis/kedaluwarsa, To, Sales/Account Person, Prepared By, tabel item, Inclusions/Exclusions, Special Notes, blok penerimaan, halaman spesifikasi (direvisi dari placeholder)**, **Preview di layar, Print, Download PDF, watermark DRAFT, cetak ulang identik dari snapshot, Cost Structure Sheet internal terpisah (baru)** |
 | State Tracking & Observability | Kanban+Table per Project Identifier (**status baru**), **antrean Maker–Checker–Releaser (baru)**, SLA Timer & notifikasi, Immutable Audit Trail |
 | DSS & Simulation | What-If Simulator (**+ tier yang berlaku**), Margin Guardrails 15%/10%, Win/Loss Analytics |
-| Siklus Hidup Quotation (v5.0) | **Status berwarna hijau/kuning/merah dari tanggal rilis, Won/Lost manual + Expired otomatis (override Admin), lampiran tanda tangan sebelum Released, bukti PO wajib saat Won, filter & badge pada daftar (baru, FR-3.4, FR-2.9/2.10 direvisi)** |
+| Siklus Hidup Quotation (v5.0) | **Status berwarna hijau/kuning/merah dari tanggal rilis, Won/Lost manual + Expired otomatis (override Admin), lampiran tanda tangan opsional, bukti PO wajib saat Won, filter & badge pada daftar (baru, FR-3.4, FR-2.9/2.10 direvisi)** |
 | Project, Payment & Tracking (v5.0) | **Menu Projects, project otomatis dari Won, termin oleh Salesperson, status payment + bukti transfer oleh Finance, tracking progres oleh Tim Project, unggah berkas (baru, Module 9)** |
 | Dashboard (v5.0) | **KPI per Salesperson, dashboard executive, role Chief/Direksi (baru, Module 10)** |
 | UI Responsif (v5.0) | **Drawer navigasi, tabel/kartu adaptif, form satu kolom, kanban/grafik responsif untuk semua halaman (baru, FR-5.8)** |
@@ -1534,7 +1562,7 @@ Pembaruan v4.0 ditandai **baru/direvisi**:
 | *Quotation turnaround time* ≥ 10 unit | Turun ≥ 40% dibanding proses manual |
 | Quotation kedaluwarsa yang diterima tanpa revisi | **0 insiden** — FR-2.9 (Expired otomatis, override Admin tercatat di audit) |
 | Quotation dinyatakan Won tanpa bukti PO | **0 insiden** — FR-2.10, FR-9.1 |
-| Quotation berstatus Released tanpa lampiran dokumen bertanda tangan Head of Sales | **0 insiden** — FR-2.11 |
+| Quotation dirilis tanpa approval Head of Sales **dan** tanpa persetujuan tier padahal GM < 15% | **0 insiden** — FR-2.11, FR-6.2 |
 | Kesalahan konversi mata uang / PPN pada quotation | **0 insiden** |
 | Quotation ganda untuk customer + varian yang sama dalam sehari | **0 insiden** — FR-2.6 |
 | Quotation revisi tidak ter-*link* ke Project Identifier asal | 0 insiden — FR-2.5 |
@@ -1593,7 +1621,8 @@ Ringkasan yang memengaruhi PRD:
 | 13 | Penetapan termin pembayaran | **Salesperson** (FR-9.3); status diterima oleh Finance |
 | 14 | Nama role Finance dan Chief/Direksi | **Disesuaikan** (role = data di Settings) |
 | 15 | Kuning/merah dan `valid_until` | Dari **tanggal rilis**; `valid_until` 30 hari **tetap tampil** di dokumen sebagai informasi |
-| 16 | Penandatangan | **Head of Sales**; bentuknya approval di aplikasi, lalu Salesperson **melampirkan** hasil tanda tangan, baru Released (FR-2.11) |
+| 16 | Penandatangan | **Head of Sales**; approval di aplikasi, dokumen ditandatangani; **lampiran TTD opsional** — Salesperson dapat merilis tanpa lampiran (FR-2.11) |
+| 16b | Approval Head of Sales | **Dipilih per quotation lewat dropdown** saat membuat quotation: *perlu approval* (default) atau *tanpa approval — langsung rilis*; tier margin tetap berlaku (FR-2.11) |
 | 17 | Kedaluwarsa | **Otomatis** (perilaku saat ini), **Admin dapat mengubah manual** (FR-2.9) |
 
 **Masih terbuka (kecil):**
@@ -1602,7 +1631,10 @@ Ringkasan yang memengaruhi PRD:
     ini: nomor, tanggal dokumen, dan `valid_until` ditetapkan saat
     approval final Head of Sales; `released_at` (dasar warna dan KPI) saat
     lampiran diunggah. Perlu konfirmasi bila VKTR ingin sebaliknya.
-19. **Batas waktu/pengingat** menunggu lampiran bertanda tangan (FR-2.11).
+19. **Batas waktu/pengingat** quotation yang disetujui tetapi belum dirilis (FR-2.11).
+21. **Siapa boleh memilih "tanpa approval"** — saat ini setiap Salesperson
+    (dropdown di form). Bila VKTR ingin membatasinya (mis. hanya Sales Lead
+    atau hanya di bawah nilai tertentu), ditambahkan sebagai aturan.
 20. **Perubahan termin** setelah ada termin diterima (FR-9.3).
 
 ---

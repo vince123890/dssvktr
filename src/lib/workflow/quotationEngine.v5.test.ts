@@ -68,7 +68,7 @@ describe("attachSignedDocument (lampiran → Released)", () => {
   });
   it("menolak bila status bukan menunggu dokumen bertanda tangan", async () => {
     const p = proposal({ current_status: "DRAFT" });
-    await expect(attachSignedDocument(world(p), p, actor, "x")).rejects.toThrow(/menunggu dokumen/);
+    await expect(attachSignedDocument(world(p), p, actor, "x")).rejects.toThrow(/disetujui .* atau sudah dirilis/);
   });
 });
 

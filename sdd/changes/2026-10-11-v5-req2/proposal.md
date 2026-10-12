@@ -5,7 +5,8 @@ Meeting "VKTR Req 2" (docs/kebutuhan_baru_v2.md) mengubah cara aplikasi dipakai:
 
 ## What changes
 - Satu workflow aktif (`OQ-STANDARD`: Generate otomatis -> Review Head of Sales); band kuantitas AUTO dengan diskon default 0% (migrasi 0019, tanpa mengubah mesin workflow).
-- Status baru `PENDING_SIGNED_DOCUMENT`: approval final Head of Sales menetapkan nomor/tanggal dokumen, Salesperson melampirkan dokumen bertanda tangan, baru `QUOTATION_RELEASED`.
+- Status `PENDING_SIGNED_DOCUMENT` (tampil "Disetujui — menunggu rilis"): approval final Head of Sales menetapkan nomor/tanggal dokumen; Salesperson merilis **dengan atau tanpa** lampiran dokumen bertanda tangan (opsional, dapat menyusul setelah rilis).
+- Dropdown *Persetujuan Head of Sales* per quotation (`approval_mode`, migrasi 0020): `NONE` melewati review dan langsung merilis; tier margin tetap berlaku untuk GM < 15%.
 - Salesperson mengisi diskon pada draft Revisi (sumber `SALESPERSON_REVISION`).
 - Won (bukti PO wajib) dan Lost (alasan) manual; Expired tetap otomatis dengan override Admin.
 - Badge hijau/kuning/merah dari tanggal rilis (14/30 hari, dapat diatur), filter di daftar quotation.

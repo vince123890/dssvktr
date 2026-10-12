@@ -11,7 +11,7 @@ import {
   type QuotationInput,
 } from "./actions";
 import { LIKELIHOOD_LABEL, PERIOD_LABEL, PROJECT_TYPE_LABEL } from "@/lib/workflow/labels";
-import type { QuotationKyc } from "@/types/database";
+import type { ApprovalMode, QuotationKyc } from "@/types/database";
 
 export interface ProductOption {
   id: string;
@@ -48,7 +48,12 @@ export function QuotationForm({
   products: ProductOption[];
   projects: ProjectOption[];
   qualifiers: QualifierOptions;
-  initial?: { businessLine: string; kyc: QuotationKyc; lines: { product_id: string; quantity: number }[] };
+  initial?: {
+    businessLine: string;
+    kyc: QuotationKyc;
+    lines: { product_id: string; quantity: number }[];
+    approvalMode?: ApprovalMode;
+  };
   proposalId?: string;
 }) {
   const router = useRouter();
@@ -65,6 +70,7 @@ export function QuotationForm({
     }
   );
   const [businessLine, setBusinessLine] = useState(initial?.businessLine ?? "B2B_COMMERCIAL_FLEET");
+  const [approvalMode, setApprovalMode] = useState<ApprovalMode>(initial?.approvalMode ?? "HEAD_OF_SALES");
   const [lines, setLines] = useState<{ product_id: string; quantity: number }[]>(
     initial?.lines ?? [{ product_id: products.find((p) => p.hasReleasedCost)?.id ?? "", quantity: 1 }]
   );
@@ -78,6 +84,7 @@ export function QuotationForm({
       business_line: businessLine as QuotationInput["business_line"],
       kyc: kyc as QuotationInput["kyc"],
       lines,
+      approval_mode: approvalMode,
     };
     startTransition(async () => {
       const result = proposalId
@@ -112,6 +119,22 @@ export function QuotationForm({
               <option value="B2G_TENDER_BUS">B2G / Pemerintah</option>
               <option value="CHARGING_INFRA_BUILDOUT">Charging Infrastructure</option>
             </select>
+          </Field>
+          <Field label="Persetujuan Head of Sales" className="md:col-span-2">
+            <select
+              className="pc-input"
+              value={approvalMode}
+              onChange={(e) => setApprovalMode(e.target.value as ApprovalMode)}
+              aria-describedby="approval-mode-hint"
+            >
+              <option value="HEAD_OF_SALES">Perlu approval Head of Sales</option>
+              <option value="NONE">Tanpa approval Head of Sales — langsung rilis</option>
+            </select>
+            <p id="approval-mode-hint" className="mt-1 text-[11px] text-muted">
+              {approvalMode === "HEAD_OF_SALES"
+                ? "Head of Sales me-review dan menyetujui; lampiran dokumen bertanda tangan bersifat opsional sebelum rilis."
+                : "Quotation dirilis otomatis setelah submit, tanpa review dan tanpa lampiran. Bila GM akhir di bawah 15%, persetujuan tier margin (COGS/Profitability Owner atau CCO & CFO) tetap diperlukan."}
+            </p>
           </Field>
           <Field label="a. Alamat resmi lengkap *" className="md:col-span-2">
             <textarea className="pc-input" rows={2} value={kyc.official_address ?? ""} onChange={(e) => set("official_address", e.target.value)} placeholder="Jalan, kelurahan, kecamatan, kota, kode pos" />

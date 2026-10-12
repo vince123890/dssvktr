@@ -8,7 +8,7 @@ export const STATUS_LABEL: Record<ProposalStatus, string> = {
   PENDING_ADDITIONAL_APPROVAL: "Persetujuan Tambahan (template)",
   PENDING_OWNER_APPROVAL: "Approval Tier — COGS & Profitability Owner",
   PENDING_PRICING_COMMITTEE_APPROVAL: "Approval Tier — Pricing Committee (CCO & CFO)",
-  PENDING_SIGNED_DOCUMENT: "Menunggu dokumen bertanda tangan",
+  PENDING_SIGNED_DOCUMENT: "Disetujui — menunggu rilis",
   QUOTATION_RELEASED: "Quotation Released",
   EXPIRED: "Kedaluwarsa",
   SUPERSEDED: "Digantikan (Superseded)",

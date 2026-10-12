@@ -1,98 +1,85 @@
-# Demo Flow B — Sales To Obtain Official Quotation
+# Demo Flow B — Sales To Obtain Official Quotation (v5.0)
 
-Skrip demo langkah demi langkah untuk **Workflow B** pada sheet *Basic
-Workflow* (`docs/BTEL - Cost and Roles and Flow.xlsx`), sesuai build
-v4.1 aplikasi (termasuk Workflow Template Catalog). Dokumen keluaran
-mengikuti contoh *Cost Estimate — PT Siborong Nusa Gemilang*. Durasi ± 35
-menit untuk B1–B6; B6c, B7, dan B8 opsional (B8 ± 25 menit).
+Skrip demo langkah demi langkah untuk **Workflow B** sesuai build v5.0
+(hasil meeting *VKTR Req 2*). Dokumen keluaran mengikuti contoh *Cost
+Estimate — PT Siborong Nusa Gemilang*. Durasi ± 45 menit untuk B1–B5;
+B6–B9 dan Lampiran A opsional.
 
-> **Catatan v5.0 (meeting *VKTR Req 2*).** B1–B8 di bawah menjelaskan
-> build **saat ini** dengan seluruh katalog workflow aktif (validasi Sales
-> Lead, Generate manual untuk band 10+, dst.) dan tetap valid untuk
-> mendemokan **kemampuan** mesin. Pada konfigurasi go-live v5.0 hanya
-> `OQ-STANDARD` yang aktif dengan alur singkat (KYC → Generate otomatis →
-> Head of Sales), sehingga langkah validasi dan Generate manual tidak
-> muncul. Skrip untuk konfigurasi itu, serta Won → Project → Payment →
-> Dashboard, ada di **B9 (v5.0)**. Kode B9 sudah ada tetapi **belum diuji
-> manual di database/peramban** (migrasi 0018–0019 perlu dijalankan dulu).
-> Ketentuan baru: penandatangan
-> tetap Head of Sales (approve di aplikasi, tanda tangan, lalu Salesperson
-> melampirkan hasilnya sebelum Released); diskon tetap lewat Revisi + tier
-> (Salesperson boleh mengisi diskon pada draft Revisi); Won/Lost manual,
-> Expired tetap otomatis (override Admin) — lihat catatan di B5.
+> **Yang berubah dari v4.x.** Hanya **satu workflow aktif** (`OQ-STANDARD`):
+> KYC → submit → harga standar dihitung otomatis → **Head of Sales** approve
+> → **Disetujui — menunggu rilis** → **Salesperson merilis**, dengan atau
+> tanpa **lampiran dokumen bertanda tangan (opsional)**. Saat membuat
+> quotation, **dropdown *Persetujuan Head of Sales*** dapat dipilih
+> *Tanpa approval — langsung rilis* (tier margin tetap berlaku bila GM
+> < 15%). Tidak ada langkah Validasi Sales Lead dan tidak ada
+> antrean Sales Operations pada rilis awal. **Diskon** hanya lewat
+> **Revisi** (Salesperson mengisi diskon di draft revisi) dan tetap melewati
+> tier margin. Setelah rilis: **Won** (bukti PO) → **Project** → termin,
+> payment, progres → **Dashboard**. Seluruh aplikasi **responsif**.
 
-| Langkah di sheet | Yang terjadi di aplikasi | Demo |
+| Langkah | Yang terjadi di aplikasi | Demo |
 |---|---|---|
 | 1–3. Salesperson mengisi KYC (a–h), meninjau, submit | **Official Quotation → Baru**; KYC 8 field (6 wajib), varian & qty (boleh lebih dari satu) | B1 |
-| 4a. Diajukan Sales Executive → Sales Lead memvalidasi | Langkah *Validasi Sales Lead* | B1, B3 |
-| 4b. Diajukan Sales Lead → langsung Sales Operations | Langkah validasi **dilewati** otomatis | B2 |
-| 5a. 1 unit → otomatis, harga dasar | Generate otomatis, langsung ke Head of Sales | B1 |
-| 5b/5c. 2–5 / 6–9 unit → otomatis + opsi manual (diskon) | Diskon default band (2% / 3%), Sales Operations konfirmasi/ubah | B2 |
-| 5d. 10+ unit → manual | Sales Operations menyusun diskon (Rp atau %), skema, inclusions/exclusions | B3 |
-| 6. Ke Head of Sales: quotation + **detail cost structure** | Tabel harga + panel *Detail cost structure — Highly Confidential* + Cost Structure Sheet | B1–B3 |
-| 7a. GM ≥ 15% → dirilis | *Accept* → langsung **Quotation Released** | B1, B2 |
-| 7b. GM 10–15% → COGS & Profitability Owner; tolak → Sales Operations | Status *Tier 2*; dua persetujuan wajib | B3, B4 |
-| 7c. GM < 10% → CCO & CFO, cc COGS & Profitability Owner; tolak → Sales Operations | Status *Tier 3*; tembusan tampil; penolakan kembali ke Sales Operations | B3 |
-| *(v4.1)* Jenis deal menentukan alur | **Kualifikasi deal** (segmen, industri, hubungan) + estimasi nilai + blacklist memilih 1 dari 6 Workflow Template secara otomatis saat submit | B6c, B8 |
+| 4–5. Validasi & generate | Tidak ada validasi Sales Lead; *Generate* otomatis (semua band, diskon default 0%) | B1, B2 |
+| 6. Head of Sales menerima quotation + **detail cost structure** | Tabel harga + panel *Detail cost structure — Highly Confidential* + Cost Structure Sheet | B1 |
+| 7a. GM ≥ 15% | *Approve* → **Disetujui — menunggu rilis** (nomor & tanggal terbit) | B1 |
+| 7b. GM 10–15% → COGS & Profitability Owner; tolak → Sales Operations | Tier 2, dua persetujuan wajib | B3 |
+| 7c. GM < 10% → CCO & CFO, cc COGS & Profitability Owner | Tier 3, tembusan tampil | B3 |
+| 8. Rilis | Salesperson **merilis tanpa lampiran** (B2) atau **melampirkan dokumen bertanda tangan & merilis** (B1); lampiran dapat ditambah setelah rilis | B1, B2 |
+| Tanpa approval | Dropdown *Tanpa approval Head of Sales* → **langsung Released**; tier margin tetap berlaku bila GM < 15% | B2b |
+| Diskon pelanggan | **Revisi**; Salesperson isi diskon; tier dihitung dari GM setelah diskon | B3 |
+| Setelah rilis | Warna kuning/merah, Won/Lost, Expired otomatis (override Admin) | B5 |
+| Won | Bukti PO → **Project**: termin (Salesperson), payment (Finance), progres (Tim Project) | B4 |
 
 ---
 
 ## 0. Persiapan
 
-1. `npm run reset:demo` (quotation historis & cost structure v1 kembali
-   seperti semula, kurs CNY/IDR 2.600).
-2. Password semua akun `PriceCore123!`. Paling mudah: satu jendela
+1. Migrasi `0018` lalu `0019` sudah dijalankan di Supabase (0019 membuat
+   satu workflow aktif, band Otomatis dengan diskon default 0%, role baru,
+   tabel project, dan bucket berkas privat).
+2. `npm run reset:demo` — **menghapus semua quotation** dan memulihkan data
+   demo (cost structure v1, quotation historis berikut project dari yang
+   Won, kurs CNY/IDR 2.600). Untuk akun baru jalankan `npm run seed:demo`
+   sekali.
+3. Password semua akun `PriceCore123!`. Paling mudah: satu jendela
    Incognito per peran.
 
-   | Akun | Role (sheet Actors) |
-   |---|---|
-   | `sales.exec@vktr.demo` | Sales Executive |
-   | `sales.lead@vktr.demo` | Sales Lead |
-   | `salesops@vktr.demo` | Sales Operations Manager |
-   | `headsales@vktr.demo` | Head of Sales |
-   | `procurement@vktr.demo` | Procurement Manager (COGS Owner) |
-   | `headproc@vktr.demo` | Head of Procurement and Operations Control (COGS Owner) |
-   | `headfinance@vktr.demo` | Head of Corporate Finance (Profitability Owner) |
-   | `cco@vktr.demo` | Chief Commercial Officer (Pricing Committee) |
-   | `cfo@vktr.demo` | Chief Finance Officer (Pricing Committee) |
-   | `admin@vktr.demo` | System Admin |
-
-3. Angka acuan varian **LDT 4x2 SWB Dumper 90 kWh** (per unit, kurs 2.600,
-   PPN 11%): harga dasar excl. VAT **Rp 829.550.000**, GM standar
-   **17,79%**. Diskon yang membuat GM tepat 15% = 3,264%; tepat 10% =
-   8,598%.
-4. **Lini bisnis vs Kualifikasi deal.** Form Official Quotation memiliki
-   dua isian yang berbeda fungsi:
-
-   | Isian | Pilihan | Fungsi |
+   | Akun | Role | Dipakai di |
    |---|---|---|
-   | **Lini bisnis** (kanan atas form) | B2G / Pemerintah · B2B Commercial Fleet · Charging Infrastructure | Lini usaha VKTR untuk deal ini; dicatat di quotation dan **dapat** dijadikan syarat workflow (qualifier *Lini bisnis* di Settings → Workflow). Keenam workflow awal belum memakainya sebagai syarat. |
-   | **Kualifikasi deal** (kartu di bawah KYC) | Segmen B2G / B2B / B2C · Industri · Hubungan Reguler / Relasi khusus | **Penentu Workflow Template** bersama estimasi nilai (harga × qty) dan blacklist customer. |
+   | `sales.exec@vktr.demo` | Sales Executive | KYC, submit, rilis (lampiran TTD opsional), revisi, Won/Lost, termin |
+   | `sales.lead@vktr.demo` | Sales Lead | sama seperti Sales Executive (tidak ada langkah validasi lagi) |
+   | `salesops@vktr.demo` | Sales Operations Manager | menyusun ulang bila tier ditolak |
+   | `headsales@vktr.demo` | Head of Sales | review, approve, batalkan approve final |
+   | `procurement@vktr.demo` | Procurement Manager (COGS Owner) | approver Tier 2 |
+   | `headproc@vktr.demo` | Head of Procurement and Operations Control | tembusan Tier 3 |
+   | `headfinance@vktr.demo` | Head of Corporate Finance (Profitability Owner) | approver Tier 2 |
+   | `cco@vktr.demo` / `cfo@vktr.demo` | Pricing Committee | approver Tier 3 |
+   | `finance@vktr.demo` | Finance | status payment termin |
+   | `projectteam@vktr.demo` | Tim Project | progres project |
+   | `chief@vktr.demo` | Chief / Direksi | dashboard executive |
+   | `admin@vktr.demo` | System Admin | Settings, override Expired, Audit |
+   | `product@vktr.demo`, `agency@vktr.demo` | Product Owner, Authorized Agency | Lampiran A, Price Estimate |
 
-   Pilih keduanya konsisten: Segmen **B2G** → Lini bisnis **B2G /
-   Pemerintah**; Segmen **B2B** → Lini bisnis **B2B Commercial Fleet**.
-   Isian per skenario:
-
-   | Skenario | Lini bisnis | Segmen · Industri · Hubungan | Qty | Workflow terpilih |
-   |---|---|---|---|---|
-   | B1 Tirta Hijau | B2B Commercial Fleet | B2B · Konstruksi · Reguler | 1 | Standard |
-   | B2 Bumi Karya | B2B Commercial Fleet | B2B · Konstruksi · Reguler | 4 | Standard |
-   | B3/B4 Siborong | B2B Commercial Fleet | B2B · Konstruksi · Reguler | 40 | Standard |
-   | B6c Dinas LH Bekasi | B2G / Pemerintah | B2G · Municipality · Reguler | 2 | B2G Pemerintah |
-   | B8 (enam deal) | lihat B8 | lihat B8 | 1 / 61 | satu deal per workflow |
-
-   > B3 sengaja memakai industri **Konstruksi**. Bila dipilih
-   > *Pertambangan* atau *Perkebunan*, deal masuk workflow *Industri
-   > Tambang & Perkebunan* (ada langkah review COGS Owner) dan alur B3 di
-   > bawah tidak lagi sama.
+4. **Cek konfigurasi** (admin@vktr.demo → Settings → Workflow): hanya
+   *Official Quotation — Standard* yang aktif dengan dua langkah *Generate*
+   dan *Review & Rilis*; Settings → Tier Margin & Quantity Band: semua band
+   **Otomatis** dengan diskon default **0%**.
+5. Angka acuan varian **LDT 4x2 SWB Dumper 90 kWh** (per unit, kurs 2.600,
+   PPN 11%): harga dasar excl. VAT **Rp 829.550.000**, incl. VAT **Rp
+   920.800.500**, GM standar **17,79%**. Diskon yang membuat GM tepat 15% =
+   3,264%; tepat 10% = 8,598%.
+6. Tier margin: GM ≥ 15% Tier 1 (Head of Sales); 10–< 15% Tier 2 (COGS Owner
+   **dan** Profitability Owner); < 10% Tier 3 (CCO **dan** CFO, cc COGS &
+   Profitability Owner). Tolak di tier → kembali ke Sales Operations.
 
 ---
 
-## B1 — 1 unit: validasi Sales Lead → otomatis → Tier 1 → rilis & cetak
+## B1 — 1 unit: harga standar → approve → rilis dengan lampiran tanda tangan
 
-**Sales Executive — KYC (langkah 1–3)**
+**Sales Executive — KYC & submit**
 
-1. Login **sales.exec@vktr.demo** → **Official Quotation** → **Official
+1. Login **sales.exec@vktr.demo** → **Official Quotation → Official
    Quotation Baru**.
 2. Isi KYC:
 
@@ -112,74 +99,100 @@ menit untuk B1–B6; B6c, B7, dan B8 opsional (B8 ± 25 menit).
 
 3. Kosongkan dulu **g** → **Simpan Draft & Tinjau** → pesan *"g. Gap
    identified wajib diisi"*. Isi kembali → simpan.
-4. Halaman quotation terbuka sebagai **Draft (KYC)**. Tinjau KYC di layar.
-   Perhatikan: **tidak ada harga maupun cost structure** yang tampil bagi
-   Salesperson. Klik **Submit Official Quotation**.
-5. Status: **Menunggu Validasi Sales Lead**. Panel alur menampilkan
-   **Workflow Template: Official Quotation — Standard** dengan alasan
-   *"Tidak ada template spesifik yang cocok — memakai template dasar"*.
+4. Quotation terbuka sebagai **Draft (KYC)**. Perhatikan: **tidak ada harga
+   maupun cost structure** bagi Salesperson, dan tidak ada tempat mengisi
+   diskon (draft awal = harga standar). Dropdown **Persetujuan Head of Sales**
+   di form masih **Perlu approval Head of Sales** (default). Klik **Submit
+   Official Quotation**.
+5. Status langsung **Review Head of Sales**. Panel alur menampilkan
+   **Workflow Template: Official Quotation — Standard**; langkah *Generate*
+   tercatat *"Auto-generated — band 1 unit, harga dasar"*. Tidak ada
+   validasi Sales Lead.
 
-**Sales Lead — validasi (langkah 4a)**
+**Head of Sales — review & approve**
 
-6. Login **sales.lead@vktr.demo** → Overview → *Menunggu tindakan Anda*
-   → buka quotation → **Validasi & teruskan ke Sales Operations**.
-7. Karena 1 unit (band 1), quotation **di-generate otomatis** dengan harga
-   dasar dan langsung melompat ke **Review Head of Sales** — langkah Sales
-   Operations tercatat *"Auto-generated — band 1 unit, harga dasar"*.
-
-**Head of Sales — review & rilis (langkah 6–7a)**
-
-8. Login **headsales@vktr.demo** → buka quotation. Terlihat:
+6. Login **headsales@vktr.demo** → Overview → *Menunggu tindakan Anda* →
+   buka quotation. Terlihat:
    - tabel harga: dasar Rp 829.550.000, diskon 0, **incl. VAT Rp
      920.800.500**, GM **17,79%**, badge **Tier 1**
-   - panel *Detail cost structure — Highly Confidential* (buka): COGS, Add-Ons
-     (STNK & Insurance di sini), Margin, Sales, Delivery Service **Exclusion —
-     At cost**
-   - panel harga *Revise (Head of Sales)* dengan dampak margin real-time
-9. Klik **Preview Dokumen (Draft)** → dokumen Cost Estimate dengan watermark
-   **DRAFT — NOT FOR CUSTOMER** dan nomor `DRAFT-PRC-…`. Tutup tab.
-10. Klik **Accept & rilis / rute** → GM ≥ 15% → **Quotation Released**.
-    Header menampilkan nomor dokumen (mis. `0001/L/VKTR/PUR-EFS/09-2026`)
-    dan tanggal berlaku (+30 hari).
+   - panel *Detail cost structure — Highly Confidential* (buka): COGS,
+     Add-Ons (STNK & Insurance), Margin, Sales, Delivery Service
+     **Exclusion — At cost**
+7. Klik **Preview Dokumen (Draft)** → dokumen Cost Estimate dengan watermark
+   **DRAFT — NOT FOR CUSTOMER**. Tutup tab.
+8. Klik **Approve & rute tier** → GM ≥ 15% → status **Disetujui —
+   menunggu rilis**. Header kini menampilkan **nomor dokumen** (mis.
+   `0001/L/VKTR/PUR-EFS/10-2026`), tanggal dokumen, dan berlaku s.d. (+30
+   hari). Quotation **belum Released**.
 
-**Salesperson — preview & cetak**
+**Salesperson — cetak, tanda tangan, lampirkan (opsional), rilis**
 
-11. Login **sales.exec@vktr.demo** → buka quotation. Harga incl. VAT kini
-    tampil (tanpa cost structure). Klik **Preview / Print Cost Estimate**:
-    - *COST ESTIMATE*, penerbit PT VKTR Teknologi Mobilitas Tbk. + logo
-    - Number, Release Date, Expiry Date · **To** dari KYC · Disclaimer
-    - Sales/Account Person (Maria Kusuma) · Product · Prepared By
-    - Tabel: 1 · *Purchase* · deskripsi varian *incl. VAT* · Rp 920,800,500
-    - Inclusions · **Exclusions — At cost**: Delivery To Site, Maintenance,
-      Other Requests · Total · Special Notes · blok tanda tangan
-    - Halaman **Specification** (brosur, body application & sasis, tabel
-      spesifikasi)
-12. Klik **Print / Simpan PDF** → dialog cetak browser, pilih *Save as PDF*
-    (A4). Audit Trail mencatat `PRINT`.
+9. Login **sales.exec@vktr.demo** → buka quotation. Harga incl. VAT kini
+   tampil (tanpa cost structure). Daftar quotation menampilkan status
+   *Disetujui — menunggu rilis*; Overview menampilkan *"Rilis quotation
+   (lampiran dokumen bertanda tangan opsional)"*. Panel *Aksi Anda* menawarkan
+   dua jalan: **Rilis tanpa lampiran** dan **Lampirkan & rilis**.
+10. Klik **Cetak untuk ditandatangani** → dokumen bernomor **tanpa
+    watermark**: *COST ESTIMATE*, penerbit + logo, Number, tanggal & Expiry
+    Date, **To** dari KYC, Sales/Account Person (Maria Kusuma), tabel (1 ·
+    *Purchase* · incl. VAT · Rp 920,800,500), Inclusions, **Exclusions — At
+    cost**, Special Notes, blok tanda tangan, halaman **Specification**.
+    Pilih *Save as PDF* (A4). Audit Trail mencatat `PRINT`.
+11. (Anggap Head of Sales menandatangani di luar aplikasi.) Pilih berkas →
+    unggah PDF/PNG/JPG (≤ 10 MB) → **Lampirkan & rilis**. Status menjadi
+    **Quotation Released**; kartu *Dokumen & Hasil* menampilkan tautan *Buka
+    lampiran*; badge **hijau · 0 hari sejak rilis**. (Jalan tanpa lampiran
+    diperagakan di B2.)
+12. Login **headsales@vktr.demo** → buka quotation yang sama: **tidak ada**
+    tombol rilis maupun unggah (hanya Salesperson pemilik atau Admin).
+    Kembali sebagai **sales.exec@**: panel kini menawarkan **Ganti lampiran**
+    (lampiran opsional tetap dapat diganti sesudah rilis; tanggal rilis tidak
+    berubah).
 
-## B2 — 4 unit oleh Sales Lead: validasi dilewati, diskon default band
+## B2 — 4 unit oleh Sales Lead: tetap harga standar
 
-1. Login **sales.lead@vktr.demo** → Official Quotation baru:
-   `PT Bumi Karya Konstruksi`, alamat bebas, proyek baru `Material Proyek
-   Karawang`, KYC wajib lengkap, Lini bisnis **B2B Commercial Fleet**,
-   Kualifikasi `B2B` · `Konstruksi` · `Reguler` (→ workflow Standard),
-   varian SWB Dumper × **4** → simpan → **Submit**.
-2. **Perhatikan:** status langsung **Di Sales Operations**; di timeline,
-   *Validasi Sales Lead* berstatus **Dilewati** (pengaju punya fungsi
-   validator — kondisi lewati diatur di Settings → Workflow).
-3. Login **salesops@vktr.demo** → quotation sudah **di-generate otomatis**
-   dengan diskon default band 2–5 **2%** (Rp 16.591.000/unit). Panel
-   dampak: net **Rp 812.959.000**/unit, GM **16,10%**, **Tier 1**.
-   (Opsi manual: ubah diskon di sini; kembalikan ke 2%.)
-4. Klik **Teruskan ke Head of Sales**.
-5. Login **headsales@vktr.demo** → **Accept & rilis / rute** → Released.
-   Total 4 unit incl. VAT **Rp 3.609.537.960**.
+1. Login **sales.lead@vktr.demo** → Official Quotation baru: `PT Bumi Karya
+   Konstruksi`, alamat bebas, proyek baru `Material Proyek Karawang`, KYC
+   wajib lengkap, Lini bisnis **B2B Commercial Fleet**, Kualifikasi `B2B` ·
+   `Konstruksi` · `Reguler`, SWB Dumper × **4** → simpan → **Submit**.
+2. Sama seperti B1: langsung **Review Head of Sales** (Sales Lead hanyalah
+   Salesperson lain). Diskon default band 2–5 kini **0%**, sehingga harga
+   tetap standar.
+3. **headsales@** Approve → status *Disetujui — menunggu rilis*. **sales.lead@**
+   menekan **Rilis tanpa lampiran** → **Released** (kartu *Dokumen & Hasil* tanpa
+   tautan lampiran; audit RELEASE "tanpa lampiran"). Total 4 unit incl. VAT
+   **Rp 3.683.202.000** (4 × 920.800.500), GM 17,79%.
+4. Lampiran tetap opsional sesudahnya: panel menawarkan **Lampirkan** bila
+   dokumen yang ditandatangani menyusul.
 
-## B3 — 40 unit PT Siborong Nusa Gemilang: manual, Tier 3 ditolak, Tier 2 disetujui
+## B2b — Tanpa approval Head of Sales: langsung rilis (tier margin tetap berlaku)
 
-**KYC & validasi**
+1. **sales.exec@vktr.demo** → Official Quotation baru: `PT Cepat Rilis
+   Logistik`, KYC wajib lengkap, B2B · Konstruksi · Reguler, SWB Dumper × **1**.
+   Pada dropdown **Persetujuan Head of Sales** pilih **Tanpa approval Head of
+   Sales — langsung rilis**; keterangan di bawahnya berubah (*"dirilis otomatis
+   setelah submit... GM akhir di bawah 15%... tetap diperlukan"*). **Submit**.
+2. Status langsung **Quotation Released**: nomor dokumen terisi, badge
+   **Tanpa approval Head of Sales**, tanpa antrean apa pun. Di panel alur
+   langkah *Review & Rilis (Head of Sales)* berstatus **Dilewati**; Audit
+   Trail memuat `STEP_SKIPPED`, `APPROVE` ("dirilis otomatis"), dan `RELEASE`.
+   Head of Sales tidak pernah menerima quotation ini.
+3. **Tier tetap berlaku.** **sales.exec@** → **Buat Revisi** → di kartu
+   *Diskon negosiasi (revisi)* isi Rupiah `80000000` → Simpan → **Submit**
+   (pilihan tanpa approval terbawa). GM turun ke **8,95%** (Tier 3), sehingga
+   quotation **tidak** langsung rilis: status **Approval Tier — Pricing
+   Committee (CCO & CFO)**. **cco@** + **cfo@** Approve → **Released**
+   langsung (tidak ada review Head of Sales dan tidak ada langkah rilis
+   manual); quotation awal menjadi Superseded.
+4. Bila rilis otomatis tertahan (mis. kurs basi), quotation diteruskan ke
+   **Review Head of Sales** dan audit mencatat *"Rilis otomatis ... gagal"* —
+   tidak tersangkut.
 
-1. **sales.exec@vktr.demo** → Official Quotation baru:
+## B3 — Diskon lewat Revisi: 40 unit PT Siborong Nusa Gemilang (Tier 3 ditolak → Tier 2)
+
+**3a. Rilis awal pada harga standar**
+
+1. **sales.exec@vktr.demo** → quotation baru:
 
    | Field | Isi |
    |---|---|
@@ -187,300 +200,254 @@ menit untuk B1–B6; B6c, B7, dan B8 opsional (B8 ± 25 menit).
    | c | Proyek baru · `Armada Dumper 5 Tahun` |
    | d–g | `Dumper` / `Material agregat`; `Site → stockpile`, `Site`, `Stockpile`; `10 trip per hari`; Likelihood 3; gap `Kebutuhan armada listrik jangka panjang` |
    | h | Skema diminta: **Rental** |
-   | Lini bisnis | **B2B Commercial Fleet** |
-   | Kualifikasi | `B2B` · `Konstruksi` · `Reguler` (→ template Standard) |
+   | Lini bisnis / Kualifikasi | **B2B Commercial Fleet** · `B2B` · `Konstruksi` · `Reguler` |
    | b | LDT 4x2 SWB Dumper 90 kWh × **40** |
 
-2. Submit → **sales.lead@vktr.demo** → Validasi.
+2. Submit → **headsales@** Approve (Tier 1, tanpa diskon) → **sales.exec@**
+   merilis (lampiran opsional) → **Released** (40 × Rp 920.800.500 =
+   Rp 36.832.020.000 incl. VAT).
 
-**Sales Operations — manual (band ≥ 10)**
+**3b. Pelanggan minta diskon → Revisi**
 
-3. **salesops@vktr.demo** → quotation *tidak* diberi diskon otomatis (mode
-   manual). Di panel harga, baris varian: diskon mode **Rp**, isi
-   `80000000`. Dampak real-time: setara **9,644%**, net **Rp
-   749.550.000**/unit, GM **8,95%**, **Tier 3 — Chief Commercial
-   Officer + Chief Finance Officer · cc COGS Owner, Profitability
-   Owner**.
-4. Skema: biarkan **Purchase** untuk demo utama (lihat catatan Rental di
-   bawah). Tambahkan Special Notes bila perlu → **Simpan harga &
-   dokumen** → **Teruskan ke Head of Sales**.
-
-**Head of Sales → Tier 3**
-
-5. **headsales@vktr.demo** → buka **Cost Structure Sheet** (tab baru,
-   dokumen internal *Highly Confidential*) untuk ditinjau → kembali →
-   **Accept & rilis / rute**. Status: **Approval Tier — Pricing Committee (CCO &
-   CFO)** (Tier 3).
-6. **headproc@vktr.demo** dan **headfinance@vktr.demo** membuka quotation:
-   panel alur menampilkan *Tembusan (cc): COGS Owner, Profitability
-   Owner* — tanpa tombol keputusan.
-7. **cco@vktr.demo** → **Approve**. Status **tetap** menunggu Pricing Committee — satu dari dua
+3. **sales.exec@** buka quotation Siborong → alasan `Pelanggan minta diskon
+   untuk kontrak 40 unit` → **Buat Revisi**. Quotation baru (Draft) terbuka
+   dengan KYC dan varian yang sama.
+4. Kartu **Diskon negosiasi (revisi)** hanya ada di draft revisi (draft awal
+   tidak punya). Pilih satuan **Rupiah (per unit)**, isi `80000000` → **Simpan
+   diskon**. Layar menampilkan harga/unit incl. VAT yang baru, **tanpa GM,
+   tier, atau cost structure**. Klik **Submit**.
+5. **headsales@vktr.demo** → buka **Cost Structure Sheet** (dokumen internal)
+   → kembali → lihat GM **8,95%** (setara diskon 9,644%), **Tier 3 — CCO +
+   CFO · cc COGS Owner, Profitability Owner** → **Approve & rute tier**.
+   Status **Approval Tier — Pricing Committee (CCO & CFO)**.
+6. **headproc@** dan **headfinance@** membuka quotation: panel alur
+   menampilkan *Tembusan (cc)* tanpa tombol keputusan.
+7. **cco@vktr.demo** → **Approve**. Status **tetap** menunggu — satu dari dua
    belum cukup (AND-join).
 8. **cfo@vktr.demo** → catatan `Diskon terlalu dalam untuk kontrak 40 unit`
    → **Reject**. Quotation **kembali ke Sales Operations**; putaran tier
    dibatalkan.
 
-**Revisi Sales Operations → Tier 2**
+**3c. Disusun ulang → Tier 2**
 
-9. **salesops@vktr.demo** → ganti mode **%**, isi `4` (Rp 33.182.000/unit).
-   Dampak: net **Rp 796.368.000**, GM **14,34%**, **Tier 2 — COGS Owner +
-   Profitability Owner** → Simpan → Teruskan.
-10. **headsales@vktr.demo** → **Accept** → status **Approval Tier — COGS &
+9. **salesops@vktr.demo** → panel harga: ganti mode **%**, isi `4` (Rp
+   33.182.000/unit). Dampak: net **Rp 796.368.000**/unit, GM **14,34%**,
+   **Tier 2 — COGS Owner + Profitability Owner** → **Simpan harga &
+   dokumen** → **Teruskan ke Head of Sales**.
+10. **headsales@** → **Approve & rute tier** → **Approval Tier — COGS &
     Profitability Owner** (Tier 2).
-11. **procurement@vktr.demo** → **Approve** (mengisi slot COGS Owner).
-    Status masih menunggu (Tier 2). (Bila **headproc@vktr.demo** mencoba juga, tidak
-    ada slot tersisa untuknya.)
-12. **headfinance@vktr.demo** → **Approve** → Release Gate lolos →
-    **Quotation Released**. Total 40 unit: excl. VAT Rp 31.854.720.000,
-    incl. VAT **Rp 35.358.739.200**.
-13. **sales.exec@vktr.demo** → **Preview / Print Cost Estimate** —
-    bandingkan dengan PDF contoh: susunan bagian identik.
+11. **procurement@** → **Approve** (slot COGS Owner; **headproc@** tidak
+    punya slot tersisa). **headfinance@** → **Approve** → Release Gate
+    lolos → status **Disetujui — menunggu rilis** (nomor baru).
+12. **sales.exec@** → cetak, lalu **Lampirkan & rilis** (atau **Rilis tanpa
+    lampiran**). Total 40 unit:
+    excl. VAT Rp 31.854.720.000, incl. VAT **Rp 35.358.739.200**.
+13. Buka quotation awal (3a) → **Digantikan (Superseded)**; kartu *Linimasa
+    Project Identifier* menampilkan keduanya. Cetak yang lama → watermark
+    **SUPERSEDED**.
 
-> **Catatan skema Rental.** Pada langkah 4, skema **Rental** dapat dipilih
-> dengan tenor (bulan) dan sewa per unit per bulan incl. VAT (contoh
-> dokumen: 60 bulan, Rp 35.309.397). Layar menandai *"formula rental belum
-> dikonfirmasi — sewa/bulan diinput manual"*; tier tetap dihitung dari
-> harga Purchase setara. Dokumen mencetak *Rental Scheme, 5-year
-> Contract* dengan kolom *Rental/Month Unit* dan *Rental/Month Total*.
+> **Catatan skema Rental.** Skema **Rental** dapat dipilih dengan tenor (bulan)
+> dan sewa per unit per bulan incl. VAT (contoh dokumen: 60 bulan, Rp
+> 35.309.397). Layar menandai *"formula rental belum dikonfirmasi —
+> sewa/bulan diinput manual"* (oleh Sales Operations/Head of Sales); tier
+> tetap dihitung dari harga Purchase setara.
 
-## B4 — Negosiasi setelah rilis → quotation revisi (Project Identifier)
+## B4 — Won → Project → Payment → Progres → Dashboard
 
-1. **sales.exec@vktr.demo** → quotation Siborong (Released) → panel *Aksi
-   Anda* → alasan `Pelanggan minta tambahan diskon 1%` → **Buat Revisi**.
-2. Quotation baru (Draft) terbuka dengan KYC, lini bisnis, kualifikasi
-   deal & varian yang sama (workflow tetap Standard) → **Submit**. Karena KYC tidak berubah, **validasi Sales Lead dilewati**
-   dan quotation langsung ke Sales Operations.
-3. **salesops@vktr.demo** → diskon awal terbawa 4% → ubah ke `5` → GM
-   **13,44%**, Tier 2 → Simpan → Teruskan.
-4. **headsales@vktr.demo** Accept → **procurement@vktr.demo** Approve →
-   **headfinance@vktr.demo** Approve → Released (incl. VAT Rp
-   34.990.419.000).
-5. Buka quotation lama → status **Digantikan (Superseded)**; kartu
-   *Linimasa Project Identifier* menampilkan keduanya. Cetak yang lama →
-   watermark **SUPERSEDED**.
+1. **sales.exec@** → quotation Tirta Hijau (B1, Released) → panel *Aksi
+   Anda* → **Diterima (Won)**. Tanpa berkas PO form menolak (server juga:
+   *"Bukti PO wajib diunggah."*). Isi `PO-TH-001`, tanggal PO,
+   unggah berkas PO → **Simpan Won & buat project**. Kartu *Dokumen & Hasil*
+   menampilkan Nomor PO, *Buka bukti PO*, dan tautan **Buka project**.
+2. Menu **Projects** (data seed: project dari quotation historis yang Won
+   sudah ada). Buka project Tirta Hijau. **sales.exec@** menetapkan termin:
+   *DP* 30% dan *Pelunasan* 70% (total persen tidak boleh > 100%).
+3. **finance@vktr.demo** (login terpisah; sidebar hanya **Projects**):
+   termin *DP* → **Tandai diterima** → jumlah, tanggal, unggah screenshot
+   transfer → **Simpan & centang diterima**. Finance **tidak** dapat
+   menambah/menghapus termin. Setelah ada yang diterima, termin **terkunci**
+   untuk Salesperson.
+4. **projectteam@vktr.demo** → tab **Tracking** → tambah entri `PO diterima`
+   5%, lalu `Proses produksi` 20% (catatan opsional). Bilah progres terisi;
+   Tim Project tidak dapat mengubah termin.
+5. **sales.exec@** membuka project yang sama: payment dan progres **hanya
+   dibaca**.
+6. **chief@vktr.demo** → mendarat di **Dashboard** (executive): quotation
+   terkirim/Won/Lost, jumlah PO dan total nilai project, termin diterima vs
+   belum, status project. Menu lain (Cost Structure, Settings) tidak tampil
+   dan **404** bila dibuka lewat URL.
+7. **sales.exec@** → **Dashboard**: KPI miliknya (terkirim, Won, Lost,
+   kuning/merah). **salesops@** / **headsales@**: pilih Salesperson atau
+   lihat tabel *Per Salesperson*.
 
-## B5 — Penerimaan pelanggan & kedaluwarsa
+## B5 — Hasil, warna umur, Expired, dan membatalkan approve final
 
-1. **sales.exec@vktr.demo** → quotation Tirta Hijau (B1) → *Hasil dari
-   pelanggan* → isi URL salinan bertanda tangan (opsional) → **Diterima
-   (WON)**.
-2. Buka **Official Quotation** → quotation historis `4 Unit — CV Maju
-   Jaya Konstruksi` kini berstatus **Kedaluwarsa** (dirilis > 30 hari
-   tanpa jawaban). Tombol **Buat Revisi** tersedia untuk memperpanjang
-   dengan harga terbaru.
+1. **Lost.** **sales.exec@** pada quotation Released (mis. Bumi Karya, B2)
+   → **Ditolak (Lost)** → simpan tanpa alasan ditolak; isi alasan →
+   tersimpan, badge **Lost** merah.
+2. **Warna dari tanggal rilis.** Quotation baru = **hijau** (hari ke-0).
+   Seed historis berumur > 30 hari sehingga merah/Expired. Untuk
+   memperlihatkan **kuning**, mundurkan tanggal rilis salah satu quotation
+   Released (SQL Editor Supabase, hanya di database demo):
 
-> **Berubah di v5.0.** **Won** wajib mengunggah bukti PO
-> dan **Lost** wajib alasan (keduanya manual oleh Salesperson). Status
-> *Kedaluwarsa* pada langkah 2 di atas **tetap otomatis**, dan Admin dapat
-> mengubahnya manual. Ditambah badge **kuning** setelah 14 hari dan
-> **merah** setelah 30 hari sejak tanggal rilis. Lihat B9.
+   ```sql
+   update pricing_proposal set released_at = now() - interval '16 days'
+   where document_number = '<nomor quotation Bumi Karya>';
+   ```
+
+   Daftar Official Quotation → badge **kuning · 16 hr**; filter
+   *Kuning (follow up)*; Overview menampilkan *"Follow up pelanggan
+   (kuning)"*. Ubah ke `35 days` → **merah**. Ambang (14/30 hari) dapat
+   diubah di **Settings → Umum**.
+3. **Expired otomatis.** Quotation historis `4 Unit — CV Maju Jaya
+   Konstruksi` melewati masa berlaku → status **Kedaluwarsa** saat daftar
+   dibuka (audit `EXPIRE`); tombol **Buat Revisi** tersedia.
+4. **Override Admin.** **admin@vktr.demo** → quotation Released yang belum
+   Won → panel *Aksi Anda*: **Nyatakan Expired** (alasan wajib) → status
+   Expired. Pada quotation Expired: **Batalkan Expired** → wajib alasan dan
+   tanggal berlaku **baru** (> hari ini) → kembali **Released**. Kartu
+   *Dokumen & Hasil* mencatat siapa, kapan, dan alasannya. Sales Executive
+   tidak melihat aksi ini; quotation **Won tidak dapat** di-Expired.
+5. **Batalkan approve final.** Buat quotation baru (mis. `PT Contoh Batal
+   Approval`, 1 unit) → submit → **headsales@** Approve → status *Disetujui —
+   menunggu rilis*. **headsales@** → **Batalkan approval final**
+   dengan alasan `Harga perlu direvisi` → kembali **Review Head of Sales**,
+   nomor dokumen **kosong**, panel harga *Revise* aktif. Approve lagi →
+   **nomor baru**. Audit memuat nomor lama dan alasan. Setelah **Released**,
+   tombol ini tidak ada — koreksi hanya lewat Revisi.
 
 ## B6 — Fraud guard, antrean kerja & audit
 
-1. **sales.exec@vktr.demo** → Official Quotation baru untuk `PT Tirta
-   Hijau Logistik` + varian SWB lagi (hari yang sama) → ditolak *"Batas
-   quotation harian untuk customer & varian ini sudah tercapai"*.
-2. Setiap peran: **Overview → Menunggu tindakan Anda** berisi quotation
-   yang langkah aktifnya dijalankan role tersebut.
-3. **Lifecycle & Approvals** → Kanban: Draft → Validasi Sales Lead → Sales
-   Operations → Review Head of Sales → Tier 2 → Tier 3 → Released.
-4. **admin@vktr.demo** → **Audit Trail**: SUBMIT, VALIDATE, STEP_SKIPPED,
-   GENERATE, UPDATE (diskon), TIER_ROUTE, TIER_CC, APPROVE, REJECT,
-   RELEASE, SUPERSEDE, EXPIRE, PRINT, BLOCKED_DUPLICATE_ATTEMPT.
+1. **sales.exec@vktr.demo** → Official Quotation baru untuk `PT Tirta Hijau
+   Logistik` + varian SWB lagi (hari yang sama) → ditolak *"Batas quotation
+   harian untuk customer & varian ini sudah tercapai"* (revisi dikecualikan).
+2. **Overview → Menunggu tindakan Anda** per peran: Head of Sales = review;
+   Salesperson = draft, *Rilis quotation (lampiran opsional)*, follow up
+   kuning/merah; approver tier = slot tier.
+3. **Lifecycle & Approvals** → Kanban: Draft → Review Head of Sales → Tier 2
+   → Tier 3 → **Disetujui — menunggu rilis** → Released. Di handphone
+   kolom bergeser horizontal.
+4. **admin@vktr.demo** → **Audit Trail**: SUBMIT, GENERATE, UPDATE (diskon,
+   Won/Lost, termin, progres, batal approval), TIER_ROUTE, TIER_CC, APPROVE,
+   REJECT, RELEASE, SUPERSEDE, EXPIRE, PRINT, BLOCKED_DUPLICATE_ATTEMPT.
 
-## B6c — Workflow Template Catalog: alur berbeda per jenis deal
+## B7 — Menu & data hanya yang dipakai role (PRD FR-5.7)
 
-1. **admin@vktr.demo** → **Settings → Workflow**: daftar bernomor berisi 6
-   workflow (Standard, Blacklist, Relasi Khusus, Nilai Besar, B2G,
-   Industri Tambang & Perkebunan) beserta qualifier, langkah, prioritas,
-   dan tier masing-masing. **Klik baris B2G** → halaman detail: kapan
-   dipakai, tier margin khusus (Tier 1 → CCO & CFO), alur langkah
-   (KYC → Validasi Sales Lead → Verifikasi dokumen tender → Sales
-   Operations → Review → tier), riwayat versi, dan quotation yang memakainya.
-   **← Daftar workflow** untuk kembali.
-2. Kartu **Uji pemilihan template**: Segmen `B2G` → **Uji** → terpilih
-   *B2G Pemerintah*; ubah Hubungan ke `Relasi khusus` → terpilih *Relasi
-   Khusus* (prioritas 20 > 10); centang Blacklist → *Customer Blacklist*.
-3. **sales.exec@vktr.demo** → Official Quotation baru `Dinas Lingkungan
-   Hidup Kota Bekasi`, KYC lengkap, Lini bisnis **B2G / Pemerintah**,
-   Kualifikasi Segmen **B2G** · Industri `Municipality` · Hubungan
-   `Reguler`, 2 unit SWB → Submit. Panel alur menampilkan **Workflow Template: Official
-   Quotation — B2G Pemerintah** + alasan. Setelah validasi Sales Lead,
-   langkah *Verifikasi dokumen tender (Head of Sales)* muncul sebelum
-   Sales Operations; saat Head of Sales Accept (GM 16,10%, Tier 1), quotation
-   tetap ke **Pricing Committee (CCO & CFO)** — tier khusus B2G.
-4. **Workflow baru tanpa kode**: Settings → Workflow → klik *Industri
-   Tambang & Perkebunan* → **Duplikat** → nama `Official Quotation —
-   Municipality`, pada qualifier Industri hapus `Pertambangan` &
-   `Perkebunan` lalu pilih `Municipality`, prioritas `8` →
-   **Buat workflow** → langsung terbuka halaman detailnya. **← Daftar
-   workflow**: daftar kini berisi 7. (Alternatif: tombol **Tambah
-   workflow** di atas daftar untuk mulai dari langkah template dasar.)
-   Uji lagi: Industri `Municipality` (segmen B2B) → workflow baru terpilih.
-5. Di detail *Municipality* → kartu Tier margin → **Buat tier khusus**
-   (membuka Settings → Tier Margin untuk template ini) → **Buat
-   tier khusus (salin global)** → ubah pemutus Tier 2 → simpan. Wewenang
-   diskon kini berbeda untuk template ini saja.
+1. Bandingkan sidebar:
+   - **sales.exec@**: Overview, **Dashboard**, Price Estimate, Official
+     Quotation, **Projects** — tanpa Lifecycle, Cost Structure, DSS, Master
+     Data, Audit, Settings.
+   - **finance@** dan **projectteam@**: hanya **Projects**.
+   - **chief@**: **Dashboard** dan **Projects** (baca).
+   - **procurement@**: Overview, Official Quotation, Lifecycle, Cost
+     Structure, DSS, Master Data & Kurs.
+   - **product@**: langsung ke **Product Master Data**.
+2. Sebagai **sales.exec@**, buka `/settings`, `/cost-structure`, dan
+   `/audit-log` lewat URL → **404**.
+3. Daftar Official Quotation Salesperson hanya memuat quotation miliknya;
+   quotation Bumi Karya (diajukan sales.lead@) tidak muncul dan URL-nya
+   **404**. Project Salesperson lain juga tidak terlihat.
 
-## B6b — Menu & data hanya yang dipakai role (PRD FR-5.7)
+## B8 — Tampilan di handphone dan iPad (PRD FR-5.8)
 
-1. Login bergantian dan bandingkan sidebar:
-   - **sales.exec@vktr.demo**: Overview, Price Estimate, Official
-     Quotation — tanpa Lifecycle, Cost Structure, DSS, Master Data,
-     Audit, Settings.
-   - **procurement@vktr.demo**: Overview, Official Quotation, Lifecycle,
-     Cost Structure, DSS, Master Data & Kurs — tanpa Price Estimate,
-     Product, Audit, Settings.
-   - **product@vktr.demo**: langsung mendarat di **Product Master Data**
-     (satu-satunya menu).
-2. Sebagai **sales.exec@vktr.demo**, buka `/settings`, `/cost-structure`,
-   dan `/audit-log` langsung lewat URL → semuanya **404**.
-3. Sebagai **sales.exec@vktr.demo**, buka daftar Official Quotation →
-   hanya quotation yang ia ajukan (B1, B3, revisi B4). Quotation B2
-   (diajukan Sales Lead) tidak muncul, dan membuka URL-nya → **404**.
-4. Sebagai **sales.lead@vktr.demo** → daftar memuat B2 (miliknya) dan
-   permintaan Sales Executive yang ia validasi (B1, B3).
+Buka aplikasi di DevTools (lebar **375**, **768**, **1280**) atau di
+handphone, login **sales.exec@**:
 
-## B7 — (Opsional) Role & workflow diatur di aplikasi
+1. < 1024 px: sidebar hilang, muncul **top bar** dengan tombol hamburger;
+   drawer menutup dengan Esc, tombol ✕, ketuk di luar, atau setelah pindah
+   halaman; halaman di belakangnya tidak ikut bergulir.
+2. **Official Quotation** dan **Projects**: daftar berbentuk **kartu**;
+   tabel lebar (rincian harga, Settings, Master Data) **digeser ke samping**
+   di dalam kartunya, halaman tidak ikut bergeser.
+3. Form KYC, panel aksi, dan form termin/progres satu kolom; kolom Kanban
+   bergeser dan berhenti per kolom; input tidak membuat iOS memperbesar
+   layar.
 
-1. **admin@vktr.demo** → **Settings → Workflow** → klik baris
-   *Official Quotation — Standard* → halaman detail menampilkan alur
-   *Validasi Sales Lead → Generate Official Quotation → Review & Rilis*
-   (pelaksana, kondisi lewati, tujuan tolak, SLA). Klik **Ubah** → SLA
-   langkah 2 ke `8` → **Simpan sebagai versi baru** → kembali ke detail;
-   *Riwayat versi* bertambah satu (quotation yang sedang berjalan tetap
-   memakai versi lamanya).
-2. **Settings → Tier Margin & Quantity Band**: ambang 15% / 10%, pemutus
-   tiap tier, tembusan, dan band 1 / 2–5 / 6–9 / 10+ beserta diskon
-   default — semuanya dapat diedit.
-3. **Settings → Scope Authority (M/C/R)**: grid role × scope ×
-   Maker/Checker/Releaser untuk skenario Regular dan Deviation, identik
-   dengan sheet Actors → **Export CSV**.
-4. **Settings → Roles & Users**: tambah role `CORP_FIN_MANAGER` *Corporate
-   Finance Manager* dengan fungsi **Profitability Owner** → role langsung
-   dapat dipilih di tabel User dan ikut menjadi pemutus Tier 2 — tanpa
-   ubah kode.
+## B9 — (Opsional) Admin: Settings dan variasi workflow
 
-## B8 — Enam workflow, enam deal (satu deal per Workflow Template)
-
-Tujuan: membuktikan bahwa **jenis deal** menentukan alur, sesuai enam
-workflow di Settings → Workflow. Semua deal memakai varian **LDT 4x2 SWB
-Dumper 90 kWh**, diajukan oleh **sales.exec@vktr.demo** (kecuali disebut
-lain), KYC b–g boleh diisi singkat seperti B1. Customer dibuat berbeda
-agar tidak terkena batas quotation harian (B6).
-
-**Isian per deal**
-
-| # | a. Nama perusahaan | Lini bisnis | Segmen · Industri · Hubungan | Qty | Workflow yang harus terpilih | Alasan pemilihan |
-|---|---|---|---|---|---|---|
-| 1 | `PT Sinar Kargo Kota` | B2B Commercial Fleet | B2B · On-road Logistics · Reguler | 1 | **Standard** | tidak ada template spesifik yang cocok → template dasar |
-| 2 | `Dinas Perhubungan Kota Depok` | B2G / Pemerintah | B2G · Municipality · Reguler | 1 | **B2G Pemerintah** | segmen B2G (prioritas 10) |
-| 3 | `PT Mitra Setia Abadi` | B2B Commercial Fleet | B2B · Konstruksi · **Relasi khusus** | 1 | **Relasi Khusus** | relasi khusus (prioritas 20) |
-| 4 | `PT Tambang Batu Sumatera` | B2B Commercial Fleet | B2B · **Pertambangan** · Reguler | 1 | **Industri Tambang & Perkebunan** | industri Pertambangan (prioritas 5) |
-| 5 | `PT Armada Nasional Raya` | B2B Commercial Fleet | B2B · On-road Logistics · Reguler | **61** | **Nilai Besar (≥ Rp 50 M)** | estimasi 61 × Rp 829.550.000 = Rp 50,6 M (prioritas 15) |
-| 6 | `PT Contoh Blacklist Abadi` | B2B Commercial Fleet | B2B · Konstruksi · Reguler | 1 | **Customer Blacklist** | nama ada di blacklist (Settings → Umum), prioritas 100 |
-
-Setelah **Submit**, cek kartu *Workflow Template* di halaman quotation:
-nama workflow dan alasannya harus sama dengan tabel. Lalu jalankan:
-
-| # | Alur setelah submit (akun yang bertindak) | Yang membedakan dari Standard |
-|---|---|---|
-| 1 | **sales.lead@** Validasi → generate otomatis (1 unit) → **headsales@** Accept → GM 17,79% Tier 1 → **Released** | — (pembanding) |
-| 2 | **sales.lead@** Validasi → **headsales@** *Verifikasi dokumen tender* → generate otomatis → **headsales@** Accept → Tier 1 khusus B2G → **cco@** + **cfo@** Approve → Released | Langkah tambahan verifikasi tender; Tier 1 pun harus disetujui Pricing Committee |
-| 3 | Validasi Sales Lead **tidak ada** → generate otomatis → **headsales@** Accept → Tier 1 → Released. *Opsional:* di panel harga Head of Sales ubah diskon ke `4`% (GM 14,34%, Tier 2) → Accept → status **Pricing Committee (CCO & CFO)**, bukan COGS & Profitability Owner | Tanpa validasi Sales Lead; GM < 15% langsung ke CCO & CFO |
-| 4 | **sales.lead@** Validasi → generate otomatis → **procurement@** (atau **headproc@**) *Review aplikasi & karoseri* → **headsales@** Accept → Tier 1 → Released | Langkah tambahan review COGS Owner sebelum Head of Sales |
-| 5 | **sales.lead@** Validasi → **cco@** (atau **cfo@**) *Persetujuan kelayakan deal* → **salesops@** susun harga manual (band 10+), mis. diskon `2`% → Teruskan → **headsales@** Accept → GM 16,10% Tier 1 → Released | Pricing Committee menyetujui kelayakan deal **sebelum** harga disusun |
-| 6 | **sales.lead@** Validasi → **cco@** (atau **cfo@**) *Persetujuan customer blacklist* → generate otomatis → **headsales@** Accept → Tier 1 khusus blacklist → **cco@** + **cfo@** Approve → Released | Ada persetujuan Pricing Committee di awal **dan** di tier; quotation menandai *customer blacklist* |
-
-Variasi singkat yang menarik ditunjukkan:
-
-- Ajukan deal #6 dari **sales.lead@vktr.demo** (nama customer sama,
-  setelah deal #6 pertama selesai atau dengan varian lain): langkah
-  validasi **tidak** dilewati — Sales Lead harus memvalidasi secara
-  eksplisit — karena workflow Blacklist tidak punya kondisi lewati,
-  berbeda dari B2.
-- Deal #5 dengan **60** unit (Rp 49,8 M) → kembali ke **Standard**:
-  ambang nilai bekerja.
-- **Settings → Workflow** → klik workflow mana pun → kartu *Pemakaian*
-  kini menampilkan deal B8 yang memakainya.
+1. **Settings → Roles & Users**: role dan fungsinya data (Finance, Tim Project,
+   Chief/Direksi termasuk). Tambah role `CORP_FIN_MANAGER` *Corporate Finance
+   Manager* dengan fungsi **Profitability Owner** → langsung dapat dipilih di
+   tabel User dan ikut menjadi pemutus Tier 2 tanpa ubah kode.
+2. **Settings → Scope Authority (M/C/R)**: grid role × scope ×
+   Maker/Checker/Releaser (Regular/Deviation), identik dengan sheet Actors →
+   **Export CSV**. **Segregation**: Maker ≠ Checker aktif untuk COGS,
+   Add-Ons, Sales; scope Margin boleh satu aktor.
+3. **Settings → Tier Margin & Quantity Band**: ambang 15%/10%, pemutus tiap
+   tier, tembusan, band dan diskon default (kini semua Otomatis/0%). Tier
+   sengaja **terpisah dari template**. **Settings → Umum & Dokumen**: PPN
+   11%, judul/pola nomor/masa berlaku dokumen, **ambang kuning/merah**.
+4. **Settings → Workflow**: daftar berisi seluruh template; hanya *Standard*
+   **aktif**, lima lainnya (Blacklist, Relasi Khusus, Nilai Besar, B2G,
+   Industri Tambang & Perkebunan) **nonaktif** dan siap dipakai kelak. Klik
+   *Standard* → detail: dua langkah, riwayat versi (versi lama yang punya
+   Validasi Sales Lead nonaktif). **Ubah** → SLA langkah ke `8` → **Simpan
+   sebagai versi baru** (quotation berjalan memakai versi lamanya).
+5. **Variasi per jenis deal (kemampuan mesin, bukan konfigurasi go-live).**
+   Klik *B2G Pemerintah* → **Aktifkan**. Kartu **Uji pemilihan template**:
+   Segmen `B2G` → **Uji** → *B2G Pemerintah* terpilih. Quotation B2G baru
+   (`Dinas Lingkungan Hidup Kota Bekasi`, Lini bisnis **B2G / Pemerintah**,
+   Segmen B2G · Municipality · Reguler, 2 unit) → panel alur menampilkan
+   template dan alasannya; **di sinilah langkah Validasi Sales Lead dan
+   verifikasi dokumen tender muncul lagi**, dan tier khusus B2G mewajibkan
+   CCO & CFO bahkan untuk Tier 1. Setelah selesai, **Nonaktifkan** kembali.
+   *Duplikat* sebuah template untuk membuat workflow baru tanpa kode.
 
 ---
 
-## B9 — v5.0: satu workflow, siklus hidup, Project & Dashboard
+## Lampiran A — Data awal: Product Master Data & Cost Structure v1 (M/C/R)
 
-> **Status:** hasil meeting *VKTR Req 2*, sudah dikodekan. **Prasyarat:**
-> jalankan migrasi `0018` lalu `0019` dan `npm run seed:demo` (akun
-> finance@, projectteam@, chief@ dan project contoh). Migrasi 0019 sudah
-> melakukan konfigurasi B9-0 (satu workflow aktif, band Otomatis, diskon
-> default 0%), jadi B9-0 hanya perlu diperiksa di Settings. Belum
-> diuji manual terhadap database sungguhan.
+`npm run seed:demo`/`reset:demo` sudah mengisi bagian ini; jalankan manual
+hanya bila ingin memperagakan lapisan 0 (varian baru memerlukan cost
+structure RELEASED sebelum muncul di Price Estimate/Official Quotation).
 
-**B9-0 Konfigurasi (admin@vktr.demo, tanpa kode).** Settings → Workflow:
-nonaktifkan `OQ-BLACKLIST`, `OQ-RELASI-KHUSUS`, `OQ-NILAI-BESAR`,
-`OQ-B2G`, `OQ-INDUSTRI-BERAT`; ubah `OQ-STANDARD` dengan menghapus
-langkah *Validasi Sales Lead* (simpan → versi baru). Settings → Tier &
-Band: ubah semua *quantity band* ke **Otomatis** dan set **diskon
-default 0%** pada semua band (seed memberi 2% dan 3% pada band 2–3;
-tanpa ini rilis awal sudah berdiskon, bukan harga standar).
+**A1. Product Owner (product@vktr.demo → Product Master Data).** Daftar
+Produk menampilkan make·model beserta jumlah varian dan yang siap dikutip →
+**VKTR Light Duty Truck** → **Tambah Varian**: Type `4x2 Short Wheelbase`,
+Variant `Dumper, Battery 90 kWh`, build `CKD`, loco `Magelang`, deskripsi
+dokumen *VKTR Light Duty Truck 4x2, Short Wheelbase, with Dumper, Battery 90
+kWh, CKD, loco Magelang, incl. VAT*; unggah 3 halaman spesifikasi; Inclusions
+default *Onsite training during initial deployment, 2 week · Online training
+refreshment 1x (first year) · On-call technical support*; Exclusions default
+*Maintenance · Other Requests* → simpan (`ACTIVE`). Varian belum muncul di
+pilihan Sales (cost structure belum dirilis). **Ubah varian**: Audit Trail
+mencatat `UPDATE` nilai lama dan baru; Inclusions baru hanya terbawa ke
+quotation baru.
 
-**B9a Rilis harga standar (sales.exec@vktr.demo → headsales@vktr.demo).**
-1. Sales Executive membuat quotation 4 unit (KYC lengkap) → **Submit**.
-2. Status langsung **Pending Head of Sales Review** (tanpa validasi Sales
-   Lead dan tanpa antrean Sales Operations); harga standar terhitung.
-   Sales Executive tidak dapat mengisi diskon pada draft awal ini.
-3. **headsales@** *Accept* → GM ≥ 15% → Tier 1 → status **Menunggu dokumen
-   bertanda tangan**; nomor dan tanggal dokumen sudah terisi, `valid_until`
-   30 hari tampil di dokumen.
-4. Head of Sales menandatangani dokumen (cetak/PDF) di luar aplikasi.
-   **sales.exec@** membuka quotation → **Lampirkan dokumen bertanda
-   tangan** → unggah PDF/gambar → status **Quotation Released**.
-   (headsales@ tidak punya tombol unggah.) Di daftar Sales Executive,
-   quotation tampil **hijau**.
+**A2. COGS & Add-Ons (procurement@ = Maker; headproc@ = Checker & Releaser).**
+Cost Structure → LDT 4x2 SWB Dumper 90 kWh → v1 (Draft):
 
-**B9b Diskon lewat Revisi + tier.**
-1. Pelanggan meminta diskon → Sales Executive **Buat Revisi** dengan alasan.
-2. Pada draft revisi, **Sales Executive mengisi diskon** (Rp atau %) —
-   tombol ubah diskon hanya tampil pada draft revisi; draft awal tetap
-   terkunci. Tidak ada GM/tier/cost structure di layar Sales Executive.
-3. Revisi di-submit → Head of Sales *Accept* → GM mis. 12% → **Tier 2**
-   (COGS Owner + Profitability Owner menyetujui) → Menunggu dokumen
-   bertanda tangan → lampiran diunggah → Released; quotation asal menjadi
-   SUPERSEDED.
+| COGS (per unit) | Nilai | Add-Ons | Nilai |
+|---|---|---|---|
+| FOB Price in CNY | ¥ 185.000 (→ Rp 481.000.000 @2.600, kurs terkunci) | STNK *(Add-Ons, bukan Sales)* | 6.000.000 |
+| Freight and Insurance | 18.000.000 | KEUR | 1.500.000 |
+| Custom Duties | 24.000.000 | Insurance *(Add-Ons)* | 9.000.000 |
+| Port Handling, Clearance, PDI | 7.500.000 | Processing Service | 2.500.000 |
+| Carrosserie Allocation | 65.000.000 | Delivery Service | **Exclusion — At cost** |
+| Assembly Cost | 22.000.000 | Additional | 0 |
+| Local Parts | 12.000.000 | **Total Add-Ons** | **Rp 19.000.000** |
+| Accessories / Telematics / Warehousing | 4.000.000 / 3.500.000 / 2.000.000 | | |
+| Warranty / Initial Energy Injection / Administrative | 15.000.000 / 1.000.000 / 3.000.000 | | |
+| **Total COGS** | **Rp 658.000.000** | | |
 
-**B9c Status berwarna & Expired (v5.0).** Data seed:
-quotation dirilis 3, 16, dan 35 hari lalu tanpa hasil → badge **hijau**,
-**kuning**, **merah**. Dashboard Sales menampilkan hitungan masing-masing.
-Quotation yang melewati `valid_until` menjadi **Expired otomatis**;
-**admin@** dapat menyatakan Expired lebih awal atau membatalkannya
-(dengan `valid_until` baru dan alasan); sales.exec@ tidak punya aksi itu.
+**Submit (Make)** kedua scope; coba **Check** sebagai Maker → ditolak
+*"Checker harus berbeda dari Maker"*; **headproc@** → **Check** lalu
+**Release**.
 
-**B9d Won/Lost + bukti PO (v5.0).** Sales Executive pada
-quotation yang dirilis → **Hasil → Won**; tanpa unggahan PO ditolak
-("Bukti PO wajib diunggah."); dengan PO → Won dan muncul di menu
-**Projects**. Tunjukkan juga **Lost** (alasan wajib).
+**A3. Margin (headfinance@).** VKTS Profit Before Tax Rp 20.000.000 · VKTS
+Margin 6% · VKTR Profit Before Financing Cost Rp 25.000.000 · Financing Cost
+4% · VKTR Margin After Financing Cost 5% (Margin = 677.000.000 × 15% +
+45.000.000 = **Rp 146.550.000**). Make → Check → Release oleh orang yang sama
+diizinkan (pemegang scope tunggal) dan ditandai **single-actor release**.
 
-**B9e Termin, Payment & Tracking (finance@ dan
-projectteam@ dibuat oleh `npm run seed:demo`).**
-1. **sales.exec@** membuka project → tab **Payment** → tambah termin 1
-   (DP 30%) dan termin 2 (70%) — Salesperson yang menetapkan termin.
-2. **finance@** (login terpisah) → termin 1 → isi jumlah, unggah
-   screenshot transfer, centang diterima. Finance tidak dapat mengubah
-   jumlah/persentase termin.
-3. **projectteam@** → tab **Tracking** → tambah entri "Proses produksi"
-   5%, lalu 20%.
-4. **sales.exec@** membuka project yang sama dan **hanya membaca** status
-   payment dan progres.
+**A4. Sales (salesops@ = Maker; headsales@ = Checker & Releaser).** Incentive
+Internal 4.000.000 · Incentive External 0 · Sales Processing Cost 2.000.000 ·
+Agency Fee 0.
 
-**B9f Dashboard (chief@vktr.demo).**
-Login sebagai Chief/Direksi → Dashboard executive: quotation Released vs
-Won, jumlah PO dan total nilai project, ringkasan payment dan project.
-Menu lain (Cost Structure, Settings) tidak tampil dan 404 bila dibuka
-lewat URL.
-
-**B9g Responsif (v5.0).** Buka aplikasi pada lebar 375 px
-(DevTools atau handphone): sidebar menjadi hamburger/drawer, daftar
-quotation dan project berbentuk kartu, form satu kolom, tabel dapat
-digeser, tidak ada halaman yang terpotong.
+**Hasil:** empat scope `RELEASED` → **Cost Structure v1 RELEASED**: harga
+dasar excl. VAT **Rp 829.550.000**, GM **17,79%** (GM = (harga bersih excl.
+VAT − Sales − base cost) ÷ (harga bersih excl. VAT − Sales)). Scope
+independen — urutan A2/A3/A4 boleh ditukar atau paralel.
 
 ---
 
@@ -489,20 +456,21 @@ digeser, tidak ada halaman yang terpotong.
 | Kontrol | Bukti |
 |---|---|
 | KYC wajib (6 field) sebelum submit; multi-varian | B1 |
-| Salesperson tidak pernah melihat cost structure | B1 langkah 4 & 11 |
-| Validasi Sales Lead untuk Sales Executive; dilewati untuk Sales Lead | B1, B2 |
-| Quantity band 1 / 2–5 / 10+ | B1, B2, B3 |
-| Diskon Rp atau %, dampak GM & tier sebelum simpan | B3 |
+| Salesperson tidak pernah melihat cost structure, GM, atau tier | B1, B3 langkah 4 |
+| Satu workflow aktif; tanpa validasi Sales Lead; Generate otomatis; harga standar | B1, B2, B9 |
+| Head of Sales approve → dokumen bernomor → **Salesperson merilis; lampiran TTD opsional** (dengan atau tanpa) | B1, B2 |
+| Dropdown *Tanpa approval Head of Sales* → langsung Released; tier margin tetap berlaku (GM < 15%) | B2b |
+| Hanya Salesperson pemilik/Admin yang dapat merilis/melampirkan; lampiran dapat ditambah/diganti setelah rilis | B1 langkah 12 |
 | Head of Sales menerima detail cost structure | B1, B3 |
-| Tier 1 rilis langsung; Tier 2 & 3 AND-join; cc Tier 3; tolak → Sales Operations | B1–B3 |
-| Dokumen Cost Estimate: preview draft (watermark), cetak/PDF versi rilis, halaman spesifikasi | B1, B3 |
-| Revisi via Project Identifier, lama SUPERSEDED | B4 |
-| WON, kedaluwarsa 30 hari otomatis (build sekarang; v5.0: Won wajib PO, Expired override Admin, lihat B9) | B5 |
-| *(v5.0, target)* Satu workflow aktif; Head of Sales approve + lampiran tanda tangan oleh Salesperson sebelum Released; diskon Salesperson pada draft Revisi + tier | B9-0, B9a, B9b |
-| *(v5.0, target)* Status berwarna 14/30 hari; Expired otomatis + override Admin; Won + PO; Lost manual | B9c, B9d |
-| *(v5.0, target)* Projects: termin (Salesperson), payment (Finance), progres (Tim Project), dashboard Sales/Executive, responsif | B9e–B9g |
+| Diskon hanya lewat Revisi (Salesperson); Tier 2 & 3 AND-join; cc Tier 3; tolak → Sales Operations | B3 |
+| Dokumen Cost Estimate: preview draft (watermark), cetak untuk ditandatangani, halaman spesifikasi | B1 |
+| Revisi via Project Identifier, lama SUPERSEDED | B3 |
+| Won wajib bukti PO → Project; Lost wajib alasan | B4, B5 |
+| Termin oleh Salesperson, payment oleh Finance, progres oleh Tim Project | B4 |
+| Dashboard Sales dan Executive | B4 |
+| Badge hijau/kuning/merah dari tanggal rilis; Expired otomatis + override Admin | B5 |
+| Batalkan approve final sebelum rilis | B5 langkah 5 |
 | Fraud guard, antrean per role, audit trail | B6 |
-| Role & workflow dapat diatur di Settings | B7 |
-| Menu di luar role tersembunyi & 404; quotation dibatasi per baris | B6b |
-| Workflow Template Catalog: pemilihan otomatis, alur & tier per template, template baru tanpa kode | B6c |
-| Lini bisnis & kualifikasi deal diisi per skenario; tiap workflow (6) punya deal contoh dan alurnya terbukti berbeda | §0 langkah 4, B8 |
+| Menu di luar role tersembunyi & 404; data dibatasi per baris | B7 |
+| Responsif handphone/iPad | B8 |
+| Role, wewenang, tier, band, workflow dapat diatur di Settings; template lain tinggal diaktifkan | B9 |
