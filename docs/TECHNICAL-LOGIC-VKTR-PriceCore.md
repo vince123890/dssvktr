@@ -783,10 +783,11 @@ Seed (sheet *Basic Workflow* langkah 7):
 | status_label | varchar | mis. "Proses produksi" |
 | progress_pct | smallint 0–100 | |
 | note | text nullable | |
+| attachment_path | text | path berkas bukti (foto/PDF/PNG/JPG) di storage; **wajib untuk entri baru** (aksi `addProgressEntryAction` menolak tanpa berkas); nullable hanya untuk data lama/seed (migrasi 0022) |
 | created_by, created_at | | |
 
 - **Penyimpanan berkas:** bucket storage **privat** `project-files`
-  (`po/<proposal_id>/…`, `payment/<project_id>/<term_no>/…`); URL
+  (`po/<proposal_id>/…`, `payment/<project_id>/<term_no>/…`, `progress/<project_id>/…`); URL
   bertanda tangan berumur pendek; kebijakan akses mengikuti visibilitas
   project (§8.5). Batas ukuran dan tipe (PDF/PNG/JPG) divalidasi di server.
 - **RLS:** baris `project*` dapat dibaca role dengan menu `projects`

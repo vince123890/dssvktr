@@ -1,3 +1,5 @@
+import { validateUpload, type UploadCandidate } from "./files";
+
 /**
  * Project / payment-term rules that need no database (PRD Module 9,
  * Technical Logic §2.1 `project*`). Kept pure so they can be unit tested.
@@ -72,4 +74,23 @@ export function paymentSummary(terms: TermLike[], contractValueExVat: number): P
 /** Short label for lists: "2/3 termin" or "Termin belum diatur". */
 export function paymentLabel(s: PaymentSummary): string {
   return s.termCount === 0 ? "Termin belum diatur" : `${s.receivedCount}/${s.termCount} termin diterima`;
+}
+
+export interface ProgressDraft {
+  statusLabel: string;
+  progressPct: number;
+  /** Photo or document that proves the progress (PDF, PNG, JPG/JPEG) — required for every entry. */
+  file: UploadCandidate | null | undefined;
+}
+
+/** Returns an error message, or null when the progress entry can be saved (PRD FR-9.4). */
+export function validateProgressInput(input: ProgressDraft): string | null {
+  if (!input.statusLabel.trim()) return "Isi status project.";
+  if (!Number.isInteger(input.progressPct) || input.progressPct < 0 || input.progressPct > 100) {
+    return "Progres harus bilangan bulat 0–100.";
+  }
+  if (!input.file || input.file.size === 0) {
+    return "Foto atau dokumen bukti progres wajib dilampirkan (PDF, PNG, atau JPG).";
+  }
+  return validateUpload(input.file);
 }

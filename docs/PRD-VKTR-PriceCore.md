@@ -1371,6 +1371,10 @@ Tidak berubah dari v3.0. Ringkasnya:
     (role baru, dikonfirmasi): tanggal, **status**
     (mis. proses produksi, pengiriman, sampai) dan **progres %**
     (mis. 5% → 20%), dengan catatan singkat; riwayat entri tersimpan.
+  - **Setiap entri wajib disertai bukti foto atau dokumen** (PDF, PNG,
+    JPG/JPEG; maks. 10 MB); entri tanpa lampiran ditolak. Lampiran dapat
+    dibuka dari riwayat. Bukti transfer termin oleh Finance juga wajib
+    (format yang sama, FR-9.3).
   - Salesperson membaca progres untuk menginformasikan pelanggannya
     (mis. "produksi 1 truk, progres 20%").
   - Tampilannya sengaja berupa *text box*/riwayat sederhana, bukan

@@ -872,6 +872,8 @@ export interface ProjectProgressEntry {
   status_label: string;
   progress_pct: number;
   note: string | null;
+  /** Storage path of the photo / document that proves this entry (required for new entries). */
+  attachment_path: string | null;
   created_by: string | null;
   created_at: string;
 }

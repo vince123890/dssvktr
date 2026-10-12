@@ -54,14 +54,17 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       proofUrl: await signedUrl(supabase, t.proof_path),
     }))
   );
-  const progressViews: ProgressView[] = entries.map((e) => ({
-    id: e.id,
-    entryDate: e.entry_date,
-    statusLabel: e.status_label,
-    progressPct: e.progress_pct,
-    note: e.note,
-    author: nameOf(e.created_by),
-  }));
+  const progressViews: ProgressView[] = await Promise.all(
+    entries.map(async (e) => ({
+      id: e.id,
+      entryDate: e.entry_date,
+      statusLabel: e.status_label,
+      progressPct: e.progress_pct,
+      note: e.note,
+      author: nameOf(e.created_by),
+      attachmentUrl: await signedUrl(supabase, e.attachment_path),
+    }))
+  );
 
   const contract = Number(project.contract_value_ex_vat);
   const pay = paymentSummary(terms, contract);

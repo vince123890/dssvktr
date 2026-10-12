@@ -11,7 +11,7 @@ export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 export const ALLOWED_MIME = ["application/pdf", "image/png", "image/jpeg"] as const;
 export const SIGNED_URL_SECONDS = 60 * 10;
 
-export type FileKind = "signed" | "po" | "payment";
+export type FileKind = "signed" | "po" | "payment" | "progress";
 
 export interface UploadCandidate {
   name: string;

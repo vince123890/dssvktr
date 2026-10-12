@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { paymentLabel, paymentSummary, plannedAmountOf, validateTermInput } from "./projects";
+import { paymentLabel, paymentSummary, plannedAmountOf, validateProgressInput, validateTermInput } from "./projects";
 
 const term = (over: Partial<Parameters<typeof validateTermInput>[0]> = {}) => ({
   label: "DP",
@@ -50,5 +50,34 @@ describe("ringkasan payment", () => {
     expect(s).toEqual({ termCount: 2, receivedCount: 1, plannedAmount: 1_000_000, receivedAmount: 310_000 });
     expect(paymentLabel(s)).toBe("1/2 termin diterima");
     expect(paymentLabel(paymentSummary([], 0))).toBe("Termin belum diatur");
+  });
+});
+
+describe("validateProgressInput: bukti foto/dokumen wajib", () => {
+  const jpg = { name: "foto.jpg", size: 1000, type: "image/jpeg" };
+  const ok = { statusLabel: "Produksi", progressPct: 20, file: jpg };
+
+  it("menerima entri lengkap dengan JPG, PNG, atau PDF", () => {
+    expect(validateProgressInput(ok)).toBeNull();
+    expect(validateProgressInput({ ...ok, file: { ...jpg, type: "image/png" } })).toBeNull();
+    expect(validateProgressInput({ ...ok, file: { ...jpg, type: "application/pdf" } })).toBeNull();
+  });
+
+  it("menolak entri tanpa lampiran", () => {
+    expect(validateProgressInput({ ...ok, file: null })).toMatch(/wajib dilampirkan/);
+    expect(validateProgressInput({ ...ok, file: undefined })).toMatch(/wajib dilampirkan/);
+    expect(validateProgressInput({ ...ok, file: { ...jpg, size: 0 } })).toMatch(/wajib dilampirkan/);
+  });
+
+  it("menolak format atau ukuran yang tidak sesuai", () => {
+    expect(validateProgressInput({ ...ok, file: { ...jpg, type: "image/gif" } })).toMatch(/PDF, PNG, atau JPG/);
+    expect(validateProgressInput({ ...ok, file: { ...jpg, size: 11 * 1024 * 1024 } })).toMatch(/10 MB/);
+  });
+
+  it("menolak status kosong dan progres di luar 0–100", () => {
+    expect(validateProgressInput({ ...ok, statusLabel: "  " })).toMatch(/status/i);
+    expect(validateProgressInput({ ...ok, progressPct: 101 })).toMatch(/0–100/);
+    expect(validateProgressInput({ ...ok, progressPct: 2.5 })).toMatch(/0–100/);
+    expect(validateProgressInput({ ...ok, progressPct: NaN })).toMatch(/0–100/);
   });
 });

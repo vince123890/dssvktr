@@ -271,7 +271,9 @@ B6–B9 dan Lampiran A opsional.
    menambah/menghapus termin. Setelah ada yang diterima, termin **terkunci**
    untuk Salesperson.
 4. **projectteam@vktr.demo** → tab **Tracking** → tambah entri `PO diterima`
-   5%, lalu `Proses produksi` 20% (catatan opsional). Bilah progres terisi;
+   5%, lalu `Proses produksi` 20% (catatan opsional), **masing-masing wajib
+   dengan foto/dokumen** (PDF/PNG/JPG; tanpa berkas ditolak). Bilah progres
+   terisi, tautan **Lihat lampiran** muncul di riwayat;
    Tim Project tidak dapat mengubah termin.
 5. **sales.exec@** membuka project yang sama: payment dan progres **hanya
    dibaca**.

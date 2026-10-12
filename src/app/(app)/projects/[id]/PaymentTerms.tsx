@@ -135,8 +135,8 @@ export function PaymentTerms({
                       }}
                     >
                       <label className="text-xs text-muted">
-                        Jumlah diterima (Rp)
-                        <input className="pc-input mt-1" name="received_amount" type="number" min={1} step="any" inputMode="decimal" required defaultValue={planned || undefined} />
+                        Jumlah diterima (Rp, sesuai termin)
+                        <input className="pc-input mt-1 bg-slate-50" name="received_amount" type="number" readOnly required defaultValue={planned || undefined} />
                       </label>
                       <label className="text-xs text-muted">
                         Tanggal diterima

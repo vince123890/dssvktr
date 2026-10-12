@@ -8,7 +8,7 @@ import { actorCanUseMenu, canViewProject } from "@/lib/menuAccess";
 import { canRecordProjectProgress, canSetPaymentTerms, canUpdatePaymentStatus } from "@/lib/rbac";
 import { buildStoragePath, removeFile, uploadFile, validateUpload } from "@/lib/files";
 import { isNextControlFlowError, toActionError, type ActionResult } from "@/lib/actionResult";
-import { validateTermInput } from "@/lib/projects";
+import { plannedAmountOf, validateProgressInput, validateTermInput } from "@/lib/projects";
 import type { Actor, PricingProposal, Project, ProjectPaymentTerm } from "@/types/database";
 
 type Db = Awaited<ReturnType<typeof createClient>>;
@@ -128,8 +128,9 @@ export async function markTermReceivedAction(projectId: string, termId: string, 
     if (!term) throw new Error("Termin tidak ditemukan.");
     if (term.status === "RECEIVED") throw new Error("Termin ini sudah ditandai diterima.");
 
-    const amount = Number(String(formData.get("received_amount") ?? "").replace(",", "."));
-    if (!Number.isFinite(amount) || amount <= 0) throw new Error("Isi jumlah yang diterima (lebih dari 0).");
+    // The amount is fixed by the term Salesperson set; Finance only confirms receipt, so the form value is ignored.
+    const amount = plannedAmountOf(term, Number(project.contract_value_ex_vat));
+    if (!Number.isFinite(amount) || amount <= 0) throw new Error("Nominal termin belum valid; minta Salesperson memperbaiki termin.");
     const receivedRaw = String(formData.get("received_at") ?? "").trim();
     const receivedAt = /^\d{4}-\d{2}-\d{2}$/.test(receivedRaw) ? receivedRaw : new Date().toISOString().slice(0, 10);
     const file = formData.get("proof_file");
@@ -164,44 +165,54 @@ export async function markTermReceivedAction(projectId: string, termId: string, 
 // Progress — recorded by the Project Team (PRD FR-9.4)
 // ---------------------------------------------------------------------
 
-export interface ProgressInput {
-  entryDate: string;
-  statusLabel: string;
-  progressPct: number;
-  note: string;
-}
-
-export async function addProgressEntryAction(projectId: string, input: ProgressInput): Promise<ActionResult> {
+/**
+ * Every entry must carry a photo or document as proof (PDF / PNG / JPG, up to 10 MB), so the action takes a
+ * FormData: entry_date, status_label, progress_pct, note and file.
+ */
+export async function addProgressEntryAction(projectId: string, formData: FormData): Promise<ActionResult> {
   return run(projectId, "Gagal menyimpan progres.", async ({ supabase, actor, project }) => {
     if (!canRecordProjectProgress(actor)) throw new Error("Hanya Tim Project yang mengisi progres.");
-    if (!input.statusLabel.trim()) throw new Error("Isi status project.");
-    if (!Number.isInteger(input.progressPct) || input.progressPct < 0 || input.progressPct > 100) {
-      throw new Error("Progres harus bilangan bulat 0–100.");
-    }
-    const entryDate = /^\d{4}-\d{2}-\d{2}$/.test(input.entryDate) ? input.entryDate : new Date().toISOString().slice(0, 10);
+    const statusLabel = String(formData.get("status_label") ?? "").trim();
+    const progressPct = Number(String(formData.get("progress_pct") ?? "").trim());
+    const note = String(formData.get("note") ?? "").trim();
+    const entryRaw = String(formData.get("entry_date") ?? "").trim();
+    const file = formData.get("file");
+    const upload = file instanceof File ? file : null;
 
-    const { error } = await supabase.from("project_progress_entry").insert({
-      project_id: project.id,
-      entry_date: entryDate,
-      status_label: input.statusLabel.trim(),
-      progress_pct: input.progressPct,
-      note: input.note.trim() || null,
-      created_by: actor.id,
-    });
-    if (error) throw new Error(error.message);
-    const { error: updateError } = await supabase
-      .from("project")
-      .update({ current_status: input.statusLabel.trim(), current_progress_pct: input.progressPct })
-      .eq("id", project.id);
-    if (updateError) throw new Error(updateError.message);
+    const invalid = validateProgressInput({ statusLabel, progressPct, file: upload });
+    if (invalid) throw new Error(invalid);
+    const entryDate = /^\d{4}-\d{2}-\d{2}$/.test(entryRaw) ? entryRaw : new Date().toISOString().slice(0, 10);
+
+    const path = buildStoragePath("progress", project.id, upload!.name);
+    await uploadFile(supabase, path, upload!);
+    try {
+      const { error } = await supabase.from("project_progress_entry").insert({
+        project_id: project.id,
+        entry_date: entryDate,
+        status_label: statusLabel,
+        progress_pct: progressPct,
+        note: note || null,
+        attachment_path: path,
+        created_by: actor.id,
+      });
+      if (error) throw new Error(error.message);
+      const { error: updateError } = await supabase
+        .from("project")
+        .update({ current_status: statusLabel, current_progress_pct: progressPct })
+        .eq("id", project.id);
+      if (updateError) throw new Error(updateError.message);
+    } catch (e) {
+      await removeFile(supabase, path);
+      throw e;
+    }
     await writeAuditLog(supabase, {
       entityType: "project",
       entityId: project.id,
       proposalId: project.proposal_id,
       actorId: actor.id,
       action: "UPDATE",
-      reason: `Progres: ${input.statusLabel.trim()} (${input.progressPct}%).`,
-      fieldChanges: [{ field: "current_progress_pct", old: String(project.current_progress_pct), new: String(input.progressPct) }],
+      reason: `Progres: ${statusLabel} (${progressPct}%) — dengan lampiran bukti.`,
+      fieldChanges: [{ field: "current_progress_pct", old: String(project.current_progress_pct), new: String(progressPct) }],
     });
   });
 }

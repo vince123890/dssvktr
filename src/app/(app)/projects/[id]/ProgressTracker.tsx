@@ -14,6 +14,8 @@ export interface ProgressView {
   progressPct: number;
   note: string | null;
   author: string;
+  /** Signed URL of the photo / document that proves this entry. */
+  attachmentUrl: string | null;
 }
 
 /** Project progress (PRD FR-9.4): the Project Team adds entries; everyone else reads the history. */
@@ -55,12 +57,7 @@ export function ProgressTracker({
               const fd = new FormData(form);
               setError(null);
               startTransition(async () => {
-                const r = await addProgressEntryAction(projectId, {
-                  entryDate: String(fd.get("entry_date") ?? ""),
-                  statusLabel: String(fd.get("status_label") ?? ""),
-                  progressPct: Number(fd.get("progress_pct")),
-                  note: String(fd.get("note") ?? ""),
-                });
+                const r = await addProgressEntryAction(projectId, fd);
                 if (r.ok) form.reset();
                 else setError(r.error ?? "Gagal menyimpan progres.");
               });
@@ -83,6 +80,10 @@ export function ProgressTracker({
               Catatan (opsional)
               <textarea className="pc-input mt-1" name="note" rows={2} />
             </label>
+            <label className="text-xs text-muted sm:col-span-2">
+              Foto / dokumen bukti (PDF, PNG, JPG)
+              <input className="pc-input mt-1" name="file" type="file" accept="application/pdf,image/png,image/jpeg" required />
+            </label>
             <div className="sm:col-span-2">
               <Button size="sm" type="submit" loading={isPending}>Simpan progres</Button>
             </div>
@@ -101,6 +102,11 @@ export function ProgressTracker({
                   <span className="text-muted">{e.progressPct}% · {formatDate(e.entryDate)}</span>
                 </div>
                 {e.note && <div className="mt-0.5 text-muted">{e.note}</div>}
+                {e.attachmentUrl && (
+                  <a className="mt-0.5 inline-block text-primary underline" href={e.attachmentUrl} target="_blank" rel="noreferrer">
+                    Lihat lampiran
+                  </a>
+                )}
                 <div className="mt-0.5 text-[10px] text-muted">oleh {e.author}</div>
               </li>
             ))}

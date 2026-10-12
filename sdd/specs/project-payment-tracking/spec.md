@@ -44,11 +44,15 @@ Hanya role berfungsi FINANCE yang SHALL menandai termin diterima, mengisi jumlah
 - **THEN** ditolak
 
 ### Requirement: Tracking progres
-Sistem SHALL menyimpan entri progres append-only (tanggal, status, progres 0–100%, catatan) dan menampilkan entri terbaru di daftar. Hanya role berfungsi PROJECT_TEAM (Tim Project) yang SHALL menambah entri.
+Sistem SHALL menyimpan entri progres append-only (tanggal, status, progres 0–100%, catatan, dan lampiran foto/dokumen wajib berformat PDF, PNG, atau JPG hingga 10 MB) dan menampilkan entri terbaru di daftar. Hanya role berfungsi PROJECT_TEAM (Tim Project) yang SHALL menambah entri.
 
 #### Scenario: Update progres
 - **WHEN** Tim Project menyimpan entri "Proses produksi", 20%
 - **THEN** status dan progres terbaru project ikut berubah, riwayat tetap
+
+#### Scenario: Entri tanpa lampiran
+- **WHEN** Tim Project menyimpan entri progres tanpa foto/dokumen, atau dengan format selain PDF/PNG/JPG
+- **THEN** ditolak dan tidak ada entri tersimpan
 
 #### Scenario: Role lain mengisi progres
 - **WHEN** Salesperson atau Finance mencoba menambah entri progres
