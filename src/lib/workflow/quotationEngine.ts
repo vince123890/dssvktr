@@ -529,9 +529,12 @@ export async function routeAfterReview(
   const tier = resolveTier(gm * 100, ladder);
   if (!tier) throw new Error("Margin Tier Authority belum dikonfigurasi (CONFIG_ERROR).");
 
+  // "Tanpa approval Head of Sales" (v5.0): the releaser slot (Tier 1, GM >= 15%) is the Head of Sales signature
+  // itself, so it is waived; margin approvals by other owners / the committee still apply.
+  const waived = (slot: string) => proposal.approval_mode === "NONE" && slot === "SALES_RELEASER";
   const selfReleasing =
     tier.decision_slots.length === 0 ||
-    tier.decision_slots.every((slot) => actorFillsSlot(actor, slot));
+    tier.decision_slots.every((slot) => waived(slot) || actorFillsSlot(actor, slot));
 
   if (selfReleasing) {
     await approveFinal(supabase, proposal, actor);

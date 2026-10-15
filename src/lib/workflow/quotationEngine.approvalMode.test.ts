@@ -7,7 +7,7 @@ const salesperson = { id: "sp1", app_role_code: "SALES_EXECUTIVE" } as unknown a
 const headOfSales = { id: "hos", app_role_code: "HEAD_OF_SALES" } as unknown as Actor;
 
 const ladder = [
-  { tier: 1, business_line: null, workflow_template_code: null, gpm_lower_bound_pct: 15, gpm_upper_bound_pct: null, decision_slots: [], cc_slots: [], is_active: true },
+  { tier: 1, business_line: null, workflow_template_code: null, gpm_lower_bound_pct: 15, gpm_upper_bound_pct: null, decision_slots: ["SALES_RELEASER"], cc_slots: [], is_active: true },
   { tier: 2, business_line: null, workflow_template_code: null, gpm_lower_bound_pct: 10, gpm_upper_bound_pct: 15, decision_slots: ["COGS_OWNER", "PROFITABILITY_OWNER"], cc_slots: [], is_active: true },
   { tier: 3, business_line: null, workflow_template_code: null, gpm_lower_bound_pct: null, gpm_upper_bound_pct: 10, decision_slots: ["role:CCO", "role:CFO"], cc_slots: ["COGS_OWNER"], is_active: true },
 ];
@@ -83,6 +83,16 @@ describe("approval_mode = NONE (tanpa approval Head of Sales)", () => {
     expect(row(db, "pricing_proposal", "p1").current_status).toBe("PENDING_OWNER_APPROVAL");
     const slots = (db.tables.tier_approval as { slot: string; kind: string }[]).filter((t) => t.kind === "DECISION").map((t) => t.slot);
     expect(slots.sort()).toEqual(["COGS_OWNER", "PROFITABILITY_OWNER"]);
+  });
+
+  it("GM >= 15% (Tier 1, slot Head of Sales) tidak membuka approval tier, langsung menuju rilis", async () => {
+    const p = proposal({ gm: 0.2 });
+    const db = world(p); // tanpa line item → gerbang rilis menolak, jadi tes ini membuktikan rilis DICOBA (bukan approval tier)
+    await advance(db, p);
+    expect((db.tables.tier_approval as unknown[]).length).toBe(0);
+    const audit = db.tables.audit_log_entry as { action: string; reason: string }[];
+    expect(audit.map((a) => a.action)).not.toContain("TIER_ROUTE");
+    expect(audit.map((a) => a.reason).join(" | ")).toMatch(/belum dapat disetujui final/);
   });
 
   it("Tier 3 melewati Pricing Committee, bukan Head of Sales", async () => {
