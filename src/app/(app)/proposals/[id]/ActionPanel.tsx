@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { ActionResult } from "@/lib/actionResult";
+import type { TermTemplate } from "@/lib/projects";
+import { PaymentTermsModal } from "./PaymentTermsModal";
 import {
   adminExpiredOverrideAction,
   attachSignedDocumentAction,
@@ -43,6 +45,9 @@ export interface ActionCapabilities {
   /** v5.0 — Admin declares Expired early (status Released) or undoes it (status Expired). */
   adminExpired: "EXPIRE" | "CLEAR" | null;
   waitingFor: string | null;
+  /** v5.0 — the owning Salesperson may change the payment terms (TOP) until Won/Lost. */
+  termsEditable?: boolean;
+  paymentTerms?: TermTemplate[];
 }
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -88,7 +93,8 @@ export function ActionPanel({ proposalId, caps }: { proposalId: string; caps: Ac
     caps.canCancelApproval ||
     caps.canRecordOutcome ||
     caps.canRevise ||
-    caps.adminExpired;
+    caps.adminExpired ||
+    caps.termsEditable;
 
   return (
     <Card>
@@ -224,6 +230,16 @@ export function ActionPanel({ proposalId, caps }: { proposalId: string; caps: Ac
             <Button size="sm" variant="danger" loading={isPending} onClick={() => run(() => cancelFinalApprovalAction(proposalId, note))}>
               Batalkan approval final
             </Button>
+          </div>
+        )}
+
+        {caps.termsEditable && caps.paymentTerms && (
+          <div className="space-y-2 border-t border-card-border pt-3">
+            <p className="text-xs text-muted">
+              Termin pembayaran (TOP):{" "}
+              <strong className="text-foreground">{caps.paymentTerms.map((t) => `${t.label} ${t.pct}%`).join(" · ")}</strong>
+            </p>
+            <PaymentTermsModal proposalId={proposalId} terms={caps.paymentTerms} />
           </div>
         )}
 

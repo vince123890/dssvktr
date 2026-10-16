@@ -22,6 +22,7 @@ vi.mock("./quotation-actions", () => {
     stepDecisionAction: vi.fn(ok),
     submitQuotationAction: vi.fn(ok),
     tierDecisionAction: vi.fn(ok),
+    updateQuotationTermsAction: vi.fn(ok),
   };
 });
 
@@ -195,5 +196,23 @@ describe("ActionPanel", () => {
     await user.type(screen.getByPlaceholderText("Alasan / permintaan pelanggan"), "Minta diskon 5%");
     await user.click(screen.getByRole("button", { name: "Buat Revisi" }));
     await waitFor(() => expect(actions.createRevisionAction).toHaveBeenCalledWith("p1", "Minta diskon 5%"));
+  });
+  it("TOP: ringkasan dan tombol Update TOP ada di panel Aksi, dekat Won/Lost", async () => {
+    const user = userEvent.setup();
+    render(
+      <ActionPanel
+        proposalId="p1"
+        caps={caps({ canRecordOutcome: true, termsEditable: true, paymentTerms: [{ label: "DP", pct: 50 }, { label: "Pelunasan", pct: 50 }] })}
+      />
+    );
+    expect(screen.getByText("DP 50% · Pelunasan 50%")).toBeInTheDocument();
+    expect(screen.queryByText(/Tidak ada aksi/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Update TOP/ }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("TOP: tanpa hak mengubah, tombol tidak tampil", () => {
+    render(<ActionPanel proposalId="p1" caps={caps({ termsEditable: false, paymentTerms: [{ label: "DP", pct: 100 }] })} />);
+    expect(screen.queryByRole("button", { name: /Update TOP/ })).not.toBeInTheDocument();
   });
 });

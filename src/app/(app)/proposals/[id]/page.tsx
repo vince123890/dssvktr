@@ -47,7 +47,6 @@ import { formatDate, formatIDR, timeAgo } from "@/lib/utils";
 import { ActionPanel, type ActionCapabilities } from "./ActionPanel";
 import { PricingEditor, type EditableLine } from "./PricingEditor";
 import { RevisionDiscountPanel } from "./RevisionDiscountPanel";
-import { PaymentTermsModal } from "./PaymentTermsModal";
 import type {
   AppRole,
   PricingProposal,
@@ -125,6 +124,9 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
       ? decisionRows.filter((t) => t.decision === null).map((t) => slotLabel(t.slot, roles)).join(" + ")
       : null;
 
+  const canEditTerms =
+    canSetPaymentTerms(me, proposal) && proposal.outcome === "PENDING" && !["REJECTED", "SUPERSEDED"].includes(proposal.current_status);
+
   const caps: ActionCapabilities = {
     canSubmit: proposal.current_status === "DRAFT" && proposal.created_by === me.id,
     canEditDraft: proposal.current_status === "DRAFT" && proposal.created_by === me.id,
@@ -137,6 +139,8 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
       decisionRows.every((t) => t.decision === "APPROVE") &&
       hasFunction(me, "SALES_RELEASER"),
     awaitingRelease: proposal.current_status === "PENDING_SIGNED_DOCUMENT" && canAttachSignedDocument(me, proposal),
+    termsEditable: canEditTerms,
+    paymentTerms: proposal.payment_terms,
     canAttachSigned:
       (proposal.current_status === "PENDING_SIGNED_DOCUMENT" || proposal.current_status === "QUOTATION_RELEASED") &&
       canAttachSignedDocument(me, proposal),
@@ -228,8 +232,6 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
       : Promise.resolve({ data: null }),
   ]);
   const revisionDiscount = canEditRevisionDiscount(me, proposal);
-  const canEditTerms =
-    canSetPaymentTerms(me, proposal) && proposal.outcome === "PENDING" && !["REJECTED", "SUPERSEDED"].includes(proposal.current_status);
   const proj = project as ProjectIdentifier | null;
 
   return (
@@ -264,7 +266,6 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {canEditTerms && <PaymentTermsModal proposalId={proposal.id} terms={proposal.payment_terms} />}
           {pricedYet && (
             <Link href={`/print/proposals/${proposal.id}`} target="_blank">
               <span className="inline-flex h-9 items-center gap-2 rounded-lg border border-card-border bg-white px-4 text-sm font-medium shadow-sm hover:bg-slate-50">
