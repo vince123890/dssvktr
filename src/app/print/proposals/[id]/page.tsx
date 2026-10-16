@@ -197,6 +197,17 @@ export default async function CostEstimateDocumentPage({ params }: { params: Pro
           </div>
         </section>
 
+        {p.payment_terms?.length > 0 && (
+          <section className="mt-3">
+            <div className="font-semibold">Terms of Payment</div>
+            <ul className="ml-4 list-disc">
+              {p.payment_terms.map((t, i) => (
+                <li key={i}>{t.label}: {t.pct}%</li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {p.special_notes.length > 0 && (
           <section className="mt-3">
             <div className="font-semibold">Special Notes or Arrangements</div>

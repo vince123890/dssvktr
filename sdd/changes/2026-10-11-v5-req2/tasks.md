@@ -14,7 +14,8 @@
 - [x] Seed/reset demo: akun baru, project contoh, pembersihan project dan berkas
 - [x] Approval Head of Sales opsional per quotation (dropdown, migrasi 0020), rilis tanpa lampiran, lampiran menyusul setelah rilis
 - [x] Entri progres wajib berlampiran foto/dokumen (migrasi 0022)
-- [ ] Menjalankan migrasi 0020, 0021, dan 0022 pada database
+- [x] TOP standar 50–50 pada quotation + tombol Update TOP (modal), disalin ke project saat Won (migrasi 0023)
+- [ ] Menjalankan migrasi 0020, 0021, 0022, dan 0023 pada database
 - [x] Seeder: template contoh selain OQ-STANDARD dihapus (migrasi 0021, hanya yang belum dipakai)
 - [x] Membatalkan approval final sebelum lampiran (engine, aksi, UI, tes)
 - [x] Tes: engine v5 (fake DB yang dapat menulis), komponen UI (jsdom), penjaga responsif statis

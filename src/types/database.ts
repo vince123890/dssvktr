@@ -83,6 +83,11 @@ export type ProposalOutcome = "PENDING" | "WON" | "LOST" | "CANCELLED";
  * quotation is released straight away (margin-tier approvals below 15% GM
  * still apply).
  */
+export interface PaymentTermTemplate {
+  label: string;
+  pct: number;
+}
+
 export type ApprovalMode = "HEAD_OF_SALES" | "NONE";
 
 export type AuditAction =
@@ -505,6 +510,8 @@ export interface PricingProposal {
   inclusions: string[];
   exclusions: string[];
   special_notes: string[];
+  /** Terms of payment printed on the quotation; default 50/50 (DP + Pelunasan). Sum of pct = 100. */
+  payment_terms: PaymentTermTemplate[];
   tier_round: number;
   accepted_document_url: string | null;
   /** v5.0 — Head of Sales approval required, or released without it (chosen at creation). */

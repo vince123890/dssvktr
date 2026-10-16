@@ -23,6 +23,7 @@ import {
   canOverrideExpired,
   canRecordWinLossOutcome,
   canSeeCostStructure,
+  canSetPaymentTerms,
   hasFunction,
   slotLabel,
 } from "@/lib/rbac";
@@ -46,6 +47,7 @@ import { formatDate, formatIDR, timeAgo } from "@/lib/utils";
 import { ActionPanel, type ActionCapabilities } from "./ActionPanel";
 import { PricingEditor, type EditableLine } from "./PricingEditor";
 import { RevisionDiscountPanel } from "./RevisionDiscountPanel";
+import { PaymentTermsModal } from "./PaymentTermsModal";
 import type {
   AppRole,
   PricingProposal,
@@ -226,6 +228,8 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
       : Promise.resolve({ data: null }),
   ]);
   const revisionDiscount = canEditRevisionDiscount(me, proposal);
+  const canEditTerms =
+    canSetPaymentTerms(me, proposal) && proposal.outcome === "PENDING" && !["REJECTED", "SUPERSEDED"].includes(proposal.current_status);
   const proj = project as ProjectIdentifier | null;
 
   return (
@@ -259,7 +263,8 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
             </p>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {canEditTerms && <PaymentTermsModal proposalId={proposal.id} terms={proposal.payment_terms} />}
           {pricedYet && (
             <Link href={`/print/proposals/${proposal.id}`} target="_blank">
               <span className="inline-flex h-9 items-center gap-2 rounded-lg border border-card-border bg-white px-4 text-sm font-medium shadow-sm hover:bg-slate-50">

@@ -9,8 +9,10 @@ import {
   canEditRevisionDiscount,
   canOverrideExpired,
   canRecordWinLossOutcome,
+  canSetPaymentTerms,
   hasFunction,
 } from "@/lib/rbac";
+import { validateTermsTemplate, type TermTemplate } from "@/lib/projects";
 import { generateProposalNumber } from "@/lib/workflow/proposalNumber";
 import { canViewQuotation, loadValidatorVisibleRoles } from "@/lib/menuAccess";
 import { buildStoragePath, removeFile, uploadFile, validateUpload } from "@/lib/files";
@@ -666,6 +668,29 @@ export async function markWonAction(proposalId: string, formData: FormData): Pro
         { onConflict: "proposal_id", ignoreDuplicates: true }
       );
       if (projectError) throw new Error(projectError.message);
+
+      // The quotation's terms (default 50/50, or what the Salesperson set with "Update TOP") become the project's
+      // terms; they stay editable there.
+      const { data: created } = await supabase.from("project").select("id").eq("proposal_id", proposal.id).maybeSingle();
+      if (created) {
+        const { count } = await supabase
+          .from("project_payment_term")
+          .select("id", { count: "exact", head: true })
+          .eq("project_id", created.id);
+        if (!count) {
+          const { error: termError } = await supabase.from("project_payment_term").insert(
+            (proposal.payment_terms ?? []).map((t, i) => ({
+              project_id: created.id,
+              term_no: i + 1,
+              label: t.label,
+              planned_pct: t.pct,
+              created_by: actor.id,
+              updated_by: actor.id,
+            }))
+          );
+          if (termError) throw new Error(termError.message);
+        }
+      }
     } catch (e) {
       await removeFile(supabase, path);
       throw e;
@@ -682,6 +707,39 @@ export async function markWonAction(proposalId: string, formData: FormData): Pro
     });
     revalidatePath("/projects");
     revalidatePath("/dashboard");
+  });
+}
+
+/**
+ * "Update TOP" on the quotation (v5.0): the Salesperson replaces the payment terms printed on it (default 50/50).
+ * Allowed until the outcome is recorded; after Won the terms live on the project.
+ */
+export async function updateQuotationTermsAction(proposalId: string, terms: TermTemplate[]): Promise<ActionResult> {
+  return run(proposalId, "Gagal menyimpan TOP.", async ({ supabase, actor, proposal }) => {
+    if (!canSetPaymentTerms(actor, proposal)) throw new Error("Hanya Salesperson pemilik quotation yang mengubah TOP.");
+    if (proposal.outcome !== "PENDING" || ["REJECTED", "SUPERSEDED"].includes(proposal.current_status)) {
+      throw new Error("TOP quotation tidak dapat diubah lagi; ubah di halaman project bila sudah Won.");
+    }
+    const clean = terms.map((t) => ({ label: String(t.label ?? "").trim(), pct: Number(t.pct) }));
+    const invalid = validateTermsTemplate(clean);
+    if (invalid) throw new Error(invalid);
+    const { error } = await supabase.from("pricing_proposal").update({ payment_terms: clean }).eq("id", proposal.id);
+    if (error) throw new Error(error.message);
+    await writeAuditLog(supabase, {
+      entityType: "pricing_proposal",
+      entityId: proposal.id,
+      proposalId: proposal.id,
+      actorId: actor.id,
+      action: "UPDATE",
+      reason: `TOP diubah: ${clean.map((t) => `${t.label} ${t.pct}%`).join(", ")}.`,
+      fieldChanges: [
+        {
+          field: "payment_terms",
+          old: (proposal.payment_terms ?? []).map((t) => `${t.label} ${t.pct}%`).join(", "),
+          new: clean.map((t) => `${t.label} ${t.pct}%`).join(", "),
+        },
+      ],
+    });
   });
 }
 
@@ -770,6 +828,7 @@ export async function createRevisionAction(proposalId: string, reason: string): 
         inclusions: proposal.inclusions,
         exclusions: proposal.exclusions,
         special_notes: proposal.special_notes,
+        payment_terms: proposal.payment_terms,
         created_by: actor.id,
       })
       .select("id")

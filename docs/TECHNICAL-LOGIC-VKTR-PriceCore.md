@@ -479,6 +479,7 @@ kemudian.
 | current_status | enum | lihat §4.1 |
 | supersedes_proposal_id | FK nullable | FR-2.5 |
 | released_at, valid_until | timestamptz / date | **baru** — FR-2.9 |
+| payment_terms | jsonb | **baru v5.0 (migrasi 0023)** — TOP pada quotation: `[{label, pct}]`, jumlah pct = 100; *default* `[{DP,50},{Pelunasan,50}]`. Diubah Salesperson pemilik via aksi `updateQuotationTermsAction` (sebelum Won/Lost; audit tercatat), disalin ke revisi, tercetak di dokumen |
 | special_notes, inclusions, exclusions | text[] | **baru** — *default* dari varian & template, dapat diubah Sales Operations/Head of Sales |
 | outcome | enum `PENDING`, `WON`, `LOST`, `CANCELLED` | FR-2.10. `WON`/`LOST` dinyatakan **manual** oleh Salesperson. Expired tetap berupa `current_status = EXPIRED` yang dihasilkan otomatis (§4.11), dengan override Admin |
 | outcome_at, outcome_by, outcome_reason | timestamptz / FK / text — **baru v5.0 (dikodekan)** | kapan, siapa, dan alasan (wajib untuk `LOST`) |
@@ -1473,6 +1474,7 @@ function markWon(proposal, actor, po):    # po = { number, receivedAt, file }
     # satu rangkaian: update proposal + insert project (idempotent via unique proposal_id)
     proposal.outcome = WON; outcome_at/by; po_number, po_document_url, po_received_at
     INSERT project (proposal_id, project_identifier_id, po_*, contract_value_ex_vat = proposal.transaction_value)
+    # v5.0: bila project belum punya termin, salin proposal.payment_terms -> project_payment_term (planned_pct)
     writeAuditLog('UPDATE', outcome WON, po_number)
 ```
 

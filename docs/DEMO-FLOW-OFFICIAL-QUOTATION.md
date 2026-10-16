@@ -263,8 +263,11 @@ B6–B9 dan Lampiran A opsional.
    unggah berkas PO → **Simpan Won & buat project**. Kartu *Dokumen & Hasil*
    menampilkan Nomor PO, *Buka bukti PO*, dan tautan **Buka project**.
 2. Menu **Projects** (data seed: project dari quotation historis yang Won
-   sudah ada). Buka project Tirta Hijau. **sales.exec@** menetapkan termin:
-   *DP* 30% dan *Pelunasan* 70% (total persen tidak boleh > 100%).
+   sudah ada). Buka project Tirta Hijau: termin awal **DP 50% + Pelunasan
+   50%** dari quotation (tombol **Update TOP** di halaman quotation sebelum
+   Won, mis. 40–30–30; total harus 100%; TOP juga tercetak di dokumen).
+   **sales.exec@** dapat mengubah termin di project (total persen tidak
+   boleh > 100%).
 3. **finance@vktr.demo** (login terpisah; sidebar hanya **Projects**):
    termin *DP* → **Tandai diterima** → jumlah, tanggal, unggah screenshot
    transfer → **Simpan & centang diterima**. Finance **tidak** dapat

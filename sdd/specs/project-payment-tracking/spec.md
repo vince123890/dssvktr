@@ -21,6 +21,20 @@ Sistem SHALL membuat satu Project untuk setiap quotation yang dinyatakan Won bes
 Menu Projects SHALL hanya berisi quotation berstatus Won; menampilkan customer, nomor quotation/PO, nilai, status payment ringkas, dan status/progres. Salesperson melihat project miliknya; Sales Operations, Head of Sales, Finance, Tim Project, Executive, dan Admin melihat semua.
 
 ### Requirement: Penetapan termin (Salesperson)
+Setiap quotation SHALL memiliki TOP standar 50–50 (DP 50%, Pelunasan 50%) sejak dibuat, pada alur dengan maupun tanpa approval Head of Sales, dan TOP SHALL tercetak di dokumen quotation. Salesperson pemilik SHALL dapat mengubahnya (total 100%) dengan tombol "Update TOP" sampai hasil Won/Lost dicatat; saat Won, termin SHALL disalin ke project.
+
+#### Scenario: Quotation baru
+- **WHEN** quotation dibuat tanpa mengisi TOP
+- **THEN** TOP 50–50 sudah terpasang dan tercetak
+
+#### Scenario: Update TOP
+- **WHEN** salesperson mengubah TOP menjadi 40–30–30 lewat modal
+- **THEN** tersimpan dan tercetak; total selain 100% ditolak
+
+#### Scenario: Won
+- **WHEN** quotation dinyatakan Won
+- **THEN** project dibuat dengan termin yang sama dan masih dapat diubah di project
+
 Salesperson pemilik project SHALL menetapkan daftar termin pembayaran (nomor, label, persentase atau jumlah, jatuh tempo). Perubahan termin setelah ada termin yang diterima SHALL ditolak (detail aturan disepakati saat implementasi).
 
 #### Scenario: Salesperson menetapkan termin

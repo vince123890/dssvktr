@@ -36,6 +36,34 @@ export function validateTermInput(input: TermDraft, existing: { plannedPct: numb
   return null;
 }
 
+export interface TermTemplate {
+  label: string;
+  pct: number;
+}
+
+/** Standard terms every quotation starts with (migration 0023 uses the same default). */
+export const DEFAULT_PAYMENT_TERMS: TermTemplate[] = [
+  { label: "DP", pct: 50 },
+  { label: "Pelunasan", pct: 50 },
+];
+
+export const MAX_QUOTATION_TERMS = 10;
+
+/** Returns an error message, or null when the terms can be saved on a quotation. Percentages must add up to 100. */
+export function validateTermsTemplate(terms: TermTemplate[]): string | null {
+  if (terms.length === 0) return "Minimal satu termin.";
+  if (terms.length > MAX_QUOTATION_TERMS) return `Maksimal ${MAX_QUOTATION_TERMS} termin.`;
+  for (const t of terms) {
+    if (t.label.trim().length < 2) return "Isi nama setiap termin (mis. DP).";
+    if (!Number.isFinite(t.pct) || t.pct <= 0 || t.pct > 100) return "Persentase setiap termin harus lebih dari 0 dan paling besar 100.";
+  }
+  const total = terms.reduce((s, t) => s + t.pct, 0);
+  if (Math.abs(total - 100) > 0.001) {
+    return `Total persentase harus 100% (saat ini ${Number(total.toFixed(3))}%).`;
+  }
+  return null;
+}
+
 export interface TermLike {
   status: "PENDING" | "RECEIVED";
   planned_pct: number | null;

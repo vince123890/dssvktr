@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { paymentLabel, paymentSummary, plannedAmountOf, validateProgressInput, validateTermInput } from "./projects";
+import { paymentLabel, paymentSummary, plannedAmountOf, validateProgressInput, validateTermInput, validateTermsTemplate, DEFAULT_PAYMENT_TERMS } from "./projects";
 
 const term = (over: Partial<Parameters<typeof validateTermInput>[0]> = {}) => ({
   label: "DP",
@@ -79,5 +79,32 @@ describe("validateProgressInput: bukti foto/dokumen wajib", () => {
     expect(validateProgressInput({ ...ok, progressPct: 101 })).toMatch(/0–100/);
     expect(validateProgressInput({ ...ok, progressPct: 2.5 })).toMatch(/0–100/);
     expect(validateProgressInput({ ...ok, progressPct: NaN })).toMatch(/0–100/);
+  });
+});
+
+describe("validateTermsTemplate: TOP pada quotation", () => {
+  it("standar awal 50-50 (DP + Pelunasan) valid", () => {
+    expect(DEFAULT_PAYMENT_TERMS).toEqual([
+      { label: "DP", pct: 50 },
+      { label: "Pelunasan", pct: 50 },
+    ]);
+    expect(validateTermsTemplate(DEFAULT_PAYMENT_TERMS)).toBeNull();
+  });
+
+  it("menerima tiga termin 40-30-30", () => {
+    expect(validateTermsTemplate([{ label: "DP", pct: 40 }, { label: "Progres", pct: 30 }, { label: "Pelunasan", pct: 30 }])).toBeNull();
+  });
+
+  it("menolak total selain 100%", () => {
+    expect(validateTermsTemplate([{ label: "DP", pct: 40 }, { label: "Pelunasan", pct: 40 }])).toMatch(/harus 100%.*80%/);
+    expect(validateTermsTemplate([{ label: "DP", pct: 60 }, { label: "Pelunasan", pct: 60 }])).toMatch(/harus 100%/);
+  });
+
+  it("menolak daftar kosong, nama kosong, persen tidak valid, dan terlalu banyak termin", () => {
+    expect(validateTermsTemplate([])).toMatch(/Minimal satu/);
+    expect(validateTermsTemplate([{ label: " ", pct: 100 }])).toMatch(/nama/);
+    expect(validateTermsTemplate([{ label: "DP", pct: 0 }, { label: "Pelunasan", pct: 100 }])).toMatch(/lebih dari 0/);
+    expect(validateTermsTemplate([{ label: "DP", pct: NaN }])).toMatch(/lebih dari 0/);
+    expect(validateTermsTemplate(Array.from({ length: 11 }, (_, i) => ({ label: `T${i}`, pct: 100 / 11 })))).toMatch(/Maksimal/);
   });
 });

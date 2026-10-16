@@ -1355,6 +1355,14 @@ Tidak berubah dari v3.0. Ringkasnya:
     Operations, Head of Sales, Finance, Chief/Direksi, dan Admin melihat
     semua (FR-5.7).
 - **FR-9.3 Payment Termin**
+  - **TOP standar sejak quotation dibuat (v5.0, update req):** setiap
+    quotation langsung memiliki **TOP 50–50 (DP 50% + Pelunasan 50%)**,
+    berlaku di kedua alur (dengan/tanpa approval Head of Sales), sehingga
+    quotation dapat keluar tanpa mengisi TOP. TOP tercetak di dokumen
+    quotation. Salesperson dapat mengubahnya dengan tombol **Update TOP**
+    (modal: nama dan persentase per termin, tambah/hapus termin; total
+    harus 100%) sampai hasil Won/Lost dicatat. Saat **Won**, termin
+    dibawa ke project dan tetap dapat diubah di sana (aturan di bawah).
   - Setiap project memiliki daftar **termin pembayaran** (termin 1, 2,
     3, …): label (mis. DP), **persentase atau jumlah**, jadwal/jatuh
     tempo, dan status (Belum / Diterima).
